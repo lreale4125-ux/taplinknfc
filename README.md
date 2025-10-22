@@ -254,11 +254,19 @@ Se incontri un errore, controlla qui. Questi sono i problemi che abbiamo risolto
 Il tuo file `.env` deve essere creato manualmente sul server e non va mai messo su Git.
 
 ```env
+# Chiave per firmare i token di accesso (inventane una tu, lunga e complessa)
+JWT_SECRET=LaMiaPasswordSegretaSuperLungaECasualePerIl2025
+
+# La tua chiave API per il servizio di geocoding OpenCage
+OPENCAGE_API_KEY=392153fd2f3940d6a1daac24cc41a966#
+Production Environment Variables
 NODE_ENV=production
 PORT=3001
-JWT_SECRET=la-tua-chiave-segreta-super-sicura-cambiami
+JWT_SECRET=your-super-secure-jwt-secret-change-this-in-production
 DATABASE_PATH=./database.db
-CORS_ORIGIN=[https://taplinknfc.it](https://taplinknfc.it)
+
+# CORS Origin for production
+CORS_ORIGIN=https://taplinknfc.it
 ```
 
 ## ⚙️ Gestione PM2
@@ -284,3 +292,4 @@ pm2 stop server
     ```bash
     scp ubuntu@51.75.70.149:/home/ubuntu/taplinknfc/database.db C:\percorso\backup\locali\
     ```
+
