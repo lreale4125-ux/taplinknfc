@@ -81,6 +81,10 @@ function initializeDatabase() {
         try { db.exec(`ALTER TABLE analytics ADD COLUMN lat REAL`); } catch (e) { /* ignore */ }
         try { db.exec(`ALTER TABLE analytics ADD COLUMN lon REAL`); } catch (e) { /* ignore */ }
 
+        db.exec(`CREATE TABLE IF NOT EXISTS motivational_analytics (
+            keychain_id TEXT PRIMARY KEY,
+            view_count INTEGER DEFAULT 0 )`);
+
         db.exec(`CREATE TABLE IF NOT EXISTS transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,

@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const db = require('../db');
 
 let genAI;
 if (process.env.GEMINI_API_KEY) {
@@ -29,6 +30,9 @@ async function handleMotivationalRequest(req, res) {
     if (req.path === '/') {
         const keychainId = req.query.id || 'Ospite';
         console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}`);
+
+        // Increment view counter asynchronously
+        db.prepare(`INSERT INTO motivational_analytics (keychain_id, view_count) VALUES (?, 1) ON CONFLICT(keychain_id) DO UPDATE SET view_count = view_count + 1`).run(keychainId);
 
         const quote = await getMotivationalQuote(keychainId);
 
