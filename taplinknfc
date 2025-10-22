@@ -1,0 +1,68 @@
+# ===================================================================
+# Configurazione Nginx Definitiva per NFC Analytics
+# ===================================================================
+
+# Blocco server principale per HTTPS (il tuo sito)
+server {
+    server_name taplinknfc.it www.taplinknfc.it;
+
+    # Directory principale dove si trovano i tuoi file HTML
+    root /home/ubuntu;
+    index index.html;
+
+    # --- REGOLE DI PRIORITÀ ---
+
+    # Regola PRIORITARIA per i redirect generici (es. /r/1)
+    # Il simbolo `^~` forza Nginx a usare questa regola e a non cercarne altre.
+    location ^~ /r/ {
+        proxy_pass http://localhost:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Regola PRIORITARIA per i redirect di keychain (es. /k/1)
+    location ^~ /k/ {
+        proxy_pass http://localhost:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Regola per le API (es. /api/auth/login)
+    location /api/ {
+        proxy_pass http://localhost:3001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Regola "catch-all" per il frontend
+    # Viene eseguita solo se nessuna delle regole precedenti corrisponde.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Configurazione SSL gestita da Certbot (non toccare)
+    listen 443 ssl; 
+    ssl_certificate /etc/letsencrypt/live/taplinknfc.it/fullchain.pem; 
+    ssl_certificate_key /etc/letsencrypt/live/taplinknfc.it/privkey.pem; 
+    include /etc/letsencrypt/options-ssl-nginx.conf; 
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; 
+}
+
+# Blocco server per il redirect da HTTP a HTTPS (gestito da Certbot)
+server {
+    if ($host = www.taplinknfc.it) {
+        return 301 https://$host$request_uri;
+    } 
+    if ($host = taplinknfc.it) {
+        return 301 https://$host$request_uri;
+    } 
+    listen 80;
+    server_name taplinknfc.it www.taplinknfc.it;
+    return 404; 
+}

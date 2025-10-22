@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pannello Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .table-container { max-height: 400px; overflow-y: auto; }
+        .card { background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; }
+        body:not(.auth-checked) #controlPanel { display: none; }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <div id="controlPanel" class="container mx-auto p-4 md:p-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold text-slate-900">Dashboard Admin</h1>
+            <button id="logoutButton" class="px-4 py-2 bg-red-500 text-white font-semibold rounded-md hover:bg-red-600">Logout</button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="space-y-8 lg:col-span-1">
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Crea Nuovo Link</h2>
+                    <form id="createLinkForm" class="space-y-4">
+                        <div><label for="linkName" class="text-sm font-medium text-slate-600">Nome Link</label><input type="text" id="linkName" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                        <div><label for="linkUrl" class="text-sm font-medium text-slate-600">URL di Destinazione</label><input type="url" id="linkUrl" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                        <div><label for="linkCompanySelect" class="text-sm font-medium text-slate-600">Assegna a Azienda</label><select id="linkCompanySelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select></div>
+                        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">Crea Link</button>
+                    </form>
+                    <div id="createLinkMessage" class="mt-4 text-center text-sm break-words"></div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Gestisci Saldo TAP</h2>
+                    <form id="balanceActionsForm" class="space-y-4">
+                        <div>
+                            <label for="balanceUserSelect" class="text-sm font-medium text-slate-600">Seleziona Utente</label>
+                            <select id="balanceUserSelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center">
+                                <input type="radio" name="balance_operation" value="add" class="text-indigo-600 focus:ring-indigo-500" checked>
+                                <span class="ml-2 text-sm">Ricarica</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="balance_operation" value="subtract" class="text-indigo-600 focus:ring-indigo-500">
+                                <span class="ml-2 text-sm">Sottrai</span>
+                            </label>
+                        </div>
+                        <div>
+                            <label for="balanceAmount" class="text-sm font-medium text-slate-600">Importo TAP</label>
+                            <input type="number" id="balanceAmount" step="0.01" min="0.01" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md">
+                        </div>
+                        <div>
+                            <label for="balanceDescription" class="text-sm font-medium text-slate-600">Descrizione</label>
+                            <input type="text" id="balanceDescription" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Es: Storno, Ricarica manuale...">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">Esegui Operazione</button>
+                    </form>
+                    <div class="border-t border-slate-200 mt-6 pt-4">
+                         <button id="zeroBalanceBtn" class="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">Azzera Saldo Utente Selezionato</button>
+                    </div>
+                    <p id="balanceMessage" class="mt-4 text-center text-sm"></p>
+                </div>
+            </div>
+
+            <div class="space-y-8 lg:col-span-2">
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Tutti i Link Creati</h2>
+                    <div class="table-container border rounded-md">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">URL</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azienda</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allLinksListBody" class="bg-white divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
+                </div> 
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Gestisci Utenti</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-lg font-semibold mb-3">Crea Nuovo Utente</h3>
+                            <form id="createUserForm" class="space-y-4">
+                                <div><label for="newUsername" class="text-sm font-medium text-slate-600">Username</label><input type="text" id="newUsername" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                                <div><label for="newUserEmail" class="text-sm font-medium text-slate-600">Email</label><input type="email" id="newUserEmail" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                                <div><label for="newUserPassword" class="text-sm font-medium text-slate-600">Password</label><input type="password" id="newUserPassword" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                                <div><label for="userCompanySelect" class="text-sm font-medium text-slate-600">Azienda (Opzionale per utenti Wallet)</label><select id="userCompanySelect" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select></div>
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600">Permessi Utente</label>
+                                    <div class="mt-2 space-y-2">
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="perm-wallet" class="rounded text-indigo-600 focus:ring-indigo-500" checked>
+                                            <span class="ml-2 text-sm">Accesso Wallet (Cliente)</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="perm-analytics" class="rounded text-indigo-600 focus:ring-indigo-500">
+                                            <span class="ml-2 text-sm">Accesso Analytics (Business)</span>
+                                        </label>
+                                        <label class="flex items-center">
+                                            <input type="checkbox" id="perm-pos" class="rounded text-indigo-600 focus:ring-indigo-500">
+                                            <span class="ml-2 text-sm">Accesso POS (Venditore)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <div id="company-selection-div" class="hidden">
+                                    <label for="userCompanySelect" class="text-sm font-medium text-slate-600">Azienda (obbligatorio per Analytics)</label>
+                                    <select id="userCompanySelect" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
+                                </div>
+                                
+                                <input type="hidden" id="newUserRole" value="user">
+                                <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700">Crea Utente</button>
+                            </form>
+                            <p id="createUserMessage" class="mt-4 text-center text-sm"></p>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold mb-3">Lista Utenti Esistenti</h3>
+                            <div class="table-container border rounded-md">
+                                <table class="min-w-full divide-y divide-slate-200">
+                                    <thead class="bg-slate-50 sticky top-0">
+                                        <tr>
+                                            </tr>
+                                    </thead>
+                                    <tbody id="userListBody" class="bg-white divide-y divide-slate-200"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Gestisci Aziende</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 class="text-lg font-semibold">Crea Nuova Azienda</h3>
+                            <form id="createCompanyForm" class="space-y-4">
+                                <div><label for="companyName" class="text-sm font-medium text-slate-600">Nome Azienda</label><input type="text" id="companyName" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                                <div><label for="companyDescription" class="text-sm font-medium text-slate-600">Descrizione</label><input type="text" id="companyDescription" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                                <button type="submit" class="w-full py-2 px-4 bg-teal-600 text-white font-semibold rounded-md hover:bg-teal-700">Crea Azienda</button>
+                            </form>
+                            <p id="createCompanyMessage" class="mt-4 text-center text-sm"></p>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-semibold mb-3">Aziende Esistenti</h3>
+                            <div id="companyList" class="table-container border rounded-md bg-slate-50 p-4 space-y-2"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div> </div>
+    </div>
+    
+    <script>
+       // Selettori elementi DOM (versione pulita)
+       const logoutButton = document.getElementById('logoutButton');
+        const createLinkForm = document.getElementById('createLinkForm');
+        const createLinkMessage = document.getElementById('createLinkMessage');
+        const linkCompanySelect = document.getElementById('linkCompanySelect');
+        const allLinksListBody = document.getElementById('allLinksListBody');
+        const createUserForm = document.getElementById('createUserForm');
+        const createUserMessage = document.getElementById('createUserMessage');
+        const userCompanySelect = document.getElementById('userCompanySelect');
+        const userListBody = document.getElementById('userListBody');
+        const createCompanyForm = document.getElementById('createCompanyForm');
+        const createCompanyMessage = document.getElementById('createCompanyMessage');
+        const companyList = document.getElementById('companyList');
+        const balanceActionsForm = document.getElementById('balanceActionsForm');
+        const balanceUserSelect = document.getElementById('balanceUserSelect');
+        const zeroBalanceBtn = document.getElementById('zeroBalanceBtn');
+        const balanceMessage = document.getElementById('balanceMessage');
+        const permAnalyticsCheckbox = document.getElementById('perm-analytics');
+        const companySelectionDiv = document.getElementById('company-selection-div');
+
+        const API_BASE_URL = '';
+    
+        permAnalyticsCheckbox.addEventListener('change', () => {
+            companySelectionDiv.classList.toggle('hidden', !permAnalyticsCheckbox.checked);
+        }); 
+        // Funzioni API
+        async function apiFetch(endpoint, options = {}) {
+            const token = localStorage.getItem('authToken');
+            if (!token) { window.location.href = './index.html'; return; }
+            const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers };
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+            if (response.status === 401 || response.status === 403) {
+                localStorage.clear();
+                window.location.href = './index.html';
+                throw new Error('Non autorizzato');
+            }
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({ error: `Errore HTTP ${response.status}` }));
+                throw new Error(data.error || `Errore ${response.status}`);
+            }
+            return response.status === 204 ? null : response.json();
+        }
+    
+        // Autenticazione
+        document.addEventListener('DOMContentLoaded', () => {
+            const user = JSON.parse(localStorage.getItem('userData'));
+            if (!user || user.role !== 'admin') {
+                localStorage.clear();
+                window.location.href = './index.html';
+            } else {
+                document.body.classList.add('auth-checked');
+                loadDashboardData();
+            }
+        });
+    
+        logoutButton.addEventListener('click', () => {
+            localStorage.clear();
+            window.location.href = './index.html';
+        });
+    
+        // Caricamento dati
+        async function loadDashboardData() {
+            try {
+                const [companies, users, links] = await Promise.all([
+                    apiFetch('/api/admin/companies'),
+                    apiFetch('/api/admin/users'),
+                    apiFetch('/api/admin/links')
+                ]);
+                populateCompanies(companies);
+                populateUsers(users);
+                displayCompanies(companies);
+                displayUsers(users);
+                displayAllLinks(links);
+            } catch (error) {
+                if (error.message !== 'Non autorizzato') {
+                    alert(`Impossibile caricare i dati: ${error.message}`);
+                }
+            }
+        }
+    
+        // Funzioni di popolamento
+        function populateCompanies(companies) {
+            [linkCompanySelect, userCompanySelect].forEach(select => {
+                select.innerHTML = '<option value="">Seleziona azienda</option>';
+                companies.forEach(c => select.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+            });
+        }
+    
+        // --- CORREZIONE: Rimossa la funzione 'populateUsers' duplicata ---
+        function populateUsers(users) {
+            balanceUserSelect.innerHTML = '<option value="">Seleziona utente</option>';
+            users.forEach(u => {
+                balanceUserSelect.innerHTML += `<option value="${u.id}">${u.username} (${u.email})</option>`;
+            });
+        }
+    
+        function displayCompanies(companies) {
+            companyList.innerHTML = companies.length ? companies.map(c => `<div class="text-sm text-slate-700">• ${c.name}</div>`).join('') : '<p class="text-sm text-slate-500">Nessuna azienda.</p>';
+        }
+    
+        function displayUsers(users) {
+            userListBody.innerHTML = '';
+            const userTableHead = document.querySelector('#userListBody').parentNode.querySelector('thead tr');
+            userTableHead.innerHTML = `
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Utente</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Permessi</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azienda</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Saldo TAP</th>
+                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azioni</th>
+            `;
+
+            users.forEach(user => {
+                if (user.role === 'admin') return; // Non mostriamo l'admin in questa lista modificabile
+                const tr = document.createElement('tr');
+                const deleteButton = `<button class="text-red-600 hover:text-red-800 font-semibold delete-user-btn" data-user-id="${user.id}" data-user-name="${user.username}">Elimina</button>`;
+                
+                // Crea i badge per i permessi
+                let permissionsBadges = '';
+                if (user.can_access_wallet) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-blue-100 text-blue-800">Wallet</span>`;
+                if (user.can_access_analytics) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-purple-100 text-purple-800">Analytics</span>`;
+                if (user.can_access_pos) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-green-100 text-green-800">POS</span>`;
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-sm"><div class="font-medium text-slate-700">${user.username}</div><div class="text-slate-500">${user.email}</div></td>
+                    <td class="px-4 py-3 text-sm">${permissionsBadges}</td>
+                    <td class="px-4 py-3 text-sm">${user.company_name || 'N/D'}</td>
+                    <td class="px-4 py-3 text-sm font-semibold text-emerald-600">${parseFloat(user.balance_tap || 0).toFixed(2)} TAP</td>
+                    <td class="px-4 py-3 text-sm">${deleteButton}</td>
+                `;
+                userListBody.appendChild(tr);
+            });
+        }
+
+    
+        function displayAllLinks(links) {
+            allLinksListBody.innerHTML = '';
+            if (links.length === 0) {
+                allLinksListBody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Nessun link creato.</td></tr>';
+                return;
+            }
+            links.forEach(link => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-3 text-sm font-bold text-slate-700">${link.id}</td>
+                    <td class="px-4 py-3 text-sm text-slate-700">${link.name}</td>
+                    <td class="px-4 py-3 text-sm text-slate-500 truncate" style="max-width: 150px;" title="${link.url}">${link.url}</td>
+                    <td class="px-4 py-3 text-sm text-slate-500">${link.company_name || 'N/D'}</td>
+                `;
+                allLinksListBody.appendChild(tr);
+            });
+        }
+    
+        // Gestori eventi
+        createLinkForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            createLinkMessage.textContent = '';
+            try {
+                const linkData = { name: document.getElementById('linkName').value, url: document.getElementById('linkUrl').value, company_id: linkCompanySelect.value };
+                const data = await apiFetch('/api/admin/links', { method: 'POST', body: JSON.stringify(linkData) });
+                const redirectUrl = `${window.location.protocol}//${window.location.host}/r/${data.id}`;
+                createLinkMessage.innerHTML = `Link creato! <br><strong>URL:</strong> <a href="${redirectUrl}" target="_blank" class="text-indigo-600 hover:underline">${redirectUrl}</a>`;
+                createLinkForm.reset();
+                loadDashboardData();
+            } catch (error) {
+                createLinkMessage.textContent = `Errore: ${error.message}`;
+            }
+        });
+    
+        // --- CORREZIONE: Rimossa la dichiarazione duplicata di 'createUserForm.addEventListener' ---
+        // SOSTITUISCI il tuo event listener di createUserForm
+        createUserForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            createUserMessage.textContent = '';
+            try {
+                const hasAnalytics = document.getElementById('perm-analytics').checked;
+                const companyIdValue = userCompanySelect.value;
+
+                const userData = {
+                    username: document.getElementById('newUsername').value, 
+                    email: document.getElementById('newUserEmail').value, 
+                    password: document.getElementById('newUserPassword').value,
+                    role: 'user',
+                    company_id: (hasAnalytics && companyIdValue) ? parseInt(companyIdValue, 10) : null,
+                    can_access_wallet: document.getElementById('perm-wallet').checked,
+                    can_access_analytics: hasAnalytics,
+                    can_access_pos: document.getElementById('perm-pos').checked
+                };
+                
+                await apiFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(userData) });
+                createUserMessage.textContent = `Utente "${userData.username}" creato!`;
+                createUserMessage.className = 'mt-4 text-center text-sm text-green-600';
+                createUserForm.reset();
+                companySelectionDiv.classList.add('hidden'); // Nascondi di nuovo il campo azienda
+                loadDashboardData();
+            } catch (error) {
+                createUserMessage.textContent = `Errore: ${error.message}`;
+                createUserMessage.className = 'mt-4 text-center text-sm text-red-600';
+            }
+        });
+    
+        createCompanyForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            createCompanyMessage.textContent = '';
+            try {
+                const companyData = { name: document.getElementById('companyName').value, description: document.getElementById('companyDescription').value };
+                await apiFetch('/api/admin/companies', { method: 'POST', body: JSON.stringify(companyData) });
+                createCompanyMessage.textContent = `Azienda "${companyData.name}" creata!`;
+                createCompanyMessage.className = 'text-center text-sm text-green-600';
+                createCompanyForm.reset();
+                loadDashboardData();
+            } catch (error) {
+                createCompanyMessage.textContent = `Errore: ${error.message}`;
+                createCompanyMessage.className = 'text-center text-sm text-red-600';
+            }
+        });
+    
+        userListBody.addEventListener('click', async e => {
+            if (e.target.matches('.delete-user-btn')) {
+                const userId = e.target.dataset.userId;
+                const userName = e.target.dataset.userName;
+                if (confirm(`Sei sicuro di voler eliminare l'utente "${userName}"?`)) {
+                    try {
+                        await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                        loadDashboardData();
+                    } catch (error) {
+                        alert(`Errore: ${error.message}`);
+                    }
+                }
+            }
+        });
+    
+        balanceActionsForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            balanceMessage.textContent = '';
+            const userId = balanceUserSelect.value;
+            const amount = parseFloat(document.getElementById('balanceAmount').value);
+            const description = document.getElementById('balanceDescription').value;
+            const operation = document.querySelector('input[name="balance_operation"]:checked').value;
+            if (!userId || !amount || !description) {
+                balanceMessage.textContent = 'Tutti i campi sono obbligatori.';
+                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+                return;
+            }
+            try {
+                const adjustmentData = { user_id: userId, operation: operation, amount: amount, description: description };
+                await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
+                balanceMessage.textContent = `Operazione (${operation}) di ${amount} TAP avvenuta con successo!`;
+                balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
+                balanceActionsForm.reset();
+                loadDashboardData();
+            } catch (error) {
+                balanceMessage.textContent = `Errore: ${error.message}`;
+                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+            }
+        });
+    
+        zeroBalanceBtn.addEventListener('click', async () => {
+            balanceMessage.textContent = '';
+            const userId = balanceUserSelect.value;
+            const selectedUserText = balanceUserSelect.options[balanceUserSelect.selectedIndex].text;
+            if (!userId) {
+                balanceMessage.textContent = 'Per favore, seleziona un utente prima di azzerare il saldo.';
+                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+                return;
+            }
+            if (confirm(`Sei sicuro di voler AZZERARE il saldo di "${selectedUserText}"? L'azione è irreversibile.`)) {
+                try {
+                    const adjustmentData = { user_id: userId, operation: 'set_zero', description: 'Saldo azzerato da admin' };
+                    await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
+                    balanceMessage.textContent = `Saldo di "${selectedUserText}" azzerato con successo!`;
+                    balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
+                    loadDashboardData();
+                } catch (error) {
+                    balanceMessage.textContent = `Errore: ${error.message}`;
+                    balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+                }
+            }
+        });
+    </script>
+</body>
+</html>
