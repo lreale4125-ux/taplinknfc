@@ -12,7 +12,7 @@ async function getMotivationalQuote(keychainId) {
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
 
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
@@ -72,7 +72,7 @@ async function listAvailableModels() {
         console.log("[DIAGNOSI] Provo a listare i modelli...");
 
         // Attempt to use the base model
-        const modelNameToTest = "gemini-pro";
+        const modelNameToTest = "gemini-2.5-flash";
         const model = genAI.getGenerativeModel({ model: modelNameToTest });
         console.log(`[DIAGNOSI] Tentativo di usare il modello base: ${modelNameToTest}`);
         const result = await model.generateContent("Ciao");

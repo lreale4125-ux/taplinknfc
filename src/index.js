@@ -1,12 +1,12 @@
 // --- TAPLINKNFC SERVER ENTRY POINT ---
 
 // Load environment variables
-require('dotenv').config();
 
 // Import modules
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 // Import custom modules
 const { handleMotivationalRequest } = require('./services/motivational');
