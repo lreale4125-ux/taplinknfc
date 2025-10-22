@@ -1,0 +1,109 @@
+const Database = require('better-sqlite3');
+
+// Database connection
+let db;
+try {
+    db = new Database('./database.db');
+    db.pragma('journal_mode = WAL');
+    console.log('Connected to SQLite database using better-sqlite3.');
+} catch (err) {
+    console.error('FATAL ERROR: Could not connect to database.', err);
+    process.exit(1);
+}
+
+// Database initialization
+function initializeDatabase() {
+    try {
+        db.exec(`CREATE TABLE IF NOT EXISTS companies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP )`);
+
+        db.exec(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT DEFAULT 'user',
+            company_id INTEGER,
+            balance_tap REAL DEFAULT 0,
+            loyalty_points INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE SET NULL )`);
+
+        // Add columns if not exist
+        try { db.exec(`ALTER TABLE users ADD COLUMN can_access_wallet INTEGER DEFAULT 1`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE users ADD COLUMN can_access_analytics INTEGER DEFAULT 0`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE users ADD COLUMN can_access_pos INTEGER DEFAULT 0`); } catch (e) { /* ignore */ }
+
+        db.exec(`CREATE TABLE IF NOT EXISTS links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL, url TEXT NOT NULL,
+            description TEXT,
+            company_id INTEGER NOT NULL,
+            created_by INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE )`);
+
+        db.exec(`CREATE TABLE IF NOT EXISTS keychains (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            link_id INTEGER NOT NULL,
+            keychain_number TEXT,
+            data TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+            FOREIGN KEY (link_id) REFERENCES links (id) ON DELETE CASCADE )`);
+
+        db.exec(`CREATE TABLE IF NOT EXISTS analytics (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keychain_id INTEGER,
+            link_id INTEGER NOT NULL,
+            ip_address TEXT NOT NULL,
+            user_agent TEXT,
+            referrer TEXT,
+            country TEXT,
+            city TEXT,
+            click_count INTEGER DEFAULT 1 NOT NULL,
+            first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (keychain_id) REFERENCES keychains (id) ON DELETE SET NULL,
+            FOREIGN KEY (link_id) REFERENCES links (id) ON DELETE CASCADE,
+            UNIQUE(link_id, ip_address, keychain_id))`);
+
+        // Add analytics columns
+        try { db.exec(`ALTER TABLE analytics ADD COLUMN os_name TEXT`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE analytics ADD COLUMN browser_name TEXT`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE analytics ADD COLUMN device_type TEXT`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE analytics ADD COLUMN lat REAL`); } catch (e) { /* ignore */ }
+        try { db.exec(`ALTER TABLE analytics ADD COLUMN lon REAL`); } catch (e) { /* ignore */ }
+
+        db.exec(`CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            tap_change REAL NOT NULL,
+            points_change INTEGER DEFAULT 0,
+            type TEXT NOT NULL, description TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE )`);
+
+        // Insert default company and admin user
+        const stmtCompany = db.prepare(`INSERT OR IGNORE INTO companies (id, name, description) VALUES (1, 'Default Company', 'Default company for new users')`);
+        stmtCompany.run();
+        const hashedPassword = require('bcryptjs').hashSync('admin123', 10);
+        const stmtUser = db.prepare(`INSERT OR IGNORE INTO users (username, email, password, role, company_id, can_access_wallet, can_access_analytics, can_access_pos) VALUES (?, ?, ?, ?, ?, 1, 1, 1)`);
+        stmtUser.run('admin', 'admin@example.com', hashedPassword, 'admin', 1);
+        console.log('Database initialized successfully.');
+    } catch (err) {
+        if (!err.message.includes('duplicate column name')) {
+            console.error('Error initializing database:', err.message);
+        }
+    }
+}
+
+initializeDatabase();
+
+module.exports = db;
