@@ -8,7 +8,7 @@ const UAParser = require('ua-parser-js');
  * @param {object} req - Express request object
  */
 function recordClick(linkId, keychainId, req) {
-    const db = require('../db/database');
+    const db = require('../db');
 
     const ip = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
     const geo = geoip.lookup(ip) || {};

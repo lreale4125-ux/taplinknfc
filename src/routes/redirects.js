@@ -1,6 +1,6 @@
 const express = require('express');
 const fetch = require('node-fetch');
-const db = require('../../database');
+const db = require('../db');
 const { recordClick } = require('../utils/analytics');
 const { authenticateToken } = require('../middleware/auth');
 

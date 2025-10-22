@@ -6,15 +6,15 @@ const express = require('express');
 const cors = require('cors');
 
 // Import custom modules
-const db = require('./database');
-const { authenticateToken } = require('./auth');
-const { handleMotivationalRequest } = require('./motivational');
+const db = require('./src/db');
+const { authenticateToken } = require('./src/middleware/auth');
+const { handleMotivationalRequest } = require('./src/services/motivational');
 
 // Import route modules
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
-const adminRoutes = require('./routes/admin');
-const redirectRoutes = require('./routes/redirects');
+const authRoutes = require('./src/routes/auth');
+const userRoutes = require('./src/routes/user');
+const adminRoutes = require('./src/routes/admin');
+const redirectRoutes = require('./src/routes/redirects');
 
 const PORT = process.env.PORT || 3001;
 

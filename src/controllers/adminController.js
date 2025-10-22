@@ -1,5 +1,5 @@
 const bcrypt = require('bcryptjs');
-const db = require('../../database');
+const db = require('../db');
 
 /**
  * Adjust user balance
