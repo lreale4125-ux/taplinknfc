@@ -10,10 +10,14 @@ const {
     createUser,
     deleteUser,
     getAnalyticsSummary,
-    getAnalyticsDetail
+    getAnalyticsDetail,
+    generateQrCode // <--- IMPORTAZIONE AGGIUNTA
 } = require('../controllers/adminController');
 
 const router = express.Router();
+
+// Rotta per la generazione del QR Code (utilizza il Controller)
+router.post('/generate-qr/:keychainId', authenticateToken, requireAdmin, generateQrCode);
 
 // Adjust balance route
 router.post('/adjust-balance', authenticateToken, requireAdmin, adjustBalance);
