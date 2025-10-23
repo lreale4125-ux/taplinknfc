@@ -14,7 +14,7 @@ async function getMotivationalQuote(keychainId) {
 
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Non includere saluti o convenevoli, solo la frase.`;
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
