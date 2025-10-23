@@ -8,7 +8,7 @@ const cors = require('cors');
 // Import custom modules
 const db = require('./src/db');
 const { authenticateToken } = require('./src/middleware/auth');
-const { handleMotivationalRequest } = require('./src/services/motivational');
+const { handleMotivationalRequest, getQuoteOnly } = require('./src/services/motivational');
 
 // Import route modules
 const authRoutes = require('./src/routes/auth');
@@ -47,6 +47,10 @@ app.use(async (req, res, next) => {
 app.use(express.static('.'));
 
 // --- ROUTE API ---
+
+// endpoint API per il caricamento asincrono della frase
+app.get('/api/quote', getQuoteOnly);
+
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
@@ -63,3 +67,4 @@ app.use('/', redirectRoutes);
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
 });
+
