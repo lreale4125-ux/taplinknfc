@@ -46,6 +46,31 @@ function adjustBalance(req, res) {
         res.status(400).json({ error: error.message || 'Errore durante l\'operazione sul saldo.' });
     }
 }
+// ===================================================================
+// NUOVA FUNZIONE: Generazione QR Code
+// ===================================================================
+/**
+ * Genera e salva un QR Code per l'ID univoco specificato.
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+async function generateQrCode(req, res) {
+    const { keychainId } = req.params;
+
+    if (!keychainId) {
+        return res.status(400).json({ error: 'ID univoco (keychainId) mancante.' });
+    }
+
+    try {
+        await generateQrCodeAndSave(keychainId);
+        res.status(200).json({ message: `QR Code per ID ${keychainId} generato e salvato con successo.` });
+    } catch (error) {
+        console.error("Errore durante la generazione del QR Code:", error);
+        res.status(500).json({ error: 'Errore interno del server durante la generazione del QR Code.' });
+    }
+}
+// ===================================================================
+
 
 /**
  * Get all companies
@@ -196,6 +221,7 @@ function getAnalyticsDetail(req, res) {
 
 module.exports = {
     adjustBalance,
+    generateQrCode,
     getCompanies,
     createCompany,
     createLink,
