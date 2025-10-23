@@ -176,6 +176,10 @@
     
     <script>
        // Selettori elementi DOM (versione pulita)
+        const generateQrForm = document.getElementById('generateQrForm');
+        const keychainIdInput = document.getElementById('keychainId');
+        const qrImage = document.getElementById('qrImage');
+        const qrMessage = document.getElementById('qrMessage');
        const logoutButton = document.getElementById('logoutButton');
         const createLinkForm = document.getElementById('createLinkForm');
         const createLinkMessage = document.getElementById('createLinkMessage');
@@ -451,6 +455,44 @@
                     balanceMessage.textContent = `Errore: ${error.message}`;
                     balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
                 }
+            }
+        });
+        // --- GESTORE EVENTI: GENERAZIONE QR CODE ---
+        generateQrForm.addEventListener('submit', async e => {
+            e.preventDefault();
+            qrMessage.textContent = 'Generazione in corso...';
+            qrImage.classList.add('hidden');
+            qrMessage.className = 'text-center text-sm text-indigo-600 mt-4';
+        
+            const keychainId = keychainIdInput.value.trim();
+            if (!keychainId) {
+                qrMessage.textContent = 'L\'ID è obbligatorio.';
+                qrMessage.className = 'text-center text-sm text-red-600 mt-4';
+                return;
+            }
+        
+            try {
+                // Chiama la nuova API /api/admin/generate-qr/:id
+                await apiFetch(`/api/admin/generate-qr/${encodeURIComponent(keychainId)}`, {
+                    method: 'POST'
+                });
+        
+                const qrCodeUrl = `${API_BASE_URL}/qrcodes/${keychainId}.png`;
+                
+                // Aggiorna l'immagine e il messaggio (aggiunge un timestamp per evitare la cache del browser)
+                qrImage.src = qrCodeUrl + '?' + new Date().getTime(); 
+                qrImage.classList.remove('hidden');
+                qrMessage.innerHTML = `QR Code generato e salvato in 
+                    <a href="${qrCodeUrl}" target="_blank" class="text-purple-600 hover:underline">/qrcodes/${keychainId}.png</a>`;
+                qrMessage.className = 'text-center text-sm text-green-600 mt-4 break-words';
+                
+                // Pulisci l'input
+                keychainIdInput.value = '';
+        
+            } catch (error) {
+                qrMessage.textContent = `Errore: ${error.message}`;
+                qrMessage.className = 'text-center text-sm text-red-600 mt-4';
+                qrImage.classList.add('hidden');
             }
         });
     </script>
