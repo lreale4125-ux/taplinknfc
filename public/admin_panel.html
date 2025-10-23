@@ -65,6 +65,20 @@
                          <button id="zeroBalanceBtn" class="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">Azzera Saldo Utente Selezionato</button>
                     </div>
                     <p id="balanceMessage" class="mt-4 text-center text-sm"></p>
+                    <div class="card">
+                        <h2 class="text-2xl font-semibold mb-4">Genera QR Code Motivazionale</h2>
+                        <form id="generateQrForm" class="space-y-4">
+                            <div>
+                                <label for="keychainId" class="text-sm font-medium text-slate-600">ID univoco (es. 001, Ospite)</label>
+                                <input type="text" id="keychainId" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Inserisci l'ID">
+                            </div>
+                            <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700">Genera QR e Salva</button>
+                        </form>
+                        <div id="qrOutput" class="mt-4 text-center">
+                            <img id="qrImage" class="mx-auto my-4 border border-slate-300 hidden" alt="QR Code Generato" style="max-width: 150px;">
+                            <p id="qrMessage" class="text-sm text-slate-600">Inserisci un ID per generare il codice.</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
