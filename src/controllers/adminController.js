@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../db');
+const { generateQrCodeAndSave } = require('../utils/qrGenerator');
 
 /**
  * Adjust user balance
