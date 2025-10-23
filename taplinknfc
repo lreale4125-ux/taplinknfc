@@ -66,3 +66,38 @@ server {
     server_name taplinknfc.it www.taplinknfc.it;
     return 404; 
 }
+
+# ===================================================================
+# Blocco server dedicato al sottodominio MOTIVAZIONALE (Node.js Proxy)
+# ===================================================================
+server {
+    server_name motivazional.taplinknfc.it www.motivazional.taplinknfc.it;
+
+    # Inoltra TUTTE le richieste (inclusa / e /api/quote) al server Node.js
+    location / {
+        proxy_pass http://localhost:3001; 
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Configurazione SSL (Certbot)
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/motivazional.taplinknfc.it/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/motivazional.taplinknfc.it/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+# Blocco server per il redirect HTTP->HTTPS per il dominio motivazionale
+server {
+    if ($host = www.motivazional.taplinknfc.it) {
+        return 301 https://$host$request_uri;
+    }
+    if ($host = motivazional.taplinknfc.it) {
+        return 301 https://$host$request_uri;
+    }
+    listen 80;
+    server_name motivazional.taplinknfc.it www.motivazional.taplinknfc.it;
+}
