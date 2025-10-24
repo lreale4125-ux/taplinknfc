@@ -65,6 +65,7 @@ def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: P
 def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: float) -> trimesh.Trimesh:
     """
     Converte l'immagine QR in una mesh 3D estrusa.
+    CORREZIONE: Gestisce correttamente gli oggetti MultiPolygon.
     """
     logging.info("Creazione mesh di estrusione QR in corso...")
     
@@ -73,7 +74,6 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
     mask = img_array < 128
     
     # 1. Trova i contorni dei moduli neri (il QR)
-    # L'argomento level=0.5 separa il bianco dal nero (0 e 255)
     contours = find_contours(mask, level=0.5)
 
     if not contours:
@@ -85,21 +85,16 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
     scale = size_mm / qr_image.size[0] # Scala pixel -> mm
     
     for contour in contours:
-        # Trova il contorno esterno più vicino per un array Shapely
         if len(contour) < 3:
             continue
             
-        # Scala le coordinate da pixel a mm
         points_mm = contour * scale
         
         # Inverte l'asse Y per allineare con Trimesh/Shapely
         points_mm[:, 0] = size_mm - points_mm[:, 0] 
         
-        # Crea un poligono Shapely
         try:
             poly = shapely.geometry.Polygon(points_mm)
-            
-            # Applica una piccola semplificazione per pulire i bordi seghettati
             poly = poly.simplify(scale / 2)
 
             if poly.is_valid and poly.area > (scale * scale): # Filtra i poligoni troppo piccoli
@@ -111,20 +106,47 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
         logging.warning("Nessun poligono valido generato. Restituisce mesh vuota.")
         return trimesh.Trimesh()
 
-    # Unisci tutti i poligoni in una singola MultiPolygon
-    # Per evitare problemi di sovrapposizione si usa l'unione
-    union_poly = shapely.geometry.MultiPolygon(polygons).buffer(0)
+    # Unisci tutti i poligoni
+    # buffer(0) pulisce la geometria e risolve problemi di sovrapposizione/invalidità.
+    union_geometry = shapely.geometry.MultiPolygon(polygons).buffer(0)
     
     # 3. Estrusione 3D
+    all_qr_meshes = []
+    
+    # Correzione critica: Gestisce sia Polygon che MultiPolygon
+    # Per Trimesh, dobbiamo iterare su ogni singola geometria (Polygon)
+    
+    # Se l'unione ha prodotto un solo Polygon (più semplice)
+    if union_geometry.geom_type == 'Polygon':
+        geometries = [union_geometry]
+    # Se ha prodotto un MultiPolygon (più comune per QR Code)
+    elif union_geometry.geom_type == 'MultiPolygon':
+        geometries = list(union_geometry.geoms)
+    else:
+        # Gestisce casi inaspettati (es. Point, LineString che non dovrebbero esserci)
+        fail(f"Geometria QR non supportata: {union_geometry.geom_type}")
+        return trimesh.Trimesh()
+
+
     try:
-        # Estrude il poligono 2D nello spessore desiderato
-        qr_extrusion = trimesh.creation.extrude_polygon(
-            union_poly, 
-            height=extrusion_mm
-        )
+        for single_polygon in geometries:
+            # Estrude il singolo poligono
+            mesh = trimesh.creation.extrude_polygon(
+                single_polygon, 
+                height=extrusion_mm
+            )
+            all_qr_meshes.append(mesh)
+        
+        # Unisci tutte le mesh in una singola mesh
+        if not all_qr_meshes:
+            return trimesh.Trimesh()
+            
+        qr_extrusion = trimesh.util.concatenate(all_qr_meshes)
         qr_extrusion.metadata['name'] = "qr_module"
         return qr_extrusion
+        
     except Exception as e:
+        # Nota: L'errore "No available triangulation engine" si verifica ancora qui se le librerie non sono installate, ma ora è gestito l'errore MultiPolygon.
         fail(f"Errore durante l'estrusione della mesh QR: {e}")
         return trimesh.Trimesh()
 
@@ -150,7 +172,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # --- Punti critici ---
     QR_MODULE_SIZE_PX = 1024  # Risoluzione alta per il QR Code
-    QR_EXTRUSION_MM = 1.25     # Altezza standard per l'estrusione del codice
+    QR_EXTRUSION_MM = 1.25    # Altezza standard per l'estrusione del codice
     
     print(f"[Python Script] \n=== REPORT ===")
     print(f"Modello: {base_model_path.name}")
@@ -186,9 +208,6 @@ def run_pipeline(args: argparse.Namespace) -> None:
         logging.warning("Mesh QR vuota. Il QR non verrà aggiunto al modello.")
 
     # 4) Calcolo della posizione del QR sul modello base
-    # Assumiamo che la mesh base sia centrata (trimesh la centra all'importazione)
-    
-    # Trova il punto più basso (Z minima) del modello base per posizionare il QR
     base_bounds = base_model_mesh.bounds
     base_min_z = base_bounds[0, 2] # Minima Z
     
@@ -211,8 +230,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     logging.info("Mesh QR posizionata sul modello base.")
 
-    # 5) Unione delle parti (opzionale, ma utile per slicer che non gestiscono bene i booleani)
-    # Raccogliamo le parti da salvare
+    # 5) Unione delle parti
     out_parts = [("base_tag", base_model_mesh)]
     if qr_mesh.vertices.size > 0:
         out_parts.append(("qr_module", qr_mesh))
