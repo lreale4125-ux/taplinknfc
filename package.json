@@ -20,6 +20,7 @@
     "geoip-lite": "^1.4.10",
     "jsonwebtoken": "^9.0.2",
     "node-fetch": "^2.7.0",
+    "qrcode": "^1.5.4",
     "ua-parser-js": "^2.0.6"
   },
   "devDependencies": {

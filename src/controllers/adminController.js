@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { generateQrCodeAndSave } = require('../utils/qrGenerator');
+const { generateAndSaveQR } = require('../utils/qrGenerator');
 
 /**
  * Adjust user balance
@@ -63,8 +63,8 @@ async function generateQrCode(req, res) {
     }
 
     try {
-        await generateQrCodeAndSave(keychainId);
-        res.status(200).json({ message: `QR Code per ID ${keychainId} generato e salvato con successo.` });
+        await generateAndSaveQR(keychainId);
+	res.status(200).json({ message: `QR Code per ID ${keychainId} generato e salvato con successo.` });
     } catch (error) {
         console.error("Errore durante la generazione del QR Code:", error);
         res.status(500).json({ error: 'Errore interno del server durante la generazione del QR Code.' });
