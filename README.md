@@ -329,4 +329,3 @@ scp ubuntu@51.75.70.149:/home/ubuntu/taplinknfc/database.db C:\percorso\backup\l
 
 ---
 
-Fine del file.
