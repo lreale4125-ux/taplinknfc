@@ -14,7 +14,6 @@ const M3MF_SUBDIR = 'qr_3mf'; // !!! NUOVO: Sottodirectory per i file 3MF
 // --- CONFIGURAZIONE SCRIPT PYTHON ---
 const SCRIPT_DIR = path.resolve(__dirname, '..', '..', 'scripts');
 const PYTHON_SCRIPT_PATH = path.join(SCRIPT_DIR, 'make_qr_3mf.py');
-const PYTHON_SCRIPT_PATH = path.join(SCRIPT_DIR, 'make_qr_3mf.py');
 const PYTHON_VENV_PATH = path.resolve(__dirname, '..', '..', 'venv_qr', 'bin', 'python'); // <--- NUOVO PERCORSO VENV
 const BASE_MODEL_PATH = path.join(SCRIPT_DIR, 'base.3mf'); // Assumi questo nome
 // Parametri 3MF fissi (come concordato)
