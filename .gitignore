@@ -1,26 +1,55 @@
-# Database
+# -------------------------------------------------------------------
+# File di Database (NON committare mai i dati utente!)
+# -------------------------------------------------------------------
 *.db
+*.sqlite
+*.sqlite-journal
 *.db-wal
 *.db-shm
 *.db.backup
 
-# Dipendenze e Cache
+
+# -------------------------------------------------------------------
+# Dipendenze, Ambienti Virtuali e Cache
+# -------------------------------------------------------------------
+# Dipendenze Node.js
 node_modules/
 .npm/
 .cache/
 
-# Log e File di Runtime
+# Ambienti Virtuali Python (Dalla tua struttura)
+/venv_qr
+/scripts/qr_env
+
+
+# -------------------------------------------------------------------
+# File Generati, Log e Output Specifici del Progetto
+# -------------------------------------------------------------------
+# File di output Tailwind CSS (deve essere rigenerato)
+/public/output.css
+
+# Output dei QR Code (dalla tua struttura)
+/public/qrcodes/
+
+# Log, PID e PM2
 *.log
 .pm2/
 *.pid
 
-# Segreti e Chiavi (MAI CARICARE)
+
+# -------------------------------------------------------------------
+# Segreti, Chiavi e File di Configurazione Runtime (Critico per la sicurezza!)
+# -------------------------------------------------------------------
 .env
 .ssh/
 .bash_history
 .sqlite_history
+.config # Configurazione locale/sistema
 
-# Backup e file inutili
+
+# -------------------------------------------------------------------
+# Backup e File Inutili
+# -------------------------------------------------------------------
 *.tar.gz
 *.backup
 nginx.conf
