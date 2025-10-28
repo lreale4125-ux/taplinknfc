@@ -103,28 +103,29 @@ Crea il file `.env`:
 ```bash
 nano .env
 ```
-# 🌍 Environment
+```
+🌍 Environment
 NODE_ENV=production
 PORT=3001
 
-# 🔐 JWT (chiave per firmare i token di accesso)
-# Generane una lunga, casuale e diversa per ogni ambiente
+#Generane una lunga, casuale e diversa per ogni ambiente
 JWT_SECRET=questa-e-la-tua-password-segreta-cambiala-in-produzione
 
-# 💾 Database
+#Database
 DATABASE_PATH=./database.db
 
-# 🌐 CORS
+#CORS
 CORS_ORIGIN=https://taplinknfc.it
 
-# 🗺️ API Keys
-# Inserisci qui le tue chiavi reali solo in ambiente privato (mai su GitHub)
+#API Keys
+#Inserisci qui le tue chiavi reali solo in ambiente privato 
 OPENCAGE_API_KEY=your-opencage-api-key
-GEMINI_API_KEY=your-gemini-api-key
+GEMINI_API_KEY=your-gemini-api-key-completa
 
-# 🧠 Servizi esterni
+#Servizi esterni
 MOTIVATIONAL_URL=https://motivazional.taplinknfc.it
 
+```
 
 
 Poi carica il database:
@@ -326,5 +327,6 @@ pm2 stop server
 
 **Lorenzo Reale** — [GitHub](https://github.com/lreale4125-ux)  
 Piattaforma *NFC Analytics* — 2025
+
 
 
