@@ -102,7 +102,6 @@ async function generateAndSaveQR(keychainId) {
         const command = [
             `"${PYTHON_VENV_PATH}"`, // <--- USA IL PERCORSO DEL VENV
             `"${PYTHON_SCRIPT_PATH}"`,
-            `"${PYTHON_SCRIPT_PATH}"`,
             `--input-3mf "${BASE_MODEL_PATH}"`,
             `--output-3mf "${m3mfPath}"`,
             `--qr-data "${qrData}"`,
