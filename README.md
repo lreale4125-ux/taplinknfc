@@ -83,7 +83,7 @@ npm install
 
 ---
 
-### 3b️⃣ Setup Ambiente Virtuale Python (per generazione 3MF)
+### 3️⃣B Setup Ambiente Virtuale Python (per generazione 3MF)
 
 ```bash
 cd scripts
@@ -327,6 +327,7 @@ pm2 stop server
 
 **Lorenzo Reale** — [GitHub](https://github.com/lreale4125-ux)  
 Piattaforma *NFC Analytics* — 2025
+
 
 
 
