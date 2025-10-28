@@ -1,0 +1,9 @@
+requests
+Pillow
+numpy
+scikit-image
+shapely
+trimesh
+lxml
+mapbox-earcut
+manifold3d
