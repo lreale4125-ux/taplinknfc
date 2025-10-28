@@ -103,21 +103,27 @@ Crea il file `.env`:
 ```bash
 nano .env
 ```
-# Chiave per firmare i token di accesso (inventane una tu, lunga e complessa)
-JWT_SECRET=questa-e'-la-tua-password-segreta-cambiala-in-produzione
-
-# La tua chiave API per il servizio di geocoding OpenCage
-OPENCAGE_API_KEY=392153fd2f3940d6a1daac24cc41a966#
-Production Environment Variables
+# 🌍 Environment
 NODE_ENV=production
 PORT=3001
+
+# 🔐 JWT (chiave per firmare i token di accesso)
+# Generane una lunga, casuale e diversa per ogni ambiente
+JWT_SECRET=questa-e-la-tua-password-segreta-cambiala-in-produzione
+
+# 💾 Database
 DATABASE_PATH=./database.db
 
-#frasi motivazionali gemini
-GEMINI_API_KEY=AIzaSyAsvdxr6FB7LEuQjuQc6VLxbdqqS9hBaZQ
-
-# CORS Origin for production
+# 🌐 CORS
 CORS_ORIGIN=https://taplinknfc.it
+
+# 🗺️ API Keys
+# Inserisci qui le tue chiavi reali solo in ambiente privato (mai su GitHub)
+OPENCAGE_API_KEY=your-opencage-api-key
+GEMINI_API_KEY=your-gemini-api-key
+
+# 🧠 Servizi esterni
+MOTIVATIONAL_URL=https://motivazional.taplinknfc.it
 
 
 
@@ -320,4 +326,5 @@ pm2 stop server
 
 **Lorenzo Reale** — [GitHub](https://github.com/lreale4125-ux)  
 Piattaforma *NFC Analytics* — 2025
+
 
