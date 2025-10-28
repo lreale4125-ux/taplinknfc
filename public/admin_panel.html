@@ -74,9 +74,17 @@
                             </div>
                             <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700">Genera QR e Salva</button>
                         </form>
-                        <div id="qrOutput" class="mt-4 text-center">
-                            <img id="qrImage" class="mx-auto my-4 border border-slate-300 hidden" alt="QR Code Generato" style="max-width: 150px;">
-                            <p id="qrMessage" class="text-sm text-slate-600">Inserisci un ID per generare il codice.</p>
+                        <div class="card">
+                            <h2 class="text-2xl font-semibold mb-4">Genera QR Code Motivazionale</h2>
+                            <form id="generateQrForm" class="space-y-4">
+                                <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700">Genera QR e Salva</button>
+                            </form>
+                            <div id="qrOutput" class="mt-4 text-center">
+                                <img id="qrImage" class="mx-auto my-4 border border-slate-300 hidden" alt="QR Code Generato" style="max-width: 150px;">
+                                    <div id="downloadButtons" class="flex justify-center space-x-2 my-4 hidden">
+                                        </div>
+                                <p id="qrMessage" class="text-sm text-slate-600">Inserisci un ID per generare il codice.</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -176,6 +184,7 @@
     
     <script>
        // Selettori elementi DOM (versione pulita)
+        const downloadButtonsDiv = document.getElementById('downloadButtons');
         const generateQrForm = document.getElementById('generateQrForm');
         const keychainIdInput = document.getElementById('keychainId');
         const qrImage = document.getElementById('qrImage');
@@ -459,42 +468,59 @@
         });
         // --- GESTORE EVENTI: GENERAZIONE QR CODE ---
         generateQrForm.addEventListener('submit', async e => {
-            e.preventDefault();
-            qrMessage.textContent = 'Generazione in corso...';
+        e.preventDefault();
+        qrMessage.textContent = 'Generazione in corso...';
+        qrImage.classList.add('hidden');
+        downloadButtonsDiv.classList.add('hidden'); // Nascondi i pulsanti all'inizio
+        qrMessage.className = 'text-center text-sm text-indigo-600 mt-4';
+        
+        const keychainId = keychainIdInput.value.trim();
+        if (!keychainId) {
+            qrMessage.textContent = 'L\'ID è obbligatorio.';
+            qrMessage.className = 'text-center text-sm text-red-600 mt-4';
+            return;
+        }
+    
+        try {
+            // Chiama l'API
+            await apiFetch(`/api/admin/generate-qr/${encodeURIComponent(keychainId)}`, {
+                method: 'POST'
+            });
+    
+            const encodedId = encodeURIComponent(keychainId);
+            
+            // 1. Aggiorna l'immagine e il messaggio
+            qrImage.src = `${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png?${new Date().getTime()}`; // Ho corretto il percorso PNG in base al tuo file Node.js
+            qrImage.classList.remove('hidden');
+            qrMessage.innerHTML = `QR Code generato e salvato correttamente.`;
+            qrMessage.className = 'text-center text-sm text-green-600 mt-4 break-words';
+            
+            // 2. CREAZIONE DEI BOTTONI DI DOWNLOAD
+            const buttonsHtml = `
+                <a href="${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png" download="${keychainId}.png" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 transition duration-150">
+                    PNG
+                </a>
+                <a href="${API_BASE_URL}/qrcodes/qr_svg/${encodedId}.svg" download="${keychainId}.svg" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-slate-600 hover:bg-slate-700 transition duration-150">
+                    SVG
+                </a>
+                <a href="${API_BASE_URL}/qrcodes/qr_3mf/${encodedId}.3mf" download="${keychainId}.3mf" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-teal-600 hover:bg-teal-700 transition duration-150">
+                    3MF
+                </a>
+            `;
+            
+            downloadButtonsDiv.innerHTML = buttonsHtml;
+            downloadButtonsDiv.classList.remove('hidden'); // Rendi visibili i bottoni
+    
+            // Pulisci l'input
+            keychainIdInput.value = '';
+    
+        } catch (error) {
+            qrMessage.textContent = `Errore: ${error.message}`;
+            qrMessage.className = 'text-center text-sm text-red-600 mt-4';
             qrImage.classList.add('hidden');
-            qrMessage.className = 'text-center text-sm text-indigo-600 mt-4';
-        
-            const keychainId = keychainIdInput.value.trim();
-            if (!keychainId) {
-                qrMessage.textContent = 'L\'ID è obbligatorio.';
-                qrMessage.className = 'text-center text-sm text-red-600 mt-4';
-                return;
-            }
-        
-            try {
-                // Chiama la nuova API /api/admin/generate-qr/:id
-                await apiFetch(`/api/admin/generate-qr/${encodeURIComponent(keychainId)}`, {
-                    method: 'POST'
-                });
-        
-                const qrCodeUrl = `${API_BASE_URL}/qrcodes/${keychainId}.png`;
-                
-                // Aggiorna l'immagine e il messaggio (aggiunge un timestamp per evitare la cache del browser)
-                qrImage.src = qrCodeUrl + '?' + new Date().getTime(); 
-                qrImage.classList.remove('hidden');
-                qrMessage.innerHTML = `QR Code generato e salvato in 
-                    <a href="${qrCodeUrl}" target="_blank" class="text-purple-600 hover:underline">/qrcodes/${keychainId}.png</a>`;
-                qrMessage.className = 'text-center text-sm text-green-600 mt-4 break-words';
-                
-                // Pulisci l'input
-                keychainIdInput.value = '';
-        
-            } catch (error) {
-                qrMessage.textContent = `Errore: ${error.message}`;
-                qrMessage.className = 'text-center text-sm text-red-600 mt-4';
-                qrImage.classList.add('hidden');
-            }
-        });
+            downloadButtonsDiv.classList.add('hidden'); // Nascondi i bottoni in caso di errore
+        }
+    });
     </script>
 </body>
 </html>
