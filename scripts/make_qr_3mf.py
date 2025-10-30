@@ -144,28 +144,44 @@ def run_pipeline(args: argparse.Namespace) -> None:
     base_model_path = Path(args.input_3mf)
     output_3mf = Path(args.output_3mf)
     qr_size_mm = args.qr_size_mm
-    qr_margin_mm = args.qr_margin_mm # Mantenuto per coerenza, ma non usato nella logica di centraggio
-    
-    # ... Omissis per il salvataggio PNG/SVG, che è corretto ...
     
     QR_MODULE_SIZE_PX = 1024  
-    QR_EXTRUSION_MM = 1.25 # L'altezza di estrusione è ora un valore fisso standard
+    QR_EXTRUSION_MM = 1.25 # Altezza standard
+
+    print(f"[Python Script] \n=== REPORT ===")
+    print(f"Modello: {base_model_path.name}")
+    print(f"QR data: {qr_data[:50]}...")
+    print(f"FlipZ attivo: {args.flipz}")
 
     # 1) Download e salvataggio del QR Code (omesso per brevità, mantenuto originale)
     qr_image = get_qr_code(qr_data, QR_MODULE_SIZE_PX)
-    # ...
-
-    # 2) Importazione del modello base (omesso per brevità, mantenuto originale)
+    # ... (Salvataggio PNG/SVG, omettendo qui per brevità) ...
+    
+    # 2) Importazione, Unione e Ribaltamento del Modello Base
     try:
         logging.info("Caricamento modello base 3MF...")
-        # ... Logica di caricamento base_model_mesh ...
-        if isinstance(base_model_scene, trimesh.Trimesh):
-            base_model_mesh = base_model_scene
-        elif isinstance(base_model_scene, trimesh.Scene):
-            # Uniamo tutte le mesh nel 3MF in un unico oggetto per semplificare
-            base_model_mesh = trimesh.util.concatenate(list(base_model_scene.geometry.values()))
-        # ...
+        
+        # *** CORREZIONE: Usare loaded_data per evitare 'base_model_scene is not defined' ***
+        loaded_data = trimesh.load(str(base_model_path), file_type='3mf')
+        
+        if isinstance(loaded_data, trimesh.Trimesh):
+            base_model_mesh = loaded_data
+        elif isinstance(loaded_data, trimesh.Scene):
+            # Uniamo tutte le mesh in un unico oggetto per semplificare
+            base_model_mesh = trimesh.util.concatenate(list(loaded_data.geometry.values()))
+        else:
+            fail(f"Tipo di oggetto non supportato per il modello base: {type(loaded_data)}")
+            
+        # Aggiunta la gestione del Ribaltamento Z (se flag --flipz è passato)
+        if args.flipz:
+            logging.info("Ribaltamento del modello base lungo l'asse Z.")
+            tf = np.eye(4)
+            tf[2, 2] = -1 
+            base_model_mesh.apply_transform(tf)
+            
         base_model_mesh.metadata['name'] = "base_tag"
+        logging.info(f"Modello base caricato con {len(base_model_mesh.vertices)} vertici.")
+        
     except Exception as e:
         fail(f"Errore durante il caricamento di {base_model_path}: {e}")
 
@@ -174,51 +190,46 @@ def run_pipeline(args: argparse.Namespace) -> None:
     if qr_mesh.vertices.size == 0:
         logging.warning("Mesh QR vuota.")
 
-    # 4) Calcolo e correzione della POSIZIONE del QR sul modello base
-    
+    # 4) Calcolo e CORREZIONE della POSIZIONE (logica di centraggio migliorata)
     base_bounds = base_model_mesh.bounds
-    base_min_z = base_bounds[0, 2] # Minima Z
+    base_min_z = base_bounds[0, 2] # Minima Z del modello base (il piano di stampa)
     
     # Calcolo del centro XY del modello
     base_center_x = (base_bounds[0, 0] + base_bounds[1, 0]) / 2
     base_center_y = (base_bounds[0, 1] + base_bounds[1, 1]) / 2
     
-    # La mesh QR è stata centrata su (0, 0, Z_min_qr) nella funzione create_qr_extrusion.
-    
-    # Sposta il QR in modo che:
-    # 1. Il suo centro XY sia allineato con il centro XY del modello base.
-    # 2. La sua Z minima sia allineata a Z_min del modello base (il piatto), più un leggero offset.
-    
-    # [X, Y]: Spostamento al centro del modello
+    # [X, Y]: Spostamento al centro del modello. La mesh QR è centrata a (0, 0)
     translation_x = base_center_x 
     translation_y = base_center_y
     
-    # [Z]: Sposta il QR in Z_min, poi lo inserisce di 0.01 mm nel modello (per "aggrapparsi" alla base)
-    qr_min_z = qr_mesh.bounds[0, 2] # Z minima della mesh QR, che dovrebbe essere 0 dopo l'estrusione
+    # [Z]: Sposta il QR in Z_min, poi lo inserisce di 0.01 mm nel modello (incisione/aggancio)
+    qr_min_z = qr_mesh.bounds[0, 2] 
     translation_z = base_min_z - qr_min_z + 0.01
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
 
     logging.info(f"Mesh QR posizionata e centrata sul modello base a Z={base_min_z:.3f} + 0.01.")
 
-    # 5) Unione delle parti (omesso per brevità, mantenuto originale)
+    # 5) Unione delle parti
     out_parts = [("base_tag", base_model_mesh)]
     if qr_mesh.vertices.size > 0:
         out_parts.append(("qr_module", qr_mesh))
         
-    # 6) Scrivi 3MF via trimesh (omesso per brevità, mantenuto originale)
+    # 6) Scrivi 3MF via trimesh
     write_3mf_with_trimesh(out_parts, output_3mf)
     
     print(f"Output scritto in: {output_3mf}")
+    print("===============")
+
 
 if __name__ == "__main__":
-    # (Mantenuto il tuo codice main originale)
     parser = argparse.ArgumentParser(description="Genera un file 3MF con un QR Code inciso/estruso.")
-    parser.add_argument("--input-3mf", required=True, help="Percorso del modello base 3MF.")
-    parser.add_argument("--output-3mf", required=True, help="Percorso di output per il file 3MF finale.")
-    parser.add_argument("--qr-data", required=True, help="Stringa di dati per il QR Code (es. URL).")
-    parser.add_argument("--qr-size-mm", type=float, default=22.0, help="Dimensione del lato del QR Code in mm.")
-    parser.add_argument("--qr-margin-mm", type=float, default=1.5, help="Margine in mm attorno al QR Code (usato per l'allineamento).")
+    parser.add_argument("--input-3mf", required=True, type=Path)
+    parser.add_argument("--output-3mf", required=True, type=Path)
+    parser.add_argument("--qr-data", required=True, type=str)
+    parser.add_argument("--qr-size-mm", type=float, default=22.0)
+    parser.add_argument("--qr-margin-mm", type=float, default=1.5)
+    parser.add_argument("--flipz", action="store_true", help="Ribalta l'orientamento Z del modello base prima di posizionare il QR.") # <--- AGGIUNTO
     
     args = parser.parse_args()
     
