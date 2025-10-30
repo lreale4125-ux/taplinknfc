@@ -10,6 +10,13 @@
         .table-container { max-height: 400px; overflow-y: auto; }
         .card { background-color: white; border-radius: 0.5rem; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); padding: 1.5rem; }
         body:not(.auth-checked) #controlPanel { display: none; }
+        /* Stile per mostrare l'URL/Selettore in modo leggibile */
+        .url-cell { word-break: break-all; max-width: 250px; white-space: normal; }
+        /* Nasconde il form di modifica selettore */
+        #selectorForm.is-creating .cancel-edit-btn { display: none; }
+        #selectorForm.is-editing .create-btn-text { display: none; }
+        #selectorForm.is-creating .edit-btn-text { display: none; }
+        #selectorForm.is-editing .cancel-edit-btn { display: inline-block; }
     </style>
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
 </head>
@@ -23,11 +30,32 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="space-y-8 lg:col-span-1">
+                
                 <div class="card">
                     <h2 class="text-2xl font-semibold mb-4">Crea Nuovo Link</h2>
                     <form id="createLinkForm" class="space-y-4">
                         <div><label for="linkName" class="text-sm font-medium text-slate-600">Nome Link</label><input type="text" id="linkName" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
-                        <div><label for="linkUrl" class="text-sm font-medium text-slate-600">URL di Destinazione</label><input type="url" id="linkUrl" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                        
+                        <hr class="border-slate-200">
+                        <p class="text-sm font-semibold text-slate-700">Scegli una destinazione:</p>
+                        
+                        <div>
+                            <label for="linkUrl" class="text-sm font-medium text-slate-600">URL di Destinazione (Opzione 1)</label>
+                            <input type="url" id="linkUrl" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="https://...">
+                        </div>
+                        
+                        <div class="flex items-center">
+                            <div class="flex-grow border-t border-slate-300"></div>
+                            <span class="flex-shrink mx-4 text-slate-400 text-xs">OPPURE</span>
+                            <div class="flex-grow border-t border-slate-300"></div>
+                        </div>
+
+                        <div>
+                            <label for="linkSelectorSelect" class="text-sm font-medium text-slate-600">Usa un Selettore (Opzione 2)</label>
+                            <select id="linkSelectorSelect" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
+                        </div>
+                        <hr class="border-slate-200">
+
                         <div><label for="linkCompanySelect" class="text-sm font-medium text-slate-600">Assegna a Azienda</label><select id="linkCompanySelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select></div>
                         <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">Crea Link</button>
                     </form>
@@ -35,73 +63,103 @@
                 </div>
 
                 <div class="card">
-                    <h2 class="text-2xl font-semibold mb-4">Gestisci Saldo TAP</h2>
-                    <form id="balanceActionsForm" class="space-y-4">
-                        <div>
-                            <label for="balanceUserSelect" class="text-sm font-medium text-slate-600">Seleziona Utente</label>
-                            <select id="balanceUserSelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
-                        </div>
-                        <div class="flex items-center space-x-4">
-                            <label class="flex items-center">
-                                <input type="radio" name="balance_operation" value="add" class="text-indigo-600 focus:ring-indigo-500" checked>
-                                <span class="ml-2 text-sm">Ricarica</span>
-                            </label>
-                            <label class="flex items-center">
-                                <input type="radio" name="balance_operation" value="subtract" class="text-indigo-600 focus:ring-indigo-500">
-                                <span class="ml-2 text-sm">Sottrai</span>
-                            </label>
-                        </div>
-                        <div>
-                            <label for="balanceAmount" class="text-sm font-medium text-slate-600">Importo TAP</label>
-                            <input type="number" id="balanceAmount" step="0.01" min="0.01" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md">
-                        </div>
-                        <div>
-                            <label for="balanceDescription" class="text-sm font-medium text-slate-600">Descrizione</label>
-                            <input type="text" id="balanceDescription" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Es: Storno, Ricarica manuale...">
-                        </div>
-                        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">Esegui Operazione</button>
-                    </form>
-                    <div class="border-t border-slate-200 mt-6 pt-4">
-                        <button id="zeroBalanceBtn" class="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">Azzera Saldo Utente Selezionato</button>
-                    </div>
-                    <p id="balanceMessage" class="mt-4 text-center text-sm"></p>
-                </div>
-
-                <div class="card">
-                    <h2 class="text-2xl font-semibold mb-4">Genera QR Code Motivazionale</h2>
+                    <h2 class="text-2xl font-semibold mb-4">Genera QR Code per Link</h2>
                     <form id="generateQrForm" class="space-y-4">
                         <div>
-                            <label for="keychainId" class="text-sm font-medium text-slate-600">ID univoco (es. 001, Ospite)</label>
-                            <input type="text" id="keychainId" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Inserisci l'ID">
+                            <label for="qrLinkSelect" class="text-sm font-medium text-slate-600">1. Seleziona Link Redirect</label>
+                            <select id="qrLinkSelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
                         </div>
-                        <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700">Genera QR e Salva</button>
+                        <div>
+                            <label for="keychainId" class="text-sm font-medium text-slate-600">2. ID Univoco per QR (es. 001, Ospite)</label>
+                            <input type="text" id="keychainId" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Inserisci l'ID (univoco)">
+                        </div>
+                        <button type="submit" class="w-full py-2 px-4 bg-purple-600 text-white font-semibold rounded-md hover:bg-purple-700">Genera QR e Associa al Link</button>
                     </form>
                     <div id="qrOutput" class="mt-4 text-center">
                         <img id="qrImage" class="mx-auto my-4 border border-slate-300 hidden" alt="QR Code Generato" style="max-width: 150px;">
                         <div id="downloadButtons" class="flex justify-center space-x-2 my-4 hidden">
                         </div>
-                        <p id="qrMessage" class="text-sm text-slate-600">Inserisci un ID per generare il codice.</p>
+                        <p id="qrMessage" class="text-sm text-slate-600 break-words">Seleziona un link e inserisci un ID per associargli un QR code.</p>
                     </div>
                 </div>
+
+                <div class="card">
+                    <h2 class="text-2xl font-semibold mb-4">Gestisci Selettori</h2>
+                    
+                    <form id="selectorForm" class="space-y-4 mb-4 border border-blue-200 p-4 rounded-md bg-blue-50 is-creating">
+                        <input type="hidden" id="selectorId">
+                        <h3 class="text-lg font-semibold" id="selectorFormTitle">Crea Nuovo Selettore</h3>
+                        <div><label for="selectorName" class="text-sm font-medium text-slate-600">Nome Selettore</label><input type="text" id="selectorName" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                        <div><label for="selectorUrl" class="text-sm font-medium text-slate-600">URL Reindirizzamento</label><input type="url" id="selectorUrl" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="https://..."></div>
+                        <div class="flex space-x-2">
+                            <button type="submit" class="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md hover:bg-blue-700">
+                                <span class="create-btn-text">Crea Selettore</span>
+                                <span class="edit-btn-text">Salva Modifiche</span>
+                            </button>
+                            <button type="button" id="cancelSelectorEditBtn" class="w-1/3 py-2 px-4 bg-slate-400 text-white font-semibold rounded-md hover:bg-slate-500 cancel-edit-btn">Annulla</button>
+                        </div>
+                    </form>
+                    <div id="selectorMessage" class="mt-4 text-center text-sm break-words"></div>
+
+                    <h3 class="text-lg font-semibold mb-3 mt-4">Lista Selettori</h3>
+                    <div class="table-container border rounded-md">
+                        <table class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50 sticky top-0">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azioni</th>
+                                </tr>
+                            </thead>
+                            <tbody id="selectorsListBody" class="bg-white divide-y divide-slate-200"></tbody>
+                        </table>
+                    </div>
                 </div>
 
-            <div class="space-y-8 lg:col-span-2">
                 <div class="card">
-                    <h2 class="text-2xl font-semibold mb-4">Tutti i Link Creati</h2>
+                    <h2 class="text-2xl font-semibold mb-4">Gestisci Saldo TAP</h2>
+                    <form id="balanceActionsForm" class="space-y-4">
+                        <div><label for="balanceUserSelect" class="text-sm font-medium text-slate-600">Seleziona Utente</label><select id="balanceUserSelect" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select></div>
+                        <div class="flex items-center space-x-4">
+                            <label class="flex items-center"><input type="radio" name="balance_operation" value="add" class="text-indigo-600 focus:ring-indigo-500" checked><span class="ml-2 text-sm">Ricarica</span></label>
+                            <label class="flex items-center"><input type="radio" name="balance_operation" value="subtract" class="text-indigo-600 focus:ring-indigo-500"><span class="ml-2 text-sm">Sottrai</span></label>
+                        </div>
+                        <div><label for="balanceAmount" class="text-sm font-medium text-slate-600">Importo TAP</label><input type="number" id="balanceAmount" step="0.01" min="0.01" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></div>
+                        <div><label for="balanceDescription" class="text-sm font-medium text-slate-600">Descrizione</label><input type="text" id="balanceDescription" required class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md" placeholder="Es: Storno, Ricarica manuale..."></div>
+                        <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700">Esegui Operazione</button>
+                    </form>
+                    <div class="border-t border-slate-200 mt-6 pt-4"><button id="zeroBalanceBtn" class="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-md hover:bg-red-700">Azzera Saldo Utente Selezionato</button></div>
+                    <p id="balanceMessage" class="mt-4 text-center text-sm"></p>
+                </div>
+            </div>
+
+            <div class="space-y-8 lg:col-span-2">
+                
+                <div class="card">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold">Gestione Link e QR Code</h2>
+                        <div>
+                            <label for="linkFilterSelector" class="text-sm font-medium text-slate-600">Filtra per Selettore:</label>
+                            <select id="linkFilterSelector" class="px-4 py-2 mt-1 border border-slate-300 rounded-md">
+                                <option value="">Mostra tutti</option>
+                            </select>
+                        </div>
+                    </div>
                     <div class="table-container border rounded-md">
                         <table class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50 sticky top-0">
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">ID</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Nome</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">URL</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Destinazione (URL/Selettore)</th>
                                     <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azienda</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">QR Code</th>
                                 </tr>
                             </thead>
                             <tbody id="allLinksListBody" class="bg-white divide-y divide-slate-200"></tbody>
                         </table>
                     </div>
                 </div> 
+
                 <div class="card">
                     <h2 class="text-2xl font-semibold mb-4">Gestisci Utenti</h2>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -115,26 +173,14 @@
                                 <div>
                                     <label class="text-sm font-medium text-slate-600">Permessi Utente</label>
                                     <div class="mt-2 space-y-2">
-                                        <label class="flex items-center">
-                                            <input type="checkbox" id="perm-wallet" class="rounded text-indigo-600 focus:ring-indigo-500" checked>
-                                            <span class="ml-2 text-sm">Accesso Wallet (Cliente)</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="checkbox" id="perm-analytics" class="rounded text-indigo-600 focus:ring-indigo-500">
-                                            <span class="ml-2 text-sm">Accesso Analytics (Business)</span>
-                                        </label>
-                                        <label class="flex items-center">
-                                            <input type="checkbox" id="perm-pos" class="rounded text-indigo-600 focus:ring-indigo-500">
-                                            <span class="ml-2 text-sm">Accesso POS (Venditore)</span>
-                                        </label>
+                                        <label class="flex items-center"><input type="checkbox" id="perm-wallet" class="rounded text-indigo-600 focus:ring-indigo-500" checked><span class="ml-2 text-sm">Accesso Wallet (Cliente)</span></label>
+                                        <label class="flex items-center"><input type="checkbox" id="perm-analytics" class="rounded text-indigo-600 focus:ring-indigo-500"><span class="ml-2 text-sm">Accesso Analytics (Business)</span></label>
+                                        <label class="flex items-center"><input type="checkbox" id="perm-pos" class="rounded text-indigo-600 focus:ring-indigo-500"><span class="ml-2 text-sm">Accesso POS (Venditore)</span></label>
                                     </div>
                                 </div>
-                                
                                 <div id="company-selection-div" class="hidden">
-                                    <label for="userCompanySelect" class="text-sm font-medium text-slate-600">Azienda (obbligatorio per Analytics)</label>
-                                    <select id="userCompanySelect" class="w-full px-4 py-2 mt-1 border border-slate-300 rounded-md"></select>
-                                </div>
-                                
+                                    <label for="userCompanySelectAnalytics" class="text-sm font-medium text-slate-600">Azienda (obbligatorio per Analytics)</label>
+                                    </div>
                                 <input type="hidden" id="newUserRole" value="user">
                                 <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-md hover:bg-green-700">Crea Utente</button>
                             </form>
@@ -145,8 +191,7 @@
                             <div class="table-container border rounded-md">
                                 <table class="min-w-full divide-y divide-slate-200">
                                     <thead class="bg-slate-50 sticky top-0">
-                                        <tr>
-                                            </tr>
+                                        <tr></tr>
                                     </thead>
                                     <tbody id="userListBody" class="bg-white divide-y divide-slate-200"></tbody>
                                 </table>
@@ -173,349 +218,600 @@
                         </div>
                     </div>
                 </div>
-
-            </div> </div>
+            </div>
+        </div>
     </div>
     
     <script>
-       // Selettori elementi DOM (versione pulita)
-        const downloadButtonsDiv = document.getElementById('downloadButtons');
-        const generateQrForm = document.getElementById('generateQrForm');
-        const keychainIdInput = document.getElementById('keychainId');
-        const qrImage = document.getElementById('qrImage');
-        const qrMessage = document.getElementById('qrMessage');
-       const logoutButton = document.getElementById('logoutButton');
-        const createLinkForm = document.getElementById('createLinkForm');
-        const createLinkMessage = document.getElementById('createLinkMessage');
-        const linkCompanySelect = document.getElementById('linkCompanySelect');
-        const allLinksListBody = document.getElementById('allLinksListBody');
-        const createUserForm = document.getElementById('createUserForm');
-        const createUserMessage = document.getElementById('createUserMessage');
-        const userCompanySelect = document.getElementById('userCompanySelect');
-        const userListBody = document.getElementById('userListBody');
-        const createCompanyForm = document.getElementById('createCompanyForm');
-        const createCompanyMessage = document.getElementById('createCompanyMessage');
-        const companyList = document.getElementById('companyList');
-        const balanceActionsForm = document.getElementById('balanceActionsForm');
-        const balanceUserSelect = document.getElementById('balanceUserSelect');
-        const zeroBalanceBtn = document.getElementById('zeroBalanceBtn');
-        const balanceMessage = document.getElementById('balanceMessage');
-        const permAnalyticsCheckbox = document.getElementById('perm-analytics');
-        const companySelectionDiv = document.getElementById('company-selection-div');
+    // ===================================================================
+    // SELETTORI DOM (AGGIUNTI I NUOVI)
+    // ===================================================================
+    const logoutButton = document.getElementById('logoutButton');
+    
+    // Form Creazione Link
+    const createLinkForm = document.getElementById('createLinkForm');
+    const createLinkMessage = document.getElementById('createLinkMessage');
+    const linkNameInput = document.getElementById('linkName');
+    const linkUrlInput = document.getElementById('linkUrl');
+    const linkSelectorSelect = document.getElementById('linkSelectorSelect');
+    const linkCompanySelect = document.getElementById('linkCompanySelect');
+    
+    // Gestione Link e QR
+    const allLinksListBody = document.getElementById('allLinksListBody');
+    const linkFilterSelector = document.getElementById('linkFilterSelector');
+    
+    // Form Generazione QR
+    const generateQrForm = document.getElementById('generateQrForm');
+    const qrLinkSelect = document.getElementById('qrLinkSelect');
+    const keychainIdInput = document.getElementById('keychainId');
+    const qrImage = document.getElementById('qrImage');
+    const downloadButtonsDiv = document.getElementById('downloadButtons');
+    const qrMessage = document.getElementById('qrMessage');
+    
+    // Gestione Selettori
+    const selectorForm = document.getElementById('selectorForm');
+    const selectorFormTitle = document.getElementById('selectorFormTitle');
+    const selectorIdInput = document.getElementById('selectorId');
+    const selectorNameInput = document.getElementById('selectorName');
+    const selectorUrlInput = document.getElementById('selectorUrl');
+    const cancelSelectorEditBtn = document.getElementById('cancelSelectorEditBtn');
+    const selectorsListBody = document.getElementById('selectorsListBody');
+    const selectorMessage = document.getElementById('selectorMessage');
 
-        const API_BASE_URL = '';
+    // Gestione Utenti
+    const createUserForm = document.getElementById('createUserForm');
+    const createUserMessage = document.getElementById('createUserMessage');
+    const userCompanySelect = document.getElementById('userCompanySelect');
+    const userListBody = document.getElementById('userListBody');
+    const permAnalyticsCheckbox = document.getElementById('perm-analytics');
+    const companySelectionDiv = document.getElementById('company-selection-div');
+
+    // Gestione Aziende
+    const createCompanyForm = document.getElementById('createCompanyForm');
+    const createCompanyMessage = document.getElementById('createCompanyMessage');
+    const companyList = document.getElementById('companyList');
     
-        permAnalyticsCheckbox.addEventListener('change', () => {
-            companySelectionDiv.classList.toggle('hidden', !permAnalyticsCheckbox.checked);
-        }); 
-        // Funzioni API
-        async function apiFetch(endpoint, options = {}) {
-            const token = localStorage.getItem('authToken');
-            if (!token) { window.location.href = './index.html'; return; }
-            const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers };
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
-            if (response.status === 401 || response.status === 403) {
-                localStorage.clear();
-                window.location.href = './index.html';
-                throw new Error('Non autorizzato');
-            }
-            if (!response.ok) {
-                const data = await response.json().catch(() => ({ error: `Errore HTTP ${response.status}` }));
-                throw new Error(data.error || `Errore ${response.status}`);
-            }
-            return response.status === 204 ? null : response.json();
-        }
-    
-        // Autenticazione
-        document.addEventListener('DOMContentLoaded', () => {
-            const user = JSON.parse(localStorage.getItem('userData'));
-            if (!user || user.role !== 'admin') {
-                localStorage.clear();
-                window.location.href = './index.html';
-            } else {
-                document.body.classList.add('auth-checked');
-                loadDashboardData();
-            }
-        });
-    
-        logoutButton.addEventListener('click', () => {
+    // Gestione Saldo
+    const balanceActionsForm = document.getElementById('balanceActionsForm');
+    const balanceUserSelect = document.getElementById('balanceUserSelect');
+    const zeroBalanceBtn = document.getElementById('zeroBalanceBtn');
+    const balanceMessage = document.getElementById('balanceMessage');
+
+    const API_BASE_URL = '';
+    let allLinksData = []; // Cache per i link per il filtraggio
+
+    // ===================================================================
+    // FUNZIONE API FETCH (ORIGINALE)
+    // ===================================================================
+    async function apiFetch(endpoint, options = {}) {
+        const token = localStorage.getItem('authToken');
+        if (!token) { window.location.href = './index.html'; return; }
+        const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...options.headers };
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+        if (response.status === 401 || response.status === 403) {
             localStorage.clear();
             window.location.href = './index.html';
-        });
-    
-        // Caricamento dati
-        async function loadDashboardData() {
-            try {
-                const [companies, users, links] = await Promise.all([
-                    apiFetch('/api/admin/companies'),
-                    apiFetch('/api/admin/users'),
-                    apiFetch('/api/admin/links')
-                ]);
-                populateCompanies(companies);
-                populateUsers(users);
-                displayCompanies(companies);
-                displayUsers(users);
-                displayAllLinks(links);
-            } catch (error) {
-                if (error.message !== 'Non autorizzato') {
-                    alert(`Impossibile caricare i dati: ${error.message}`);
-                }
+            throw new Error('Non autorizzato');
+        }
+        if (!response.ok) {
+            const data = await response.json().catch(() => ({ error: `Errore HTTP ${response.status}` }));
+            throw new Error(data.error || `Errore ${response.status}`);
+        }
+        return response.status === 204 ? null : response.json();
+    }
+
+    // ===================================================================
+    // AUTENTICAZIONE E CARICAMENTO DATI (MODIFICATO)
+    // ===================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+        const user = JSON.parse(localStorage.getItem('userData'));
+        if (!user || user.role !== 'admin') {
+            localStorage.clear();
+            window.location.href = './index.html';
+        } else {
+            document.body.classList.add('auth-checked');
+            loadDashboardData();
+        }
+    });
+
+    logoutButton.addEventListener('click', () => {
+        localStorage.clear();
+        window.location.href = './index.html';
+    });
+
+    // Funzione di caricamento principale (MODIFICATA)
+    async function loadDashboardData() {
+        try {
+            // Aggiunto /selectors e /links-with-qr
+            const [companies, users, selectors, links] = await Promise.all([
+                apiFetch('/api/admin/companies'),
+                apiFetch('/api/admin/users'),
+                apiFetch('/api/admin/selectors'),
+                apiFetch('/api/admin/links-with-qr') // Nuovo endpoint
+            ]);
+            
+            // Popolamento
+            populateCompanies(companies);
+            populateUsers(users);
+            populateSelectors(selectors);
+            populateLinksForQrForm(links); // Popola il form QR
+
+            // Display
+            displayCompanies(companies);
+            displayUsers(users);
+            displaySelectors(selectors);
+            allLinksData = links; // Salva in cache
+            displayAllLinks(links); // Mostra tutti i link inizialmente
+
+        } catch (error) {
+            if (error.message !== 'Non autorizzato') {
+                alert(`Impossibile caricare i dati: ${error.message}`);
             }
         }
+    }
+
+    // ===================================================================
+    // FUNZIONI DI POPOLAMENTO (MODIFICATE/NUOVE)
+    // ===================================================================
     
-        // Funzioni di popolamento
-        function populateCompanies(companies) {
-            [linkCompanySelect, userCompanySelect].forEach(select => {
-                select.innerHTML = '<option value="">Seleziona azienda</option>';
-                companies.forEach(c => select.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+    // Popola i <select> delle aziende (Originale)
+    function populateCompanies(companies) {
+        [linkCompanySelect, userCompanySelect].forEach(select => {
+            select.innerHTML = '<option value="">Seleziona azienda</option>';
+            companies.forEach(c => select.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        });
+    }
+
+    // Popola il <select> degli utenti per il saldo (Originale)
+    function populateUsers(users) {
+        balanceUserSelect.innerHTML = '<option value="">Seleziona utente</option>';
+        users.forEach(u => {
+            balanceUserSelect.innerHTML += `<option value="${u.id}">${u.username} (${u.email})</option>`;
+        });
+    }
+
+    // Popola i <select> dei selettori (NUOVA)
+    function populateSelectors(selectors) {
+        const selects = [linkSelectorSelect, linkFilterSelector];
+        selects.forEach(select => {
+            const currentValue = select.value;
+            select.innerHTML = `<option value="">${select.id === 'linkFilterSelector' ? 'Mostra tutti' : 'Nessun selettore'}</option>`;
+            selectors.forEach(s => {
+                select.innerHTML += `<option value="${s.id}">${s.name} (-> ${s.redirect_url})</option>`;
             });
-        }
-    
-        // --- CORREZIONE: Rimossa la funzione 'populateUsers' duplicata ---
-        function populateUsers(users) {
-            balanceUserSelect.innerHTML = '<option value="">Seleziona utente</option>';
-            users.forEach(u => {
-                balanceUserSelect.innerHTML += `<option value="${u.id}">${u.username} (${u.email})</option>`;
-            });
-        }
-    
-        function displayCompanies(companies) {
-            companyList.innerHTML = companies.length ? companies.map(c => `<div class="text-sm text-slate-700">• ${c.name}</div>`).join('') : '<p class="text-sm text-slate-500">Nessuna azienda.</p>';
-        }
-    
-        function displayUsers(users) {
-            userListBody.innerHTML = '';
-            const userTableHead = document.querySelector('#userListBody').parentNode.querySelector('thead tr');
-            userTableHead.innerHTML = `
-                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Utente</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Permessi</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azienda</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Saldo TAP</th>
-                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azioni</th>
+            select.value = currentValue; // Mantiene il filtro selezionato
+        });
+    }
+
+    // Popola il <select> del form QR (NUOVA)
+    function populateLinksForQrForm(links) {
+        qrLinkSelect.innerHTML = '<option value="">Seleziona un link...</option>';
+        links.forEach(link => {
+            // Mostra solo link che non hanno ancora un QR code
+            if (!link.has_qr_code) {
+                qrLinkSelect.innerHTML += `<option value="${link.id}">${link.id}: ${link.name}</option>`;
+            }
+        });
+    }
+
+    // ===================================================================
+    // FUNZIONI DI VISUALIZZAZIONE (MODIFICATE/NUOVE)
+    // ===================================================================
+
+    // Visualizza lista aziende (Originale)
+    function displayCompanies(companies) {
+        companyList.innerHTML = companies.length ? companies.map(c => `<div class="text-sm text-slate-700">• ${c.name}</div>`).join('') : '<p class="text-sm text-slate-500">Nessuna azienda.</p>';
+    }
+
+    // Visualizza lista utenti (Originale)
+    function displayUsers(users) {
+        userListBody.innerHTML = '';
+        const userTableHead = document.querySelector('#userListBody').parentNode.querySelector('thead tr');
+        userTableHead.innerHTML = `
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Utente</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Permessi</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azienda</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Saldo TAP</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Azioni</th>
+        `;
+
+        users.forEach(user => {
+            if (user.role === 'admin') return;
+            const tr = document.createElement('tr');
+            const deleteButton = `<button class="text-red-600 hover:text-red-800 font-semibold delete-user-btn" data-user-id="${user.id}" data-user-name="${user.username}">Elimina</button>`;
+            let permissionsBadges = '';
+            if (user.can_access_wallet) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-blue-100 text-blue-800">Wallet</span>`;
+            if (user.can_access_analytics) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-purple-100 text-purple-800">Analytics</span>`;
+            if (user.can_access_pos) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-green-100 text-green-800">POS</span>`;
+
+            tr.innerHTML = `
+                <td class="px-4 py-3 text-sm"><div class="font-medium text-slate-700">${user.username}</div><div class="text-slate-500">${user.email}</div></td>
+                <td class="px-4 py-3 text-sm">${permissionsBadges}</td>
+                <td class="px-4 py-3 text-sm">${user.company_name || 'N/D'}</td>
+                <td class="px-4 py-3 text-sm font-semibold text-emerald-600">${parseFloat(user.balance_tap || 0).toFixed(2)} TAP</td>
+                <td class="px-4 py-3 text-sm">${deleteButton}</td>
             `;
+            userListBody.appendChild(tr);
+        });
+    }
 
-            users.forEach(user => {
-                if (user.role === 'admin') return; // Non mostriamo l'admin in questa lista modificabile
-                const tr = document.createElement('tr');
-                const deleteButton = `<button class="text-red-600 hover:text-red-800 font-semibold delete-user-btn" data-user-id="${user.id}" data-user-name="${user.username}">Elimina</button>`;
-                
-                // Crea i badge per i permessi
-                let permissionsBadges = '';
-                if (user.can_access_wallet) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-blue-100 text-blue-800">Wallet</span>`;
-                if (user.can_access_analytics) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-purple-100 text-purple-800">Analytics</span>`;
-                if (user.can_access_pos) permissionsBadges += `<span class="text-xs font-semibold mr-1 px-2 py-1 rounded-full bg-green-100 text-green-800">POS</span>`;
+    // Visualizza lista link (MODIFICATA)
+    function displayAllLinks(links) {
+        allLinksListBody.innerHTML = '';
+        if (links.length === 0) {
+            allLinksListBody.innerHTML = '<tr><td colspan="5" class="text-center text-slate-500 py-4">Nessun link trovato.</td></tr>';
+            return;
+        }
+        links.forEach(link => {
+            const tr = document.createElement('tr');
+            
+            // Colonna URL/Destinazione
+            let destinationHtml = '';
+            if (link.selector_name) {
+                destinationHtml = `<span class="font-semibold text-blue-600">Selettore:</span> ${link.selector_name}`;
+            } else {
+                destinationHtml = `<a href="${link.url}" target="_blank" class="text-slate-500 hover:text-indigo-600">${link.url}</a>`;
+            }
 
-                tr.innerHTML = `
-                    <td class="px-4 py-3 text-sm"><div class="font-medium text-slate-700">${user.username}</div><div class="text-slate-500">${user.email}</div></td>
-                    <td class="px-4 py-3 text-sm">${permissionsBadges}</td>
-                    <td class="px-4 py-3 text-sm">${user.company_name || 'N/D'}</td>
-                    <td class="px-4 py-3 text-sm font-semibold text-emerald-600">${parseFloat(user.balance_tap || 0).toFixed(2)} TAP</td>
-                    <td class="px-4 py-3 text-sm">${deleteButton}</td>
-                `;
-                userListBody.appendChild(tr);
-            });
+            // Colonna QR Code
+            let qrHtml = '';
+            if (link.has_qr_code && link.keychain_id) {
+                qrHtml = `<a href="${API_BASE_URL}/qrcodes/qr_png/${link.keychain_id}.png" download="${link.keychain_id}.png" 
+                             class="px-3 py-1 text-sm bg-green-600 text-white font-semibold rounded-md hover:bg-green-700">
+                             Scarica
+                          </a>`;
+            } else {
+                qrHtml = `<span class="text-xs text-slate-400">Non associato</span>`;
+            }
+
+            tr.innerHTML = `
+                <td class="px-4 py-3 text-sm font-bold text-slate-700">${link.id}</td>
+                <td class="px-4 py-3 text-sm text-slate-700">${link.name}</td>
+                <td class="px-4 py-3 text-sm url-cell">${destinationHtml}</td>
+                <td class="px-4 py-3 text-sm text-slate-500">${link.company_name || 'N/D'}</td>
+                <td class="px-4 py-3 text-sm">${qrHtml}</td>
+            `;
+            allLinksListBody.appendChild(tr);
+        });
+    }
+
+    // Visualizza lista selettori (NUOVA)
+    function displaySelectors(selectors) {
+        selectorsListBody.innerHTML = '';
+        if (selectors.length === 0) {
+            selectorsListBody.innerHTML = '<tr><td colspan="2" class="text-center text-slate-500 py-4">Nessun selettore creato.</td></tr>';
+            return;
+        }
+        selectors.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-4 py-3 text-sm">
+                    <div class="font-medium text-slate-700">${s.name}</div>
+                    <div class="text-slate-500 text-xs url-cell">${s.redirect_url}</div>
+                </td>
+                <td class="px-4 py-3 text-sm space-x-2">
+                    <button class="text-blue-600 hover:text-blue-800 font-semibold edit-selector-btn" data-id="${s.id}" data-name="${s.name}" data-url="${s.redirect_url}">Modifica</button>
+                    <button class="text-red-600 hover:text-red-800 font-semibold delete-selector-btn" data-id="${s.id}" data-name="${s.name}">Elimina</button>
+                </td>
+            `;
+            selectorsListBody.appendChild(tr);
+        });
+    }
+
+
+    // ===================================================================
+    // GESTORI EVENTI (MODIFICATI/NUOVI)
+    // ===================================================================
+
+    // Filtro link per selettore (NUOVO)
+    linkFilterSelector.addEventListener('change', () => {
+        const selectorId = linkFilterSelector.value;
+        if (!selectorId) {
+            displayAllLinks(allLinksData); // Mostra tutti
+        } else {
+            const filteredLinks = allLinksData.filter(link => link.selector_id == selectorId);
+            displayAllLinks(filteredLinks);
+        }
+    });
+
+    // Gestione Creazione/Modifica Selettori (NUOVO)
+    selectorForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        selectorMessage.textContent = '';
+        const id = selectorIdInput.value;
+        const selectorData = {
+            name: selectorNameInput.value,
+            redirect_url: selectorUrlInput.value,
+            description: "" // Aggiungi campo descrizione se vuoi
+        };
+
+        try {
+            if (id) {
+                // Modalità Modifica
+                await apiFetch(`/api/admin/selectors/${id}`, { method: 'PUT', body: JSON.stringify(selectorData) });
+                selectorMessage.textContent = 'Selettore aggiornato!';
+            } else {
+                // Modalità Creazione
+                await apiFetch('/api/admin/selectors', { method: 'POST', body: JSON.stringify(selectorData) });
+                selectorMessage.textContent = 'Selettore creato!';
+            }
+            selectorMessage.className = 'mt-4 text-center text-sm text-green-600';
+            resetSelectorForm();
+            loadDashboardData(); // Ricarica tutto
+        } catch (error) {
+            selectorMessage.textContent = `Errore: ${error.message}`;
+            selectorMessage.className = 'mt-4 text-center text-sm text-red-600';
+        }
+    });
+
+    // Click sulla lista selettori (Edit/Delete) (NUOVO)
+    selectorsListBody.addEventListener('click', async e => {
+        if (e.target.matches('.edit-selector-btn')) {
+            const btn = e.target;
+            selectorForm.classList.remove('is-creating');
+            selectorForm.classList.add('is-editing');
+            selectorFormTitle.textContent = 'Modifica Selettore';
+            selectorIdInput.value = btn.dataset.id;
+            selectorNameInput.value = btn.dataset.name;
+            selectorUrlInput.value = btn.dataset.url;
+            selectorForm.scrollIntoView({ behavior: 'smooth' });
         }
 
-    
-        function displayAllLinks(links) {
-            allLinksListBody.innerHTML = '';
-            if (links.length === 0) {
-                allLinksListBody.innerHTML = '<tr><td colspan="4" class="text-center text-slate-500 py-4">Nessun link creato.</td></tr>';
-                return;
-            }
-            links.forEach(link => {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td class="px-4 py-3 text-sm font-bold text-slate-700">${link.id}</td>
-                    <td class="px-4 py-3 text-sm text-slate-700">${link.name}</td>
-                    <td class="px-4 py-3 text-sm text-slate-500 truncate" style="max-width: 150px;" title="${link.url}">${link.url}</td>
-                    <td class="px-4 py-3 text-sm text-slate-500">${link.company_name || 'N/D'}</td>
-                `;
-                allLinksListBody.appendChild(tr);
-            });
-        }
-    
-        // Gestori eventi
-        createLinkForm.addEventListener('submit', async e => {
-            e.preventDefault();
-            createLinkMessage.textContent = '';
-            try {
-                const linkData = { name: document.getElementById('linkName').value, url: document.getElementById('linkUrl').value, company_id: linkCompanySelect.value };
-                const data = await apiFetch('/api/admin/links', { method: 'POST', body: JSON.stringify(linkData) });
-                const redirectUrl = `${window.location.protocol}//${window.location.host}/r/${data.id}`;
-                createLinkMessage.innerHTML = `Link creato! <br><strong>URL:</strong> <a href="${redirectUrl}" target="_blank" class="text-indigo-600 hover:underline">${redirectUrl}</a>`;
-                createLinkForm.reset();
-                loadDashboardData();
-            } catch (error) {
-                createLinkMessage.textContent = `Errore: ${error.message}`;
-            }
-        });
-    
-        // --- CORREZIONE: Rimossa la dichiarazione duplicata di 'createUserForm.addEventListener' ---
-        // SOSTITUISCI il tuo event listener di createUserForm
-        createUserForm.addEventListener('submit', async e => {
-            e.preventDefault();
-            createUserMessage.textContent = '';
-            try {
-                const hasAnalytics = document.getElementById('perm-analytics').checked;
-                const companyIdValue = userCompanySelect.value;
-
-                const userData = {
-                    username: document.getElementById('newUsername').value, 
-                    email: document.getElementById('newUserEmail').value, 
-                    password: document.getElementById('newUserPassword').value,
-                    role: 'user',
-                    company_id: (hasAnalytics && companyIdValue) ? parseInt(companyIdValue, 10) : null,
-                    can_access_wallet: document.getElementById('perm-wallet').checked,
-                    can_access_analytics: hasAnalytics,
-                    can_access_pos: document.getElementById('perm-pos').checked
-                };
-                
-                await apiFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(userData) });
-                createUserMessage.textContent = `Utente "${userData.username}" creato!`;
-                createUserMessage.className = 'mt-4 text-center text-sm text-green-600';
-                createUserForm.reset();
-                companySelectionDiv.classList.add('hidden'); // Nascondi di nuovo il campo azienda
-                loadDashboardData();
-            } catch (error) {
-                createUserMessage.textContent = `Errore: ${error.message}`;
-                createUserMessage.className = 'mt-4 text-center text-sm text-red-600';
-            }
-        });
-    
-        createCompanyForm.addEventListener('submit', async e => {
-            e.preventDefault();
-            createCompanyMessage.textContent = '';
-            try {
-                const companyData = { name: document.getElementById('companyName').value, description: document.getElementById('companyDescription').value };
-                await apiFetch('/api/admin/companies', { method: 'POST', body: JSON.stringify(companyData) });
-                createCompanyMessage.textContent = `Azienda "${companyData.name}" creata!`;
-                createCompanyMessage.className = 'text-center text-sm text-green-600';
-                createCompanyForm.reset();
-                loadDashboardData();
-            } catch (error) {
-                createCompanyMessage.textContent = `Errore: ${error.message}`;
-                createCompanyMessage.className = 'text-center text-sm text-red-600';
-            }
-        });
-    
-        userListBody.addEventListener('click', async e => {
-            if (e.target.matches('.delete-user-btn')) {
-                const userId = e.target.dataset.userId;
-                const userName = e.target.dataset.userName;
-                if (confirm(`Sei sicuro di voler eliminare l'utente "${userName}"?`)) {
-                    try {
-                        await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
-                        loadDashboardData();
-                    } catch (error) {
-                        alert(`Errore: ${error.message}`);
-                    }
-                }
-            }
-        });
-    
-        balanceActionsForm.addEventListener('submit', async e => {
-            e.preventDefault();
-            balanceMessage.textContent = '';
-            const userId = balanceUserSelect.value;
-            const amount = parseFloat(document.getElementById('balanceAmount').value);
-            const description = document.getElementById('balanceDescription').value;
-            const operation = document.querySelector('input[name="balance_operation"]:checked').value;
-            if (!userId || !amount || !description) {
-                balanceMessage.textContent = 'Tutti i campi sono obbligatori.';
-                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
-                return;
-            }
-            try {
-                const adjustmentData = { user_id: userId, operation: operation, amount: amount, description: description };
-                await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
-                balanceMessage.textContent = `Operazione (${operation}) di ${amount} TAP avvenuta con successo!`;
-                balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
-                balanceActionsForm.reset();
-                loadDashboardData();
-            } catch (error) {
-                balanceMessage.textContent = `Errore: ${error.message}`;
-                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
-            }
-        });
-    
-        zeroBalanceBtn.addEventListener('click', async () => {
-            balanceMessage.textContent = '';
-            const userId = balanceUserSelect.value;
-            const selectedUserText = balanceUserSelect.options[balanceUserSelect.selectedIndex].text;
-            if (!userId) {
-                balanceMessage.textContent = 'Per favore, seleziona un utente prima di azzerare il saldo.';
-                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
-                return;
-            }
-            if (confirm(`Sei sicuro di voler AZZERARE il saldo di "${selectedUserText}"? L'azione è irreversibile.`)) {
+        if (e.target.matches('.delete-selector-btn')) {
+            const btn = e.target;
+            if (confirm(`Sei sicuro di voler eliminare il selettore "${btn.dataset.name}"? I link associati perderanno il reindirizzamento.`)) {
                 try {
-                    const adjustmentData = { user_id: userId, operation: 'set_zero', description: 'Saldo azzerato da admin' };
-                    await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
-                    balanceMessage.textContent = `Saldo di "${selectedUserText}" azzerato con successo!`;
-                    balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
+                    await apiFetch(`/api/admin/selectors/${btn.dataset.id}`, { method: 'DELETE' });
                     loadDashboardData();
                 } catch (error) {
-                    balanceMessage.textContent = `Errore: ${error.message}`;
-                    balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+                    alert(`Errore: ${error.message}`);
                 }
             }
-        });
-        // --- GESTORE EVENTI: GENERAZIONE QR CODE ---
-        generateQrForm.addEventListener('submit', async e => {
+        }
+    });
+
+    // Annulla modifica selettore (NUOVO)
+    cancelSelectorEditBtn.addEventListener('click', resetSelectorForm);
+
+    function resetSelectorForm() {
+        selectorForm.classList.add('is-creating');
+        selectorForm.classList.remove('is-editing');
+        selectorFormTitle.textContent = 'Crea Nuovo Selettore';
+        selectorIdInput.value = '';
+        selectorForm.reset();
+        selectorMessage.textContent = '';
+    }
+
+    // Gestione input dipendenti per Creazione Link (NUOVO)
+    linkUrlInput.addEventListener('input', () => {
+        if (linkUrlInput.value) {
+            linkSelectorSelect.value = '';
+            linkSelectorSelect.disabled = true;
+        } else {
+            linkSelectorSelect.disabled = false;
+        }
+    });
+    linkSelectorSelect.addEventListener('change', () => {
+        if (linkSelectorSelect.value) {
+            linkUrlInput.value = '';
+            linkUrlInput.disabled = true;
+        } else {
+            linkUrlInput.disabled = false;
+        }
+    });
+
+    // Submit Creazione Link (MODIFICATO)
+    createLinkForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        createLinkMessage.textContent = '';
+        
+        const linkData = { 
+            name: linkNameInput.value, 
+            url: linkUrlInput.value || null, 
+            selector_id: linkSelectorSelect.value || null,
+            company_id: linkCompanySelect.value 
+        };
+
+        // Validazione: o URL o Selettore
+        if (!linkData.url && !linkData.selector_id) {
+            createLinkMessage.textContent = 'Errore: Devi specificare un URL o un Selettore.';
+            createLinkMessage.className = 'mt-4 text-center text-sm text-red-600';
+            return;
+        }
+        // Riattiva i campi per il reset
+        linkUrlInput.disabled = false;
+        linkSelectorSelect.disabled = false;
+
+        try {
+            const data = await apiFetch('/api/admin/links', { method: 'POST', body: JSON.stringify(linkData) });
+            const redirectUrl = `${window.location.protocol}//${window.location.host}/r/${data.id}`;
+            createLinkMessage.innerHTML = `Link creato! <br><strong>URL:</strong> <a href="${redirectUrl}" target="_blank" class="text-indigo-600 hover:underline">${redirectUrl}</a>`;
+            createLinkForm.reset();
+            loadDashboardData();
+        } catch (error) {
+            createLinkMessage.textContent = `Errore: ${error.message}`;
+            createLinkMessage.className = 'mt-4 text-center text-sm text-red-600';
+        }
+    });
+
+    // Submit Generazione QR (MODIFICATO)
+    generateQrForm.addEventListener('submit', async e => {
         e.preventDefault();
         qrMessage.textContent = 'Generazione in corso...';
         qrImage.classList.add('hidden');
-        downloadButtonsDiv.classList.add('hidden'); // Nascondi i pulsanti all'inizio
+        downloadButtonsDiv.classList.add('hidden');
         qrMessage.className = 'text-center text-sm text-indigo-600 mt-4';
         
+        const linkId = qrLinkSelect.value;
         const keychainId = keychainIdInput.value.trim();
-        if (!keychainId) {
-            qrMessage.textContent = 'L\'ID è obbligatorio.';
+        const userId = JSON.parse(localStorage.getItem('userData')).id; // Prendiamo l'ID admin
+
+        if (!linkId || !keychainId) {
+            qrMessage.textContent = 'Link e ID Univoco sono obbligatori.';
             qrMessage.className = 'text-center text-sm text-red-600 mt-4';
             return;
         }
-    
+
         try {
-            // Chiama l'API
-            await apiFetch(`/api/admin/generate-qr/${encodeURIComponent(keychainId)}`, {
-                method: 'POST'
+            // Chiama il NUOVO endpoint per associare E generare
+            const qrData = {
+                link_id: parseInt(linkId, 10),
+                keychain_id: keychainId,
+                user_id: userId
+            };
+            await apiFetch(`/api/admin/create-keychain-qr`, { 
+                method: 'POST',
+                body: JSON.stringify(qrData)
             });
     
             const encodedId = encodeURIComponent(keychainId);
             
             // 1. Aggiorna l'immagine e il messaggio
-            qrImage.src = `${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png?${new Date().getTime()}`; // Ho corretto il percorso PNG in base al tuo file Node.js
+            qrImage.src = `${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png?${new Date().getTime()}`;
             qrImage.classList.remove('hidden');
-            qrMessage.innerHTML = `QR Code generato e salvato correttamente.`;
+            qrMessage.innerHTML = `QR Code generato e associato al Link ID ${linkId}.`;
             qrMessage.className = 'text-center text-sm text-green-600 mt-4 break-words';
             
             // 2. CREAZIONE DEI BOTTONI DI DOWNLOAD
             const buttonsHtml = `
-                <a href="${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png" download="${keychainId}.png" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 transition duration-150">
-                    PNG
-                </a>
-                <a href="${API_BASE_URL}/qrcodes/qr_svg/${encodedId}.svg" download="${keychainId}.svg" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-slate-600 hover:bg-slate-700 transition duration-150">
-                    SVG
-                </a>
-                <a href="${API_BASE_URL}/qrcodes/qr_3mf/${encodedId}.3mf" download="${keychainId}.3mf" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-teal-600 hover:bg-teal-700 transition duration-150">
-                    3MF
-                </a>
+                <a href="${API_BASE_URL}/qrcodes/qr_png/${encodedId}.png" download="${keychainId}.png" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-indigo-600 hover:bg-indigo-700 transition duration-150">PNG</a>
+                <a href="${API_BASE_URL}/qrcodes/qr_svg/${encodedId}.svg" download="${keychainId}.svg" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-slate-600 hover:bg-slate-700 transition duration-150">SVG</a>
+                <a href="${API_BASE_URL}/qrcodes/qr_3mf/${encodedId}.3mf" download="${keychainId}.3mf" class="px-3 py-2 text-white text-sm font-semibold rounded-md bg-teal-600 hover:bg-teal-700 transition duration-150">3MF</a>
             `;
             
             downloadButtonsDiv.innerHTML = buttonsHtml;
-            downloadButtonsDiv.classList.remove('hidden'); // Rendi visibili i bottoni
-    
-            // Pulisci l'input
-            keychainIdInput.value = '';
+            downloadButtonsDiv.classList.remove('hidden');
+            
+            // Pulisci il form e ricarica i dati (per aggiornare la tabella link)
+            generateQrForm.reset();
+            loadDashboardData();
     
         } catch (error) {
             qrMessage.textContent = `Errore: ${error.message}`;
             qrMessage.className = 'text-center text-sm text-red-600 mt-4';
-            qrImage.classList.add('hidden');
-            downloadButtonsDiv.classList.add('hidden'); // Nascondi i bottoni in caso di errore
         }
     });
+
+    // ===================================================================
+    // GESTORI EVENTI ORIGINALI (NON MODIFICATI)
+    // ===================================================================
+
+    // Gestore Creazione Utente
+    permAnalyticsCheckbox.addEventListener('change', () => {
+        companySelectionDiv.classList.toggle('hidden', !permAnalyticsCheckbox.checked);
+    }); 
+    createUserForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        createUserMessage.textContent = '';
+        try {
+            const hasAnalytics = document.getElementById('perm-analytics').checked;
+            const companyIdValue = userCompanySelect.value;
+            const userData = {
+                username: document.getElementById('newUsername').value, 
+                email: document.getElementById('newUserEmail').value, 
+                password: document.getElementById('newUserPassword').value,
+                role: 'user',
+                company_id: (hasAnalytics && companyIdValue) ? parseInt(companyIdValue, 10) : null,
+                can_access_wallet: document.getElementById('perm-wallet').checked,
+                can_access_analytics: hasAnalytics,
+                can_access_pos: document.getElementById('perm-pos').checked
+            };
+            
+            await apiFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(userData) });
+            createUserMessage.textContent = `Utente "${userData.username}" creato!`;
+            createUserMessage.className = 'mt-4 text-center text-sm text-green-600';
+            createUserForm.reset();
+            companySelectionDiv.classList.add('hidden');
+            loadDashboardData();
+        } catch (error) {
+            createUserMessage.textContent = `Errore: ${error.message}`;
+            createUserMessage.className = 'mt-4 text-center text-sm text-red-600';
+        }
+    });
+
+    // Gestore Creazione Azienda
+    createCompanyForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        createCompanyMessage.textContent = '';
+        try {
+            const companyData = { name: document.getElementById('companyName').value, description: document.getElementById('companyDescription').value };
+            await apiFetch('/api/admin/companies', { method: 'POST', body: JSON.stringify(companyData) });
+            createCompanyMessage.textContent = `Azienda "${companyData.name}" creata!`;
+            createCompanyMessage.className = 'text-center text-sm text-green-600';
+            createCompanyForm.reset();
+            loadDashboardData();
+        } catch (error) {
+            createCompanyMessage.textContent = `Errore: ${error.message}`;
+            createCompanyMessage.className = 'text-center text-sm text-red-600';
+        }
+    });
+
+    // Gestore Click Lista Utenti (Delete)
+    userListBody.addEventListener('click', async e => {
+        if (e.target.matches('.delete-user-btn')) {
+            const userId = e.target.dataset.userId;
+            const userName = e.target.dataset.userName;
+            if (confirm(`Sei sicuro di voler eliminare l'utente "${userName}"?`)) {
+                try {
+                    await apiFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                    loadDashboardData();
+                } catch (error) {
+                    alert(`Errore: ${error.message}`);
+                }
+            }
+        }
+    });
+
+    // Gestore Azioni Saldo
+    balanceActionsForm.addEventListener('submit', async e => {
+        e.preventDefault();
+        balanceMessage.textContent = '';
+        const userId = balanceUserSelect.value;
+        const amount = parseFloat(document.getElementById('balanceAmount').value);
+        const description = document.getElementById('balanceDescription').value;
+        const operation = document.querySelector('input[name="balance_operation"]:checked').value;
+        if (!userId || !amount || !description) {
+            balanceMessage.textContent = 'Tutti i campi sono obbligatori.';
+            balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+            return;
+        }
+        try {
+            const adjustmentData = { user_id: userId, operation: operation, amount: amount, description: description };
+            await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
+            balanceMessage.textContent = `Operazione (${operation}) di ${amount} TAP avvenuta con successo!`;
+            balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
+            balanceActionsForm.reset();
+            loadDashboardData();
+        } catch (error) {
+            balanceMessage.textContent = `Errore: ${error.message}`;
+            balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+        }
+    });
+
+    // Gestore Azzera Saldo
+    zeroBalanceBtn.addEventListener('click', async () => {
+        balanceMessage.textContent = '';
+        const userId = balanceUserSelect.value;
+        const selectedUserText = balanceUserSelect.options[balanceUserSelect.selectedIndex].text;
+        if (!userId) {
+            balanceMessage.textContent = 'Per favore, seleziona un utente prima di azzerare il saldo.';
+            balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+            return;
+        }
+        if (confirm(`Sei sicuro di voler AZZERARE il saldo di "${selectedUserText}"? L'azione è irreversibile.`)) {
+            try {
+                const adjustmentData = { user_id: userId, operation: 'set_zero', description: 'Saldo azzerato da admin' };
+                await apiFetch('/api/admin/adjust-balance', { method: 'POST', body: JSON.stringify(adjustmentData) });
+                balanceMessage.textContent = `Saldo di "${selectedUserText}" azzerato con successo!`;
+                balanceMessage.className = 'mt-4 text-center text-sm text-green-600';
+                loadDashboardData();
+            } catch (error) {
+                balanceMessage.textContent = `Errore: ${error.message}`;
+                balanceMessage.className = 'mt-4 text-center text-sm text-red-600';
+            }
+        }
+    });
+    
     </script>
 </body>
 </html>
