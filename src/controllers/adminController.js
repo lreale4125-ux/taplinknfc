@@ -1,6 +1,57 @@
 const bcrypt = require('bcryptjs');
 const db = require('../db');
-const { generateAndSaveQR } = require('../utils/qrGenerator');
+// Assicurati che il percorso a qrGenerator sia corretto
+const { generateAndSaveQR } = require('../utils/qrGenerator'); 
+
+// ===================================================================
+// NUOVA FUNZIONE: CREA E ASSOCIA KEYCHAIN QR
+// ===================================================================
+/**
+ * Crea un'associazione nella tabella 'keychains' e genera i file QR.
+ * Il QR punterà a /k/{keychain_id}, che poi reindirizzerà al link_id.
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+async function createKeychainQr(req, res) {
+    // keychain_id è l'ID univoco testuale (es. '001'), non l'ID autoincrementante
+    const { link_id, keychain_id, user_id } = req.body;
+
+    if (!link_id || !keychain_id || !user_id) {
+        return res.status(400).json({ error: 'link_id, keychain_id (ID univoco), e user_id sono obbligatori.' });
+    }
+
+    try {
+        // 1. Inserisci nel database (Associazione)
+        // Usiamo keychain_number per salvare l'ID univoco testuale
+        const stmt = db.prepare(`
+            INSERT INTO keychains (user_id, link_id, keychain_number, data) 
+            VALUES (?, ?, ?, ?)
+        `);
+        const result = stmt.run(user_id, link_id, keychain_id, JSON.stringify({ created_by: 'admin' }));
+
+        if (result.changes === 0) {
+            throw new Error('Inserimento nel database fallito.');
+        }
+
+        // 2. Genera i file QR (fisici)
+        // Questa funzione deve generare un QR che codifica l'URL /k/{keychain_id}
+        await generateAndSaveQR(keychain_id);
+
+        res.status(201).json({ 
+            message: `QR Code '${keychain_id}' creato e associato al Link ID ${link_id}.`,
+            keychain_db_id: result.lastInsertRowid
+        });
+
+    } catch (error) {
+        console.error("Errore durante la creazione del Keychain QR:", error);
+        // Gestisce l'errore se l'ID univoco (keychain_number) esiste già
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE' || error.message.includes('UNIQUE constraint failed: keychains.keychain_number')) {
+             return res.status(400).json({ error: 'Questo ID Univoco (keychain_id) è già stato utilizzato.' });
+        }
+        res.status(500).json({ error: error.message || 'Errore interno del server.' });
+    }
+}
+
 
 // ===================================================================
 // FUNZIONI PER I SELETTORI (NUOVE)
@@ -59,7 +110,7 @@ function updateSelector(req, res) {
     try {
         const result = db.prepare(
             `UPDATE selectors SET name = ?, redirect_url = ?, description = ? WHERE id = ?`
-        ).run(name, redirect_url, description, selectorId);
+        ).run(name, redirect_url, description || null, selectorId);
 
         if (result.changes === 0) return res.status(404).json({ error: 'Selettore non trovato o dati identici.' });
         
@@ -80,10 +131,9 @@ function deleteSelector(req, res) {
     const selectorId = req.params.id;
 
     try {
+        // La chiave esterna in 'links' è ON DELETE SET NULL, quindi l'eliminazione è sicura.
         const result = db.prepare(`DELETE FROM selectors WHERE id = ?`).run(selectorId);
-        
         if (result.changes === 0) return res.status(404).json({ error: 'Selettore non trovato.' });
-        
         res.status(204).send();
     } catch (error) {
         console.error('DELETE SELECTOR ERROR:', error);
@@ -103,8 +153,9 @@ function deleteSelector(req, res) {
 function createLink(req, res) {
     const { name, url, description, company_id, selector_id } = req.body; 
 
-    // La validazione ora verifica che ALMENO url O selector_id siano presenti.
+    // Validazione: Nome e Azienda obbligatori
     if (!name || !company_id) return res.status(400).json({ error: 'Nome e ID Azienda sono obbligatori.' });
+    // Validazione: O URL o Selettore, non entrambi
     if (!url && !selector_id) return res.status(400).json({ error: 'Specificare un URL o un ID Selettore.' });
     if (url && selector_id) return res.status(400).json({ error: 'Specificare solo URL O ID Selettore, non entrambi.' });
 
@@ -135,13 +186,14 @@ function getLinks(req, res) {
 }
 
 /**
- * Get links for the Admin Management Table (NUOVA)
+ * Get links for the Admin Management Table (NUOVA FUNZIONE PER LA DASHBOARD)
  * Include stato QR, nome azienda e nome selettore.
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
 function getLinksWithQr(req, res) {
     try {
+        // Query aggiornata per prendere il keychain_number (l'ID univoco del QR)
         const links = db.prepare(`
             SELECT 
                 l.id, l.name, l.url, l.description, l.selector_id,
@@ -149,7 +201,7 @@ function getLinksWithQr(req, res) {
                 s.name as selector_name,
                 s.redirect_url as selector_redirect_url,
                 (CASE WHEN k.link_id IS NOT NULL THEN 1 ELSE 0 END) as has_qr_code,
-                k.id AS keychain_id
+                k.keychain_number AS keychain_id 
             FROM links l 
             LEFT JOIN companies c ON l.company_id = c.id 
             LEFT JOIN selectors s ON l.selector_id = s.id
@@ -158,19 +210,21 @@ function getLinksWithQr(req, res) {
             ORDER BY l.id DESC
         `).all();
         
-        // Mappatura per determinare l'URL effettivo per la visualizzazione
+        // Mappa i risultati per il frontend
         const formattedLinks = links.map(link => {
             return {
                 id: link.id,
                 name: link.name,
-                // Determina l'URL effettivo per la visualizzazione
+                url: link.url, // URL diretto (usato per popolare il form QR)
+                // Destinazione visualizzata in tabella
                 effective_url: link.selector_id 
-                    ? `Selettore: ${link.selector_name} (a ${link.selector_redirect_url})` 
+                    ? `Selettore: ${link.selector_name} (-> ${link.selector_redirect_url})` 
                     : link.url,
                 company_name: link.company_name,
+                selector_id: link.selector_id,
                 selector_name: link.selector_name,
                 has_qr_code: link.has_qr_code,
-                keychain_id: link.keychain_id || null // ID da usare per la generazione
+                keychain_id: link.keychain_id || null // ID univoco del QR
             };
         });
         
@@ -233,7 +287,8 @@ function adjustBalance(req, res) {
 }
 
 /**
- * Genera e salva un QR Code per l'ID univoco specificato.
+ * Genera e salva un QR Code per l'ID univoco specificato (VECCHIA FUNZIONE)
+ * Questa è usata per i "QR Motivazionali"
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
@@ -370,9 +425,13 @@ function getAnalyticsDetail(req, res) {
     }
 }
 
+// ===================================================================
+// ESPORTAZIONI (AGGIORNATE)
+// ===================================================================
 module.exports = {
     adjustBalance,
-    generateQrCode,
+    generateQrCode,     // Vecchia funzione (per QR motivazionali)
+    createKeychainQr,   // Nuova funzione (per associare Link a QR)
     getCompanies,
     createCompany,
     // Selettori
@@ -380,10 +439,10 @@ module.exports = {
     getSelectors,
     updateSelector,
     deleteSelector,
-    // Links modificati
+    // Links
     createLink,
-    getLinks,
-    getLinksWithQr,
+    getLinks,           // Vecchia funzione
+    getLinksWithQr,     // Nuova funzione per la dashboard
     // Utenti
     getUsers,
     createUser,
