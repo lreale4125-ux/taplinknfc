@@ -5,37 +5,35 @@ const {
     getCompanies,
     createCompany,
     createLink,
-    getLinks, // Questa funzione verrà modificata in adminController.js
+    getLinks,
     getUsers,
     createUser,
     deleteUser,
     getAnalyticsSummary,
     getAnalyticsDetail,
-    generateQrCode,
+    generateQrCode, // Questa è la vecchia funzione, la lasciamo se serve
     
-    // --- NUOVE IMPORTAZIONI PER I SELETTORI ---
+    // --- IMPORTAZIONI AGGIUNTE ---
     createSelector,
     getSelectors,
     updateSelector,
     deleteSelector,
-    getLinksWithQr // Nuova funzione per la gestione/filtro link creati
-} = require('../controllers/adminController'); // Assicurati di aggiungere queste funzioni in adminController.js
+    getLinksWithQr,
+    createKeychainQr // <-- NUOVO: Endpoint per associare Link e QR
+} = require('../controllers/adminController');
 
 const router = express.Router();
 
-// --- NUOVE ROTTE PER LA GESTIONE DEI SELETTORI ---
-// Recupera tutti i selettori per popolare i menu a tendina
+// --- Rotte per i Selettori (NUOVE) ---
 router.get('/selectors', authenticateToken, requireAdmin, getSelectors);
-// Crea un nuovo selettore
 router.post('/selectors', authenticateToken, requireAdmin, createSelector);
-// Modifica l'URL di un selettore (Chiave per l'aggiornamento massivo dei redirect)
 router.put('/selectors/:id', authenticateToken, requireAdmin, updateSelector);
-// Elimina un selettore
 router.delete('/selectors/:id', authenticateToken, requireAdmin, deleteSelector);
-// ---------------------------------------------------
 
+// --- Rotta per associazione QR (NUOVA) ---
+router.post('/create-keychain-qr', authenticateToken, requireAdmin, createKeychainQr);
 
-// Rotta per la generazione del QR Code (utilizza il Controller)
+// Rotta per la generazione del QR Code (vecchia, per QR motivazionali)
 router.post('/generate-qr/:keychainId', authenticateToken, requireAdmin, generateQrCode);
 
 // Adjust balance route
@@ -47,12 +45,8 @@ router.post('/companies', authenticateToken, requireAdmin, createCompany);
 
 // Links routes
 router.post('/links', authenticateToken, requireAdmin, createLink);
-// Modifichiamo l'endpoint GET per la "Gestione Link Creati"
-// Uso un endpoint dedicato che include i dati del Selettore e la disponibilità del QR.
-router.get('/links-with-qr', authenticateToken, requireAdmin, getLinksWithQr);
-// Manteniamo la rotta originale /links solo se è usata altrove, altrimenti la rimuoviamo/modifichiamo
-router.get('/links', authenticateToken, requireAdmin, getLinks);
-
+router.get('/links-with-qr', authenticateToken, requireAdmin, getLinksWithQr); // Nuovo endpoint per la tabella
+router.get('/links', authenticateToken, requireAdmin, getLinks); // Vecchio endpoint
 
 // Users routes
 router.get('/users', authenticateToken, requireAdmin, getUsers);
