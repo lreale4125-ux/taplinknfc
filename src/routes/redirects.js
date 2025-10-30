@@ -6,28 +6,66 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Funzione di utilità per recuperare l'URL finale (per i reindirizzamenti)
+async function getFinalUrl(linkId) {
+    // Query che recupera il link e, se presente, l'URL dal selettore
+    const linkQuery = `
+        SELECT 
+            l.url AS link_url,
+            s.redirect_url AS selector_url,
+            l.selector_id
+        FROM links l
+        LEFT JOIN selectors s ON l.selector_id = s.id
+        WHERE l.id = ?`;
+        
+    const linkData = db.prepare(linkQuery).get(linkId);
+
+    if (!linkData) return null;
+
+    // Se esiste un selector_id E il selector_url è definito, usa il selector_url (il punto di forza!)
+    if (linkData.selector_id && linkData.selector_url) {
+        return linkData.selector_url;
+    }
+    
+    // Altrimenti, usa l'url diretto del link
+    return linkData.link_url;
+}
+
+
 // Redirect route for links
-router.get('/r/:linkId', (req, res) => {
+router.get('/r/:linkId', async (req, res) => {
     try {
-        const link = db.prepare(`SELECT url, id FROM links WHERE id = ?`).get(req.params.linkId);
-        if (!link) return res.status(404).send('Link non trovato.');
-        recordClick(link.id, null, req);
-        res.redirect(link.url);
+        const finalUrl = await getFinalUrl(req.params.linkId);
+        
+        if (!finalUrl) return res.status(404).send('Link o Selettore non trovato.');
+        
+        // Traccia il click (assumendo che recordClick possa essere sincrono o gestito qui)
+        recordClick(req.params.linkId, null, req);
+        
+        // Esegue il reindirizzamento
+        res.redirect(finalUrl);
+        
     } catch (error) {
+        console.error("Errore nel reindirizzamento /r/:linkId:", error.message);
         res.status(500).send('Errore del server.');
     }
 });
 
-// Redirect route for keychains
-router.get('/k/:keychainId', (req, res) => {
+// Redirect route for keychains (Modificato per usare getFinalUrl)
+router.get('/k/:keychainId', async (req, res) => {
     try {
         const keychain = db.prepare(`SELECT link_id FROM keychains WHERE id = ?`).get(req.params.keychainId);
         if (!keychain) return res.status(404).send('Keychain non trovato.');
-        const link = db.prepare(`SELECT url FROM links WHERE id = ?`).get(keychain.link_id);
-        if (!link) return res.status(404).send('Link associato non trovato.');
+        
+        const finalUrl = await getFinalUrl(keychain.link_id);
+        
+        if (!finalUrl) return res.status(404).send('Link associato non trovato.');
+        
         recordClick(keychain.link_id, req.params.keychainId, req);
-        res.redirect(link.url);
+        res.redirect(finalUrl);
+        
     } catch (error) {
+        console.error("Errore nel reindirizzamento /k/:keychainId:", error.message);
         res.status(500).send('Errore del server.');
     }
 });
