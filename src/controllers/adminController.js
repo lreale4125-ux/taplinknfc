@@ -2,6 +2,190 @@ const bcrypt = require('bcryptjs');
 const db = require('../db');
 const { generateAndSaveQR } = require('../utils/qrGenerator');
 
+// ===================================================================
+// FUNZIONI PER I SELETTORI (NUOVE)
+// ===================================================================
+
+/**
+ * Crea un nuovo Selettore (Redirect Centralizzato).
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function createSelector(req, res) {
+    const { name, redirect_url, description } = req.body;
+    if (!name || !redirect_url) return res.status(400).json({ error: 'Nome e URL di reindirizzamento sono obbligatori.' });
+
+    try {
+        const result = db.prepare(
+            `INSERT INTO selectors (name, redirect_url, description, created_by) VALUES (?, ?, ?, ?)`
+        ).run(name, redirect_url, description, req.user.id);
+        
+        res.status(201).json({ 
+            id: result.lastInsertRowid, 
+            message: 'Selettore creato con successo.' 
+        });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(400).json({ error: 'Un selettore con questo nome esiste già.' });
+        console.error('CREATE SELECTOR ERROR:', error);
+        res.status(500).json({ error: 'Errore durante la creazione del selettore.' });
+    }
+}
+
+/**
+ * Recupera tutti i Selettori.
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function getSelectors(req, res) {
+    try {
+        const selectors = db.prepare('SELECT id, name, redirect_url, description, created_at FROM selectors ORDER BY name ASC').all();
+        res.json(selectors);
+    } catch (error) {
+        console.error('GET SELECTORS ERROR:', error);
+        res.status(500).json({ error: 'Errore nel recuperare i selettori.' });
+    }
+}
+
+/**
+ * Aggiorna un Selettore (il suo URL è la parte cruciale).
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function updateSelector(req, res) {
+    const selectorId = req.params.id;
+    const { name, redirect_url, description } = req.body;
+    if (!name || !redirect_url) return res.status(400).json({ error: 'Nome e URL di reindirizzamento sono obbligatori.' });
+
+    try {
+        const result = db.prepare(
+            `UPDATE selectors SET name = ?, redirect_url = ?, description = ? WHERE id = ?`
+        ).run(name, redirect_url, description, selectorId);
+
+        if (result.changes === 0) return res.status(404).json({ error: 'Selettore non trovato o dati identici.' });
+        
+        res.status(200).json({ message: 'Selettore aggiornato con successo.' });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(400).json({ error: 'Un selettore con questo nome esiste già.' });
+        console.error('UPDATE SELECTOR ERROR:', error);
+        res.status(500).json({ error: 'Errore durante l\'aggiornamento del selettore.' });
+    }
+}
+
+/**
+ * Elimina un Selettore.
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function deleteSelector(req, res) {
+    const selectorId = req.params.id;
+
+    try {
+        const result = db.prepare(`DELETE FROM selectors WHERE id = ?`).run(selectorId);
+        
+        if (result.changes === 0) return res.status(404).json({ error: 'Selettore non trovato.' });
+        
+        res.status(204).send();
+    } catch (error) {
+        console.error('DELETE SELECTOR ERROR:', error);
+        res.status(500).json({ error: 'Errore durante l\'eliminazione del selettore.' });
+    }
+}
+
+// ===================================================================
+// FUNZIONI PER I LINK (MODIFICATE/NUOVE)
+// ===================================================================
+
+/**
+ * Create a new link (MODIFICATA)
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function createLink(req, res) {
+    const { name, url, description, company_id, selector_id } = req.body; 
+
+    // La validazione ora verifica che ALMENO url O selector_id siano presenti.
+    if (!name || !company_id) return res.status(400).json({ error: 'Nome e ID Azienda sono obbligatori.' });
+    if (!url && !selector_id) return res.status(400).json({ error: 'Specificare un URL o un ID Selettore.' });
+    if (url && selector_id) return res.status(400).json({ error: 'Specificare solo URL O ID Selettore, non entrambi.' });
+
+    try {
+        const sql = `INSERT INTO links (name, url, description, company_id, created_by, selector_id) VALUES (?, ?, ?, ?, ?, ?)`;
+        const result = db.prepare(sql).run(name, url || null, description, company_id, req.user.id, selector_id || null);
+        
+        res.status(201).json({ id: result.lastInsertRowid, message: 'Link creato con successo.' });
+    } catch (error) {
+        console.error('CREATE LINK ERROR:', error);
+        res.status(500).json({ error: 'Errore del server durante la creazione del link.' });
+    }
+}
+
+/**
+ * Get all links (Funzione originale)
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function getLinks(req, res) {
+    try {
+        const links = db.prepare(`SELECT l.id, l.name, l.url, l.description, c.name as company_name FROM links l LEFT JOIN companies c ON l.company_id = c.id ORDER BY l.id DESC`).all();
+        res.json(links);
+    } catch (error) {
+        console.error('GET ALL LINKS ERROR:', error);
+        res.status(500).json({ error: 'Errore nel recuperare i link.' });
+    }
+}
+
+/**
+ * Get links for the Admin Management Table (NUOVA)
+ * Include stato QR, nome azienda e nome selettore.
+ * @param {object} req - Express request object
+ * @param {object} res - Express response object
+ */
+function getLinksWithQr(req, res) {
+    try {
+        const links = db.prepare(`
+            SELECT 
+                l.id, l.name, l.url, l.description, l.selector_id,
+                c.name as company_name, 
+                s.name as selector_name,
+                s.redirect_url as selector_redirect_url,
+                (CASE WHEN k.link_id IS NOT NULL THEN 1 ELSE 0 END) as has_qr_code,
+                k.id AS keychain_id
+            FROM links l 
+            LEFT JOIN companies c ON l.company_id = c.id 
+            LEFT JOIN selectors s ON l.selector_id = s.id
+            LEFT JOIN keychains k ON l.id = k.link_id 
+            GROUP BY l.id
+            ORDER BY l.id DESC
+        `).all();
+        
+        // Mappatura per determinare l'URL effettivo per la visualizzazione
+        const formattedLinks = links.map(link => {
+            return {
+                id: link.id,
+                name: link.name,
+                // Determina l'URL effettivo per la visualizzazione
+                effective_url: link.selector_id 
+                    ? `Selettore: ${link.selector_name} (a ${link.selector_redirect_url})` 
+                    : link.url,
+                company_name: link.company_name,
+                selector_name: link.selector_name,
+                has_qr_code: link.has_qr_code,
+                keychain_id: link.keychain_id || null // ID da usare per la generazione
+            };
+        });
+        
+        res.json(formattedLinks);
+    } catch (error) {
+        console.error('GET LINKS WITH QR ERROR:', error);
+        res.status(500).json({ error: 'Errore nel recuperare i link per la gestione.' });
+    }
+}
+
+
+// ===================================================================
+// FUNZIONI ORIGINALI (NON MODIFICATE)
+// ===================================================================
+
 /**
  * Adjust user balance
  * @param {object} req - Express request object
@@ -47,9 +231,7 @@ function adjustBalance(req, res) {
         res.status(400).json({ error: error.message || 'Errore durante l\'operazione sul saldo.' });
     }
 }
-// ===================================================================
-// NUOVA FUNZIONE: Generazione QR Code
-// ===================================================================
+
 /**
  * Genera e salva un QR Code per l'ID univoco specificato.
  * @param {object} req - Express request object
@@ -64,13 +246,12 @@ async function generateQrCode(req, res) {
 
     try {
         await generateAndSaveQR(keychainId);
-	res.status(200).json({ message: `QR Code per ID ${keychainId} generato e salvato con successo.` });
+        res.status(200).json({ message: `QR Code per ID ${keychainId} generato e salvato con successo.` });
     } catch (error) {
         console.error("Errore durante la generazione del QR Code:", error);
         res.status(500).json({ error: 'Errore interno del server durante la generazione del QR Code.' });
     }
 }
-// ===================================================================
 
 
 /**
@@ -101,37 +282,6 @@ function createCompany(req, res) {
     } catch (error) {
         if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') return res.status(400).json({ error: 'Un\'azienda con questo nome esiste già' });
         res.status(500).json({ error: 'Errore durante la creazione dell\'azienda' });
-    }
-}
-
-/**
- * Create a new link
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
-function createLink(req, res) {
-    const { name, url, description, company_id } = req.body;
-    if (!name || !url || !company_id) return res.status(400).json({ error: 'Nome, URL e ID Azienda sono obbligatori.' });
-    try {
-        const result = db.prepare(`INSERT INTO links (name, url, description, company_id, created_by) VALUES (?, ?, ?, ?, ?)`).run(name, url, description, company_id, req.user.id);
-        res.status(201).json({ id: result.lastInsertRowid, message: 'Link creato con successo.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Errore del server.' });
-    }
-}
-
-/**
- * Get all links
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
-function getLinks(req, res) {
-    try {
-        const links = db.prepare(`SELECT l.id, l.name, l.url, l.description, c.name as company_name FROM links l LEFT JOIN companies c ON l.company_id = c.id ORDER BY l.id DESC`).all();
-        res.json(links);
-    } catch (error) {
-        console.error('GET ALL LINKS ERROR:', error);
-        res.status(500).json({ error: 'Errore nel recuperare i link.' });
     }
 }
 
@@ -225,11 +375,20 @@ module.exports = {
     generateQrCode,
     getCompanies,
     createCompany,
+    // Selettori
+    createSelector,
+    getSelectors,
+    updateSelector,
+    deleteSelector,
+    // Links modificati
     createLink,
     getLinks,
+    getLinksWithQr,
+    // Utenti
     getUsers,
     createUser,
     deleteUser,
+    // Analytics
     getAnalyticsSummary,
     getAnalyticsDetail
 };
