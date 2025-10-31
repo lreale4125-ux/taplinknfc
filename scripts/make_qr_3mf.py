@@ -146,7 +146,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     qr_size_mm = args.qr_size_mm
     
     QR_MODULE_SIZE_PX = 1024  
-    QR_EXTRUSION_MM = 1.25 # Altezza standard
+    QR_EXTRUSION_MM = 0.3 # Altezza standard
 
     print(f"[Python Script] \n=== REPORT ===")
     print(f"Modello: {base_model_path.name}")
