@@ -52,17 +52,11 @@ async function generateAndSaveQR(keychainId) {
     // ===================================================================
     // 🛑 MODIFICA CRUCIALE 1: URL DI BASE
     // ===================================================================
-    // Questo NON deve essere 'motivazional.taplinknfc.it'.
-    // Deve essere il dominio principale della TUA applicazione Node.js,
-    // quello che esegue 'redirects.js'.
-    // Imposta APP_DOMAIN nel tuo file .env o sostituisci il fallback.
     const baseUrl = process.env.APP_DOMAIN || 'https://taplinknfc.it';
     
     // ===================================================================
     // 🛑 MODIFICA CRUCIALE 2: STRUTTURA URL
     // ===================================================================
-    // Il QR deve puntare alla rotta '/k/' che abbiamo definito in 'redirects.js',
-    // non alla rotta '/?id='.
     const qrData = `${baseUrl}/k/${encodeURIComponent(keychainId)}`;
     
     
@@ -83,21 +77,25 @@ async function generateAndSaveQR(keychainId) {
         await fs.mkdir(svgDir, { recursive: true });
         await fs.mkdir(m3mfDir, { recursive: true });
 
-        // 4. GENERAZIONE PNG (Invariato)
+        // 4. GENERAZIONE PNG (Qui il livello ECC è di default 'M' - Medium)
         await QRCode.toFile(pngPath, qrData, {
             color: {
                 dark: '#000000',
                 light: '#FFFFFF'
             },
+            // Aggiungi ECC per chiarezza, anche se M è il default
+            errorCorrectionLevel: 'M', 
             width: 300,
             type: 'png'
         });
         
-        // 5. GENERAZIONE SVG (Invariato)
+        // 5. GENERAZIONE SVG (CORREZIONE ECC: da 'H' a 'M' o 'Q')
         const svgString = await QRCode.toString(qrData, {
-            errorCorrectionLevel: 'H',
+            // CORREZIONE CRUCIALE: Riduci ECC per meno dettaglio
+            errorCorrectionLevel: 'M', 
             type: 'svg',
-            margin: 1 
+            // OPTIONAL: rimuovi il margine per ridurre lo spazio bianco
+            margin: 0
         });
         await fs.writeFile(svgPath, svgString);
         
