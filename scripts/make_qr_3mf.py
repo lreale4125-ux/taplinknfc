@@ -1,7 +1,8 @@
+
 import argparse
 import sys
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from pathlib import Path
 
 # --- Librerie installate con successo ---
@@ -20,9 +21,29 @@ def fail(message: str) -> None:
     print(f"[ERRORE] {message}", file=sys.stderr)
     sys.exit(1)
 
-def get_qr_code(qr_data: str, size: int) -> Image.Image:
-    """Ottiene il QR Code come immagine PNG da un servizio esterno."""
-    # (La tua implementazione originale è corretta e mantenuta)
+def load_existing_qr_image(output_3mf: Path) -> Optional[Image.Image]:
+    """Carica il QR già generato dagli script Node (formato PNG)."""
+
+    try:
+        # Output atteso: .../qrcodes/qr_3mf/<id>.3mf
+        # QR fornito:  .../qrcodes/qr_png/<id>.png
+        base_dir = output_3mf.parent.parent
+        png_path = base_dir / "qr_png" / f"{output_3mf.stem}.png"
+
+        if png_path.exists():
+            logging.info("Caricamento QR locale da %s", png_path)
+            return Image.open(png_path).convert("L")
+
+        logging.warning("QR locale non trovato in %s", png_path)
+    except Exception as exc:
+        logging.error("Impossibile aprire il QR locale: %s", exc)
+
+    return None
+
+
+def download_qr_code(qr_data: str, size: int) -> Image.Image:
+    """Fallback: scarica il QR Code da un servizio esterno."""
+    
     try:
         # Uso un endpoint QR standard per semplicità
         response = requests.get(
@@ -32,10 +53,11 @@ def get_qr_code(qr_data: str, size: int) -> Image.Image:
         )
         response.raise_for_status()
         return Image.open(response.raw).convert("L")
-    except requests.exceptions.RequestException as e:
-        fail(f"Errore durante il download del QR Code: {e}")
-    except Exception as e:
-        fail(f"Errore durante l'apertura dell'immagine QR: {e}")
+  
+    except requests.exceptions.RequestException as exc:
+        fail(f"Errore durante il download del QR Code: {exc}")
+    except Exception as exc:
+        fail(f"Errore durante l'apertura dell'immagine QR: {exc}")
     return Image.new("L", (size, size), color=255)
 
 def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: Path) -> None:
@@ -153,9 +175,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
     print(f"QR data: {qr_data[:50]}...")
     print(f"FlipZ attivo: {args.flipz}")
 
-    # 1) Download e salvataggio del QR Code (omesso per brevità, mantenuto originale)
-    qr_image = get_qr_code(qr_data, QR_MODULE_SIZE_PX)
-    # ... (Salvataggio PNG/SVG, omettendo qui per brevità) ...
+     # 1) Recupero del QR Code generato dagli script Node
+    qr_image = load_existing_qr_image(output_3mf)
+    if qr_image is None:
+        logging.info("Uso del fallback per il download del QR esterno.")
+        qr_image = download_qr_code(qr_data, QR_MODULE_SIZE_PX)
     
     # 2) Importazione, Unione e Ribaltamento del Modello Base
     try:
