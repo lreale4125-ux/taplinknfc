@@ -1,4 +1,3 @@
-
 import argparse
 import sys
 import logging
@@ -53,7 +52,7 @@ def download_qr_code(qr_data: str, size: int) -> Image.Image:
         )
         response.raise_for_status()
         return Image.open(response.raw).convert("L")
-  
+    
     except requests.exceptions.RequestException as exc:
         fail(f"Errore durante il download del QR Code: {exc}")
     except Exception as exc:
@@ -77,11 +76,16 @@ def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: P
 def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: float) -> trimesh.Trimesh:
     """
     Converte l'immagine QR in una mesh 3D estrusa.
-    MIGLIORAMENTO: Unione e centramento più robusti.
+    Include Binarizzazione e Semplificazione Aggressiva (Correzione).
     """
     logging.info("Creazione mesh di estrusione QR in corso...")
     
-    img_array = np.array(qr_image)
+    # 1. Binarizzazione Esplicita (Correzione)
+    # Assicura che l'immagine sia solo bianco e nero, rimuovendo artefatti
+    threshold = 128
+    qr_binarized = qr_image.point(lambda p: 255 if p > threshold else 0)
+    img_array = np.array(qr_binarized) 
+    
     # 0 = Nero (modulo QR), 255 = Bianco (sfondo)
     mask = img_array < 128
     
@@ -100,15 +104,15 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
             
         points_mm = contour * scale
         
-        # L'asse Y (verticale) è invertito nel contesto bitmap/coordinate (0 in alto).
-        # Lo ribaltiamo per allineare l'origine in basso a sinistra (come in un piano XY).
+        # Ribalta l'asse Y per allineare l'origine in basso a sinistra (convenzione 3D)
         points_mm[:, 0] = size_mm - points_mm[:, 0] 
         
         try:
             poly = shapely.geometry.Polygon(points_mm)
             
-            # Semplificazione per ridurre i vertici e pulire la geometria
-            poly = poly.simplify(scale / 2) 
+            # 2. Semplificazione più Aggressiva (Correzione)
+            # Usa 'scale' come tolleranza (prima era scale / 2) per contorni più puliti
+            poly = poly.simplify(scale) 
 
             if poly.is_valid and poly.area > (scale * scale):
                 polygons.append(poly)
@@ -120,7 +124,6 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
         return trimesh.Trimesh()
 
     # Unione più robusta dei poligoni per creare una geometria MultiPolygon pulita
-    # buffer(0) risolve i problemi di auto-intersezione e invalidità.
     union_geometry = shapely.geometry.MultiPolygon(polygons).buffer(0)
     
     all_qr_meshes = []
