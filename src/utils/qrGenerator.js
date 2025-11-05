@@ -77,24 +77,22 @@ async function generateAndSaveQR(keychainId) {
         await fs.mkdir(svgDir, { recursive: true });
         await fs.mkdir(m3mfDir, { recursive: true });
 
-        // 4. GENERAZIONE PNG (Qui il livello ECC è di default 'M' - Medium)
+        // 4. GENERAZIONE PNG (CORREZIONE: Aumento della risoluzione e forzatura ECC)
         await QRCode.toFile(pngPath, qrData, {
             color: {
                 dark: '#000000',
                 light: '#FFFFFF'
             },
-            // Aggiungi ECC per chiarezza, anche se M è il default
-            errorCorrectionLevel: 'M', 
-            width: 300,
+            errorCorrectionLevel: 'M', // Livello ECC medio per meno dettaglio
+            // CORREZIONE FONDAMENTALE: Aumento il width per ingrandire i moduli
+            width: 1024, 
             type: 'png'
         });
         
-        // 5. GENERAZIONE SVG (CORREZIONE ECC: da 'H' a 'M' o 'Q')
+        // 5. GENERAZIONE SVG (Correzione ECC e margine minimo)
         const svgString = await QRCode.toString(qrData, {
-            // CORREZIONE CRUCIALE: Riduci ECC per meno dettaglio
             errorCorrectionLevel: 'M', 
             type: 'svg',
-            // OPTIONAL: rimuovi il margine per ridurre lo spazio bianco
             margin: 0
         });
         await fs.writeFile(svgPath, svgString);
