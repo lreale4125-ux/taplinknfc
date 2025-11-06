@@ -7,3 +7,5 @@ trimesh
 lxml
 mapbox-earcut
 manifold3d
+svgpathtools   
+svgwrite
