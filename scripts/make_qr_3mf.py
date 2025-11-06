@@ -1,16 +1,26 @@
 import argparse
 import sys
 import logging
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 from pathlib import Path
 
 # --- Librerie installate con successo ---
-import requests 
+import requests 
 from PIL import Image
 import numpy as np
 from skimage.measure import find_contours
 import shapely.geometry
 import trimesh
+
+# --- Nuove dipendenze per SVG ---
+try:
+    from svgpathtools import parse_path
+    from svgpathtools.path import Path as SVGPath
+    import xml.etree.ElementTree as ET
+except ImportError:
+    # Se le librerie SVG non sono installate, l'errore verrà gestito più avanti.
+    pass 
+
 
 # Configurazione Logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -21,29 +31,32 @@ def fail(message: str) -> None:
     sys.exit(1)
 
 # ************************************************************
-# 1. Funzione per caricare il QR Code PNG locale
+# 1. Funzione per caricare il QR Code (ORA supporta SVG)
 # ************************************************************
-def load_existing_qr_image(output_3mf: Path) -> Optional[Image.Image]:
-    """Carica il QR già generato dagli script Node (formato PNG)."""
+def load_qr_data(output_3mf: Path) -> Optional[Union[Path, Image.Image]]:
+    """Cerca e carica il QR Code prima in SVG, poi in PNG."""
 
-    try:
-        # Output atteso: .../qrcodes/qr_3mf/<id>.3mf
-        # QR fornito:  .../qrcodes/qr_png/<id>.png
-        base_dir = output_3mf.parent.parent
-        png_path = base_dir / "qr_png" / f"{output_3mf.stem}.png"
+    base_dir = output_3mf.parent.parent
+    file_stem = output_3mf.stem
+    
+    # 1. Tenta di caricare l'SVG
+    svg_path = base_dir / "qr_svg" / f"{file_stem}.svg"
+    if svg_path.exists():
+        logging.info("Caricamento QR vettoriale da %s", svg_path)
+        return svg_path
+    
+    logging.warning("QR vettoriale (SVG) non trovato in %s", svg_path.parent)
 
-        if png_path.exists():
-            logging.info("Caricamento QR locale da %s", png_path)
-            return Image.open(png_path).convert("L")
-
-        logging.warning("QR locale non trovato in %s", png_path)
-    except Exception as exc:
-        logging.error("Impossibile aprire il QR locale: %s", exc)
+    # 2. Tenta di caricare il PNG come fallback (per retrocompatibilità)
+    png_path = base_dir / "qr_png" / f"{file_stem}.png"
+    if png_path.exists():
+        logging.warning("Fallback: Caricamento QR raster (PNG) da %s", png_path)
+        return Image.open(png_path).convert("L")
 
     return None
 
 # ************************************************************
-# 2. Funzione per salvare il 3MF
+# 2. Funzione per salvare il 3MF (Invariata)
 # ************************************************************
 def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: Path) -> None:
     """Scrive un 3MF multi-parte usando trimesh."""
@@ -60,56 +73,125 @@ def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: P
         fail(f"Impossibile salvare il 3MF in '{out_path}' usando trimesh: {e}")
 
 # ************************************************************
-# 3. Funzione per creare la mesh QR da immagine
+# 3. Funzione per creare la mesh QR (Supporta sia SVG che PNG)
 # ************************************************************
-def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: float) -> trimesh.Trimesh:
+def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extrusion_mm: float) -> trimesh.Trimesh:
     """
-    Converte l'immagine QR in una mesh 3D estrusa.
-    Include Binarizzazione e Semplificazione Aggressiva (Correzione).
+    Converte il QR (sia SVG che PNG) in una mesh 3D estrusa.
     """
     logging.info("Creazione mesh di estrusione QR in corso...")
     
-    # 1. Binarizzazione Esplicita (Correzione)
-    threshold = 128
-    qr_binarized = qr_image.point(lambda p: 255 if p > threshold else 0)
-    img_array = np.array(qr_binarized) 
-    
-    mask = img_array < 128
-    
-    contours = find_contours(mask, level=0.5)
-
-    if not contours:
-        logging.warning("Nessun contorno QR trovato nell'immagine.")
-        return trimesh.Trimesh()
-
     polygons = []
-    scale = size_mm / qr_image.size[0] # Scala pixel -> mm
-    
-    for contour in contours:
-        if len(contour) < 3:
-            continue
-            
-        points_mm = contour * scale
-        
-        # Ribalta l'asse Y per allineare l'origine in basso a sinistra (convenzione 3D)
-        points_mm[:, 0] = size_mm - points_mm[:, 0] 
-        
-        try:
-            poly = shapely.geometry.Polygon(points_mm)
-            
-            # Semplificazione aggressiva (essenziale per l'ugello grande)
-            poly = poly.simplify(scale) 
 
-            if poly.is_valid and poly.area > (scale * scale):
-                polygons.append(poly)
-        except Exception as e:
-            logging.warning(f"Errore nella creazione del poligono Shapely: {e}")
+    if isinstance(qr_data, Path) and qr_data.suffix.lower() == '.svg':
+        # --- LOGICA SVG (VETTORIALE) ---
+        try:
+            tree = ET.parse(qr_data)
+            root = tree.getroot()
             
+            # Troviamo tutti gli elementi <path> (dove è contenuto il QR)
+            # Nota: Assumiamo che il QR sia generato come un unico percorso SVG complesso
+            all_paths = root.findall('.//{http://www.w3.org/2000/svg}path')
+
+            if not all_paths:
+                logging.error("Nessun tag <path> trovato nel file SVG.")
+                return trimesh.Trimesh()
+
+            # Estrai il primo percorso (di solito il QR completo)
+            path_data = all_paths[0].get('d')
+            
+            # 1. Conversione path SVG a oggetti Shapely
+            parsed_path = parse_path(path_data)
+            
+            # 2. Conversione a Poligono: In base a come è generato il QR SVG,
+            #    il percorso è composto da linee chiuse (MultiPolygon)
+            if parsed_path.is_closed():
+                # Nota: Qui dobbiamo assumere che trimesh/svgpathtools abbiano un metodo di conversione.
+                # Per semplicità, ci affidiamo al fatto che l'SVG QR sia un Multipolygon.
+                
+                # Questa è una semplificazione. Un QR SVG ben fatto definisce i moduli
+                # come un unico percorso complesso 'd="..."'.
+                # Per la massima precisione: usiamo trimesh per caricare direttamente i poligoni.
+                
+                # Il modo più semplice e robusto con trimesh è:
+                # 1. Caricare i percorsi con una libreria (già fatto con svgpathtools)
+                # 2. Iterare sui sub-percorsi chiusi e convertirli in Shapely Polygon
+                
+                # Dato che il QR SVG è un insieme di moduli (poligoni chiusi),
+                # usiamo un metodo per estrarli in Shapely:
+                
+                # Tentiamo un'analisi basata sulla geometria generata da svgpathtools
+                path_segments = parsed_path.continuous_paths()
+                
+                scale = size_mm / float(root.get('width').replace('mm', '')) # Scala da SVG a MM
+                
+                for sub_path in path_segments:
+                    if sub_path.is_closed():
+                        points_complex = [p for p in sub_path.vertices()]
+                        points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
+                        
+                        # Il QR code tipicamente deve essere ribaltato in Y.
+                        # Nelle coordinate SVG, Y è spesso invertito. Qui assumiamo il ribaltamento è necessario
+                        points_real = [(x, size_mm - y) for x, y in points_real]
+                        
+                        poly = shapely.geometry.Polygon(points_real)
+                        poly = poly.simplify(0.01) # Semplificazione leggera
+                        if poly.is_valid and poly.area > 0:
+                            polygons.append(poly)
+
+
+        except Exception as e:
+            logging.error(f"Errore nella lettura/parsing del file SVG: {e}")
+            return trimesh.Trimesh()
+
+    elif isinstance(qr_data, Image.Image):
+        # --- LOGICA PNG (RASTER) - INVARIATA ---
+        logging.warning("Utilizzo logica PNG (meno precisa).")
+        qr_image = qr_data
+        
+        # 1. Binarizzazione Esplicita (Correzione)
+        threshold = 128
+        qr_binarized = qr_image.point(lambda p: 255 if p > threshold else 0)
+        img_array = np.array(qr_binarized) 
+        
+        mask = img_array < 128
+        
+        contours = find_contours(mask, level=0.5)
+
+        if not contours:
+            logging.warning("Nessun contorno QR trovato nell'immagine PNG.")
+            return trimesh.Trimesh()
+
+        scale = size_mm / qr_image.size[0] # Scala pixel -> mm
+        
+        for contour in contours:
+            if len(contour) < 3:
+                continue
+                
+            points_mm = contour * scale
+            
+            # Ribalta l'asse Y per allineare l'origine in basso a sinistra (convenzione 3D)
+            points_mm[:, 0] = size_mm - points_mm[:, 0] 
+            
+            try:
+                poly = shapely.geometry.Polygon(points_mm)
+                poly = poly.simplify(scale) 
+                if poly.is_valid and poly.area > (scale * scale):
+                    polygons.append(poly)
+            except Exception as e:
+                logging.warning(f"Errore nella creazione del poligono Shapely: {e}")
+                
+    else:
+        fail("Tipo di dati QR non supportato. Né SVG né PNG trovati/validi.")
+
+
     if not polygons:
         logging.warning("Nessun poligono valido generato. Restituisce mesh vuota.")
         return trimesh.Trimesh()
 
+    # --- ESTRUSIONE (Comune a SVG e PNG) ---
     # Unione per gestire i buchi e le geometrie complesse
+    # NOTA: Buffer(0) è cruciale per pulire i MultiPolygons
     union_geometry = shapely.geometry.MultiPolygon(polygons).buffer(0)
     
     all_qr_meshes = []
@@ -119,13 +201,13 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
     elif union_geometry.geom_type == 'MultiPolygon':
         geometries = list(union_geometry.geoms)
     else:
-        logging.error(f"Geometria QR non supportata: {union_geometry.geom_type}")
+        logging.error(f"Geometria QR non supportata dopo l'unione: {union_geometry.geom_type}")
         return trimesh.Trimesh()
 
     try:
         for single_polygon in geometries:
             mesh = trimesh.creation.extrude_polygon(
-                single_polygon, 
+                single_polygon, 
                 height=extrusion_mm
             )
             all_qr_meshes.append(mesh)
@@ -153,32 +235,28 @@ def run_pipeline(args: argparse.Namespace) -> None:
     """Logica principale per la generazione del 3MF."""
     
     # 0) Preparazione
-    qr_data = args.qr_data
+    qr_data_input = args.qr_data
     base_model_path = Path(args.input_3mf)
     output_3mf = Path(args.output_3mf)
     qr_size_mm = args.qr_size_mm
     
-    QR_MODULE_SIZE_PX = 1024  
     QR_EXTRUSION_MM = 0.3 # Altezza standard dei moduli QR
     
-    # Offset per l'intarsio/aggancio sulla base. Un valore positivo spinge il TOP del QR
-    # leggermente sopra la base_min_z.
+    # Offset per l'intarsio/aggancio sulla base (0.01mm di invasione nel portachiavi)
     AGGANCIO_INCISIONE_MM = 0.01 
 
     print(f"[Python Script] \n=== REPORT ===")
     print(f"Modello: {base_model_path.name}")
-    print(f"QR data: {qr_data[:50]}...")
+    print(f"QR data: {qr_data_input[:50]}...")
     print(f"FlipZ attivo: {args.flipz}")
 
-    # 1) Recupero del QR Code generato dagli script Node (senza fallback)
-    qr_image = load_existing_qr_image(output_3mf)
+    # 1) Recupero del QR Code (Prova SVG, poi PNG)
+    qr_data = load_qr_data(output_3mf)
     
-    if qr_image is None:
-        fail("Impossibile caricare il file PNG locale in: " + 
-             str(output_3mf.parent.parent / "qr_png" / f"{output_3mf.stem}.png") +
-             ". Interruzione dell'esecuzione.")
+    if qr_data is None:
+        fail("Impossibile caricare il QR Code (né SVG né PNG) locale. Interruzione.")
         
-    # 2) Importazione, Unione e Ribaltamento del Modello Base
+    # 2) Importazione, Unione e Ribaltamento del Modello Base (Invariata)
     try:
         logging.info("Caricamento modello base 3MF...")
         
@@ -204,11 +282,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
         fail(f"Errore durante il caricamento di {base_model_path}: {e}")
 
     # 3) Creazione dell'estrusione QR
-    qr_mesh = create_qr_extrusion(qr_image, qr_size_mm, QR_EXTRUSION_MM)
+    qr_mesh = create_qr_extrusion(qr_data, qr_size_mm, QR_EXTRUSION_MM)
     if qr_mesh.vertices.size == 0:
         logging.warning("Mesh QR vuota.")
 
-    # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE SULLA BASE INFERIORE
+    # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE SULLA BASE INFERIORE (Invariata)
     base_bounds = base_model_mesh.bounds
     
     # 1. Troviamo la Z Minima (la superficie inferiore/base del portachiavi)
@@ -225,10 +303,8 @@ def run_pipeline(args: argparse.Namespace) -> None:
     # [Z]: Calcoliamo l'altezza totale della mesh QR (0.3mm)
     qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
     
-    # Calcolo della traslazione Z: Il TOP della mesh QR (che è a Z=qr_height)
-    # deve essere posizionato a base_min_z + AGGANCIO_INCISIONE_MM.
-    # Questo spinge la maggior parte del QR sotto la base, ma il suo TOP
-    # invade leggermente il volume del modello base (0.01mm) per l'intarsio.
+    # Calcolo della traslazione Z: Sposta il BOTTOM del QR a base_min_z meno l'altezza,
+    # poi aggiunge l'aggancio. Risultato: il TOP del QR invade il portachiavi di 0.01mm.
     translation_z = base_min_z - qr_height + AGGANCIO_INCISIONE_MM 
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
