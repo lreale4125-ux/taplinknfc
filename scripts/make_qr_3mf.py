@@ -92,8 +92,6 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
 
             path_data = all_paths[0].get('d')
             parsed_path = parse_path(path_data)
-            
-            # Correzione: Usare .continuous_subpaths()
             path_segments = parsed_path.continuous_subpaths()
 
             # Correzione per ZeroDivisionError
@@ -109,11 +107,19 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
                 logging.warning(f"Dimensioni SVG (width='{svg_width_str}') non valide. Si assume scala 1:1.")
                 scale = 1.0
             
-            # --- INIZIO CORREZIONE 'is_closed' ---
+            # --- INIZIO CORREZIONE '.vertices' ---
             for sub_path in path_segments:
                 
-                points_complex = [p for p in sub_path.vertices()]
+                # Un oggetto Path è un iterabile di segmenti (Line, Arc, etc.)
+                # Estraiamo il punto .start di ogni segmento per formare i vertici
+                points_complex = [seg.start for seg in sub_path]
                 
+                # Aggiungiamo il punto .end dell'ultimo segmento per chiudere il poligono
+                if points_complex:
+                    points_complex.append(sub_path.end)
+                else:
+                    continue # Percorso vuoto
+                    
                 # Un poligono ha bisogno di almeno 3 vertici
                 if len(points_complex) < 3:
                     continue
@@ -125,7 +131,7 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
                 poly = poly.simplify(0.01) # Semplificazione leggera
                 if poly.is_valid and poly.area > 0:
                     polygons.append(poly)
-            # --- FINE CORREZIONE 'is_closed' ---
+            # --- FINE CORREZIONE '.vertices' ---
 
 
         except Exception as e:
@@ -268,12 +274,10 @@ def run_pipeline(args: argparse.Namespace) -> None:
     translation_x = base_center_x
     translation_y = base_center_y
     
-    # Calcoliamo l'altezza totale della mesh QR (0.3mm)
-    # Dobbiamo assicurarci che la mesh non sia vuota prima di accedere a .bounds
     if qr_mesh.vertices.size > 0:
         qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
     else:
-        qr_height = 0 # Se la mesh è vuota, l'altezza è 0
+        qr_height = 0 
         
     translation_z = base_min_z - qr_height + AGGANCIO_INCISIONE_MM
 
