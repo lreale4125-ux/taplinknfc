@@ -13,6 +13,7 @@ import shapely.geometry
 import trimesh
 
 # --- Nuove dipendenze per SVG ---
+# Assicurarsi che queste non siano avvolte in un try/except se sono installate
 from svgpathtools import parse_path
 from svgpathtools.path import Path as SVGPath
 import xml.etree.ElementTree as ET
@@ -85,7 +86,6 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
             root = tree.getroot()
 
             # Troviamo tutti gli elementi <path> (dove è contenuto il QR)
-            # Nota: Assumiamo che il QR sia generato come un unico percorso SVG complesso
             all_paths = root.findall('.//{http://www.w3.org/2000/svg}path')
 
             if not all_paths:
@@ -95,38 +95,44 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
             # Estrai il primo percorso (di solito il QR completo)
             path_data = all_paths[0].get('d')
 
-            # 1. Conversione path SVG a oggetti Shapely
+            # 1. Conversione path SVG a oggetti svgpathtools
             parsed_path = parse_path(path_data)
+            
+            # 2. Estrazione dei segmenti chiusi e Conversione a Poligono:
+            
+            # Correzione CRITICA: Usare .continuous_subpaths() per i percorsi complessi
+            # generati dai QR, che sono composti da molti moduli chiusi.
+            path_segments = parsed_path.continuous_subpaths() 
 
-            # 2. Conversione a Poligono:
-            if parsed_path.is_closed():
-                
-                path_segments = parsed_path.continuous_paths()
-
-                # Tenta di estrarre la scala dalle dimensioni SVG
-                svg_width_str = root.get('width', '0').replace('mm', '')
-                try:
-                    svg_width = float(svg_width_str)
-                    scale = size_mm / svg_width
-                except ValueError:
-                    # Fallback se le dimensioni SVG non sono chiare/presenti
-                    logging.warning("Dimensioni SVG non valide. Si assume che l'SVG sia scalato 1:1, la scala sarà 1.")
-                    scale = 1.0
+            # Tenta di estrarre la scala dalle dimensioni SVG
+            svg_width_str = root.get('width', '0').replace('mm', '')
+            try:
+                svg_width = float(svg_width_str)
+                scale = size_mm / svg_width
+            except ValueError:
+                # Fallback se le dimensioni SVG non sono chiare/presenti
+                logging.warning("Dimensioni SVG non valide. Si assume che l'SVG sia scalato 1:1, la scala sarà 1.")
+                scale = 1.0
 
 
-                for sub_path in path_segments:
-                    if sub_path.is_closed():
-                        # Converte i punti complessi in coordinate reali (x, y)
-                        points_complex = [p for p in sub_path.vertices()]
-                        points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
+            for sub_path in path_segments:
+                # Il metodo .continuous_subpaths() restituisce percorsi chiusi.
+                # L'oggetto Path ha il metodo .is_closed()
+                if sub_path.is_closed(): 
+                    # Converte i punti complessi in coordinate reali (x, y)
+                    # Usiamo .vertices() che restituisce i punti di inizio/fine di ogni segmento.
+                    # Per un poligono, questo è sufficiente.
+                    points_complex = [p for p in sub_path.vertices()]
+                    points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
 
-                        # Ribalta l'asse Y (assumendo l'origine in alto a sinistra per SVG)
-                        points_real = [(x, size_mm - y) for x, y in points_real]
+                    # Ribalta l'asse Y (assumendo l'origine in alto a sinistra per SVG)
+                    # e converte a coordinate 3D Y positive verso l'alto (convenzione CAD)
+                    points_real = [(x, size_mm - y) for x, y in points_real]
 
-                        poly = shapely.geometry.Polygon(points_real)
-                        poly = poly.simplify(0.01) # Semplificazione leggera
-                        if poly.is_valid and poly.area > 0:
-                            polygons.append(poly)
+                    poly = shapely.geometry.Polygon(points_real)
+                    poly = poly.simplify(0.01) # Semplificazione leggera
+                    if poly.is_valid and poly.area > 0:
+                        polygons.append(poly)
 
 
         except Exception as e:
