@@ -13,14 +13,14 @@ import shapely.geometry
 import trimesh
 
 # --- Nuove dipendenze per SVG ---
+import xml.etree.ElementTree as ET # Spostato fuori dal try
+
 try:
     from svgpathtools import parse_path
     from svgpathtools.path import Path as SVGPath
-    import xml.etree.ElementTree as ET
 except ImportError:
     # Se le librerie SVG non sono installate, l'errore verrà gestito più avanti.
     pass
-
 
 # Configurazione Logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
