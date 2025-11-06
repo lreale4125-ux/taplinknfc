@@ -13,14 +13,22 @@ import shapely.geometry
 import trimesh
 
 # --- Nuove dipendenze per SVG ---
-import xml.etree.ElementTree as ET # Spostato fuori dal try
-
 try:
     from svgpathtools import parse_path
     from svgpathtools.path import Path as SVGPath
-except ImportError:
-    # Se le librerie SVG non sono installate, l'errore verrà gestito più avanti.
-    pass
+    import xml.etree.ElementTree as ET
+    SVG_LIBRARIES_OK = True
+except ImportError as e:
+    # Imposta la variabile a False e logga l'errore, ma non blocca l'esecuzione
+    # se c'è il fallback PNG.
+    SVG_LIBRARIES_OK = False
+    logging.warning(f"Librerie SVG mancanti ({e}). Il parsing SVG non funzionerà.")
+    
+# Definisci le variabili vuote per evitare 'name is not defined' se l'import fallisce
+if not SVG_LIBRARIES_OK:
+    parse_path = None
+    SVGPath = None
+    ET = None
 
 # Configurazione Logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
