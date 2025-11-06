@@ -77,35 +77,36 @@ async function generateAndSaveQR(keychainId) {
         await fs.mkdir(svgDir, { recursive: true });
         await fs.mkdir(m3mfDir, { recursive: true });
 
-        // 4. GENERAZIONE PNG (CORREZIONE: Aumento della risoluzione e forzatura ECC)
+        // 4. GENERAZIONE PNG (Invariato)
         await QRCode.toFile(pngPath, qrData, {
             color: {
                 dark: '#000000',
                 light: '#FFFFFF'
             },
-            errorCorrectionLevel: 'M', // Livello ECC medio per meno dettaglio
-            // CORREZIONE FONDAMENTALE: Aumento il width per ingrandire i moduli
+            errorCorrectionLevel: 'M',
             width: 1024, 
             type: 'png'
         });
         
-        // 5. GENERAZIONE SVG (Correzione ECC e margine minimo)
+        // 5. GENERAZIONE SVG (Correzione: Aggiunta 'width')
         const svgString = await QRCode.toString(qrData, {
             errorCorrectionLevel: 'M', 
             type: 'svg',
-            margin: 0
+            margin: 0,
+            // AGGIUNTA CORREZIONE: Specifica la larghezza (in mm impliciti)
+            // Usa la stessa costante che Python userà
+            width: QR_SIZE_MM 
         });
         await fs.writeFile(svgPath, svgString);
         
         // 6. CHIAMATA A PYTHON PER GENERARE IL 3MF (Invariato)
         
-        // Costruisci il comando, usando 'python3' come eseguibile
         const command = [
             `"${PYTHON_VENV_PATH}"`,
             `"${PYTHON_SCRIPT_PATH}"`,
             `--input-3mf "${BASE_MODEL_PATH}"`,
             `--output-3mf "${m3mfPath}"`,
-            `--qr-data "${qrData}"`, // Passa il nuovo qrData (/k/...)
+            `--qr-data "${qrData}"`,
             `--qr-size-mm ${QR_SIZE_MM}`,
             `--qr-margin-mm ${QR_MARGIN_MM}`
         ].join(' ');
