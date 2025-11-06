@@ -13,7 +13,6 @@ import shapely.geometry
 import trimesh
 
 # --- Nuove dipendenze per SVG ---
-# Assicurarsi che queste non siano avvolte in un try/except se sono installate
 from svgpathtools import parse_path
 from svgpathtools.path import Path as SVGPath
 import xml.etree.ElementTree as ET
@@ -85,49 +84,43 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
             tree = ET.parse(qr_data)
             root = tree.getroot()
 
-            # Troviamo tutti gli elementi <path> (dove è contenuto il QR)
             all_paths = root.findall('.//{http://www.w3.org/2000/svg}path')
 
             if not all_paths:
                 logging.error("Nessun tag <path> trovato nel file SVG.")
                 return trimesh.Trimesh()
 
-            # Estrai il primo percorso (di solito il QR completo)
             path_data = all_paths[0].get('d')
-
-            # 1. Conversione path SVG a oggetti svgpathtools
             parsed_path = parse_path(path_data)
-            
-            # 2. Estrazione dei segmenti chiusi e Conversione a Poligono:
-            
-            # Correzione CRITICA: Usare .continuous_subpaths() per i percorsi complessi
-            # generati dai QR, che sono composti da molti moduli chiusi.
-            path_segments = parsed_path.continuous_subpaths() 
+            path_segments = parsed_path.continuous_subpaths()
 
-            # Tenta di estrarre la scala dalle dimensioni SVG
-            svg_width_str = root.get('width', '0').replace('mm', '')
+            # --- INIZIO CORREZIONE PER ZeroDivisionError ---
+            
+            # Pulisce stringhe come "22mm" o "22px"
+            svg_width_str = root.get('width', '0').replace('mm', '').replace('px', '') 
             try:
                 svg_width = float(svg_width_str)
-                scale = size_mm / svg_width
+                
+                # CONTROLLO DI SICUREZZA
+                if svg_width == 0.0:
+                    logging.warning("Dimensioni SVG (width) non valide (risultato 0). Si assume scala 1:1.")
+                    scale = 1.0
+                else:
+                    scale = size_mm / svg_width # Calcolo scala normale
+                    
             except ValueError:
-                # Fallback se le dimensioni SVG non sono chiare/presenti
-                logging.warning("Dimensioni SVG non valide. Si assume che l'SVG sia scalato 1:1, la scala sarà 1.")
+                # Fallback se width="auto" o stringa non valida
+                logging.warning(f"Dimensioni SVG (width='{svg_width_str}') non valide. Si assume scala 1:1.")
                 scale = 1.0
+            
+            # --- FINE CORREZIONE ---
 
 
             for sub_path in path_segments:
-                # Il metodo .continuous_subpaths() restituisce percorsi chiusi.
-                # L'oggetto Path ha il metodo .is_closed()
                 if sub_path.is_closed(): 
-                    # Converte i punti complessi in coordinate reali (x, y)
-                    # Usiamo .vertices() che restituisce i punti di inizio/fine di ogni segmento.
-                    # Per un poligono, questo è sufficiente.
                     points_complex = [p for p in sub_path.vertices()]
                     points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
-
-                    # Ribalta l'asse Y (assumendo l'origine in alto a sinistra per SVG)
-                    # e converte a coordinate 3D Y positive verso l'alto (convenzione CAD)
-                    points_real = [(x, size_mm - y) for x, y in points_real]
+                    points_real = [(x, size_mm - y) for x, y in points_real] # Ribalta Y
 
                     poly = shapely.geometry.Polygon(points_real)
                     poly = poly.simplify(0.01) # Semplificazione leggera
@@ -136,7 +129,6 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
 
 
         except Exception as e:
-            # Assicurati che svgpathtools sia installato!
             fail(f"Errore nella lettura/parsing del file SVG: {e}")
             return trimesh.Trimesh()
 
@@ -144,14 +136,10 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
         # --- LOGICA PNG (RASTER) - INVARIATA ---
         logging.warning("Utilizzo logica PNG (meno precisa).")
         qr_image = qr_data
-
-        # 1. Binarizzazione Esplicita (Correzione)
         threshold = 128
         qr_binarized = qr_image.point(lambda p: 255 if p > threshold else 0)
         img_array = np.array(qr_binarized)
-
         mask = img_array < 128
-
         contours = find_contours(mask, level=0.5)
 
         if not contours:
@@ -163,11 +151,8 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
         for contour in contours:
             if len(contour) < 3:
                 continue
-
             points_mm = contour * scale
-
-            # Ribalta l'asse Y per allineare l'origine in basso a sinistra (convenzione 3D)
-            points_mm[:, 0] = size_mm - points_mm[:, 0]
+            points_mm[:, 0] = size_mm - points_mm[:, 0] # Ribalta Y
 
             try:
                 poly = shapely.geometry.Polygon(points_mm)
@@ -186,10 +171,7 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
         return trimesh.Trimesh()
 
     # --- ESTRUSIONE (Comune a SVG e PNG) ---
-    # Unione per gestire i buchi e le geometrie complesse
-    # NOTA: Buffer(0) è cruciale per pulire i MultiPolygons
     union_geometry = shapely.geometry.MultiPolygon(polygons).buffer(0)
-
     all_qr_meshes = []
 
     if union_geometry.geom_type == 'Polygon':
@@ -235,10 +217,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     base_model_path = Path(args.input_3mf)
     output_3mf = Path(args.output_3mf)
     qr_size_mm = args.qr_size_mm
-
     QR_EXTRUSION_MM = 0.3 # Altezza standard dei moduli QR
-
-    # Offset per l'intarsio/aggancio sulla base (0.01mm di invasione nel portachiavi)
     AGGANCIO_INCISIONE_MM = 0.01
 
     print(f"[Python Script] \n=== REPORT ===")
@@ -255,7 +234,6 @@ def run_pipeline(args: argparse.Namespace) -> None:
     # 2) Importazione, Unione e Ribaltamento del Modello Base (Invariata)
     try:
         logging.info("Caricamento modello base 3MF...")
-
         loaded_data = trimesh.load(str(base_model_path), file_type='3mf')
 
         if isinstance(loaded_data, trimesh.Trimesh):
@@ -284,23 +262,12 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE SULLA BASE INFERIORE (Invariata)
     base_bounds = base_model_mesh.bounds
-
-    # 1. Troviamo la Z Minima (la superficie inferiore/base del portachiavi)
     base_min_z = base_bounds[0, 2]
-
-    # Calcolo del centro XY del modello
     base_center_x = (base_bounds[0, 0] + base_bounds[1, 0]) / 2
     base_center_y = (base_bounds[0, 1] + base_bounds[1, 1]) / 2
-
-    # [X, Y]: Spostamento al centro del modello.
     translation_x = base_center_x
     translation_y = base_center_y
-
-    # [Z]: Calcoliamo l'altezza totale della mesh QR (0.3mm)
     qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
-
-    # Calcolo della traslazione Z: Sposta il BOTTOM del QR a base_min_z meno l'altezza,
-    # poi aggiunge l'aggancio. Risultato: il TOP del QR invade il portachiavi di 0.01mm.
     translation_z = base_min_z - qr_height + AGGANCIO_INCISIONE_MM
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
