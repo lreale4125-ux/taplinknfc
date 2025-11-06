@@ -147,7 +147,7 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
         return trimesh.Trimesh()
 
 # ************************************************************
-# 4. Logica Principale con Correzioni
+# 4. Logica Principale con Correzioni per INCISIONE SULLA BASE
 # ************************************************************
 def run_pipeline(args: argparse.Namespace) -> None:
     """Logica principale per la generazione del 3MF."""
@@ -160,7 +160,10 @@ def run_pipeline(args: argparse.Namespace) -> None:
     
     QR_MODULE_SIZE_PX = 1024  
     QR_EXTRUSION_MM = 0.3 # Altezza standard dei moduli QR
-    AGGANCIO_INCISIONE_MM = -0.01 # Spingi leggermente sotto la superficie
+    
+    # Offset per l'intarsio/aggancio sulla base. Un valore positivo spinge il TOP del QR
+    # leggermente sopra la base_min_z.
+    AGGANCIO_INCISIONE_MM = 0.01 
 
     print(f"[Python Script] \n=== REPORT ===")
     print(f"Modello: {base_model_path.name}")
@@ -205,11 +208,11 @@ def run_pipeline(args: argparse.Namespace) -> None:
     if qr_mesh.vertices.size == 0:
         logging.warning("Mesh QR vuota.")
 
-    # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE A FILO
+    # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE SULLA BASE INFERIORE
     base_bounds = base_model_mesh.bounds
     
-    # 1. Troviamo la Z Massima (la superficie superiore del portachiavi)
-    base_max_z = base_bounds[1, 2] 
+    # 1. Troviamo la Z Minima (la superficie inferiore/base del portachiavi)
+    base_min_z = base_bounds[0, 2] 
     
     # Calcolo del centro XY del modello
     base_center_x = (base_bounds[0, 0] + base_bounds[1, 0]) / 2
@@ -222,13 +225,15 @@ def run_pipeline(args: argparse.Namespace) -> None:
     # [Z]: Calcoliamo l'altezza totale della mesh QR (0.3mm)
     qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
     
-    # Calcolo della traslazione Z: Il TOP della mesh QR deve essere posizionato
-    # a base_max_z, meno un piccolo offset per l'aggancio.
-    translation_z = base_max_z - qr_height + AGGANCIO_INCISIONE_MM 
+    # Calcolo della traslazione Z: Il TOP della mesh QR (che è a Z=qr_height)
+    # deve essere posizionato a base_min_z + AGGANCIO_INCISIONE_MM.
+    # Questo spinge la maggior parte del QR sotto la base, ma il suo TOP
+    # invade leggermente il volume del modello base (0.01mm) per l'intarsio.
+    translation_z = base_min_z - qr_height + AGGANCIO_INCISIONE_MM 
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
 
-    logging.info(f"Mesh QR posizionata e centrata per **incisione a filo**: Base QR a Z={translation_z:.3f}.")
+    logging.info(f"Mesh QR posizionata e centrata per **incisione sulla base**: Base QR a Z={translation_z:.3f}.")
 
     # 5) Unione delle parti
     out_parts = [("base_tag", base_model_mesh)]
