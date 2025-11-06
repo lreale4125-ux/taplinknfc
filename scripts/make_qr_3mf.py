@@ -92,40 +92,40 @@ def create_qr_extrusion(qr_data: Union[Path, Image.Image], size_mm: float, extru
 
             path_data = all_paths[0].get('d')
             parsed_path = parse_path(path_data)
+            
+            # Correzione: Usare .continuous_subpaths()
             path_segments = parsed_path.continuous_subpaths()
 
-            # --- INIZIO CORREZIONE PER ZeroDivisionError ---
-            
-            # Pulisce stringhe come "22mm" o "22px"
-            svg_width_str = root.get('width', '0').replace('mm', '').replace('px', '') 
+            # Correzione per ZeroDivisionError
+            svg_width_str = root.get('width', '0').replace('mm', '').replace('px', '')
             try:
                 svg_width = float(svg_width_str)
-                
-                # CONTROLLO DI SICUREZZA
                 if svg_width == 0.0:
                     logging.warning("Dimensioni SVG (width) non valide (risultato 0). Si assume scala 1:1.")
                     scale = 1.0
                 else:
-                    scale = size_mm / svg_width # Calcolo scala normale
-                    
+                    scale = size_mm / svg_width
             except ValueError:
-                # Fallback se width="auto" o stringa non valida
                 logging.warning(f"Dimensioni SVG (width='{svg_width_str}') non valide. Si assume scala 1:1.")
                 scale = 1.0
             
-            # --- FINE CORREZIONE ---
-
-
+            # --- INIZIO CORREZIONE 'is_closed' ---
             for sub_path in path_segments:
-                if sub_path.is_closed(): 
-                    points_complex = [p for p in sub_path.vertices()]
-                    points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
-                    points_real = [(x, size_mm - y) for x, y in points_real] # Ribalta Y
+                
+                points_complex = [p for p in sub_path.vertices()]
+                
+                # Un poligono ha bisogno di almeno 3 vertici
+                if len(points_complex) < 3:
+                    continue
+                    
+                points_real = [(p.real * scale, p.imag * scale) for p in points_complex]
+                points_real = [(x, size_mm - y) for x, y in points_real] # Ribalta Y
 
-                    poly = shapely.geometry.Polygon(points_real)
-                    poly = poly.simplify(0.01) # Semplificazione leggera
-                    if poly.is_valid and poly.area > 0:
-                        polygons.append(poly)
+                poly = shapely.geometry.Polygon(points_real)
+                poly = poly.simplify(0.01) # Semplificazione leggera
+                if poly.is_valid and poly.area > 0:
+                    polygons.append(poly)
+            # --- FINE CORREZIONE 'is_closed' ---
 
 
         except Exception as e:
@@ -267,7 +267,14 @@ def run_pipeline(args: argparse.Namespace) -> None:
     base_center_y = (base_bounds[0, 1] + base_bounds[1, 1]) / 2
     translation_x = base_center_x
     translation_y = base_center_y
-    qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
+    
+    # Calcoliamo l'altezza totale della mesh QR (0.3mm)
+    # Dobbiamo assicurarci che la mesh non sia vuota prima di accedere a .bounds
+    if qr_mesh.vertices.size > 0:
+        qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
+    else:
+        qr_height = 0 # Se la mesh è vuota, l'altezza è 0
+        
     translation_z = base_min_z - qr_height + AGGANCIO_INCISIONE_MM
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
