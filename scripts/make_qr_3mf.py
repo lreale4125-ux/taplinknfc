@@ -5,7 +5,7 @@ from typing import List, Tuple, Optional
 from pathlib import Path
 
 # --- Librerie installate con successo ---
-import requests # Mantenuto per non rompere le importazioni, anche se non usata.
+import requests 
 from PIL import Image
 import numpy as np
 from skimage.measure import find_contours
@@ -21,7 +21,7 @@ def fail(message: str) -> None:
     sys.exit(1)
 
 # ************************************************************
-# FUNZIONE RICHIESTA (Era mancante)
+# 1. Funzione per caricare il QR Code PNG locale
 # ************************************************************
 def load_existing_qr_image(output_3mf: Path) -> Optional[Image.Image]:
     """Carica il QR già generato dagli script Node (formato PNG)."""
@@ -42,11 +42,8 @@ def load_existing_qr_image(output_3mf: Path) -> Optional[Image.Image]:
 
     return None
 
-# La funzione download_qr_code è stata rimossa, come richiesto,
-# per eliminare il fallback.
-
 # ************************************************************
-# FUNZIONE RICHIESTA (Era mancante)
+# 2. Funzione per salvare il 3MF
 # ************************************************************
 def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: Path) -> None:
     """Scrive un 3MF multi-parte usando trimesh."""
@@ -63,7 +60,7 @@ def write_3mf_with_trimesh(parts: List[Tuple[str, trimesh.Trimesh]], out_path: P
         fail(f"Impossibile salvare il 3MF in '{out_path}' usando trimesh: {e}")
 
 # ************************************************************
-# FUNZIONE RICHIESTA (Era mancante)
+# 3. Funzione per creare la mesh QR da immagine
 # ************************************************************
 def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: float) -> trimesh.Trimesh:
     """
@@ -79,7 +76,6 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
     
     mask = img_array < 128
     
-    # Usiamo 0.5 come livello per contorni netti (bianco/nero)
     contours = find_contours(mask, level=0.5)
 
     if not contours:
@@ -87,7 +83,7 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
         return trimesh.Trimesh()
 
     polygons = []
-    scale = size_mm / qr_image.size[0] # Scala pixel -> mm (1024 pixel -> 22 mm)
+    scale = size_mm / qr_image.size[0] # Scala pixel -> mm
     
     for contour in contours:
         if len(contour) < 3:
@@ -151,7 +147,7 @@ def create_qr_extrusion(qr_image: Image.Image, size_mm: float, extrusion_mm: flo
         return trimesh.Trimesh()
 
 # ************************************************************
-# FUNZIONE run_pipeline (Con la tua modifica anti-fallback)
+# 4. Logica Principale con Correzioni
 # ************************************************************
 def run_pipeline(args: argparse.Namespace) -> None:
     """Logica principale per la generazione del 3MF."""
@@ -163,17 +159,17 @@ def run_pipeline(args: argparse.Namespace) -> None:
     qr_size_mm = args.qr_size_mm
     
     QR_MODULE_SIZE_PX = 1024  
-    QR_EXTRUSION_MM = 0.3 # Altezza standard
+    QR_EXTRUSION_MM = 0.3 # Altezza standard dei moduli QR
+    AGGANCIO_INCISIONE_MM = -0.01 # Spingi leggermente sotto la superficie
 
     print(f"[Python Script] \n=== REPORT ===")
     print(f"Modello: {base_model_path.name}")
     print(f"QR data: {qr_data[:50]}...")
     print(f"FlipZ attivo: {args.flipz}")
 
-    # 1) Recupero del QR Code generato dagli script Node
+    # 1) Recupero del QR Code generato dagli script Node (senza fallback)
     qr_image = load_existing_qr_image(output_3mf)
     
-    # *** MODIFICA: Termina con errore se l'immagine PNG non è stata caricata ***
     if qr_image is None:
         fail("Impossibile caricare il file PNG locale in: " + 
              str(output_3mf.parent.parent / "qr_png" / f"{output_3mf.stem}.png") +
@@ -183,18 +179,15 @@ def run_pipeline(args: argparse.Namespace) -> None:
     try:
         logging.info("Caricamento modello base 3MF...")
         
-        # *** CORREZIONE: Usare loaded_data per evitare 'base_model_scene is not defined' ***
         loaded_data = trimesh.load(str(base_model_path), file_type='3mf')
         
         if isinstance(loaded_data, trimesh.Trimesh):
             base_model_mesh = loaded_data
         elif isinstance(loaded_data, trimesh.Scene):
-            # Uniamo tutte le mesh in un unico oggetto per semplificare
             base_model_mesh = trimesh.util.concatenate(list(loaded_data.geometry.values()))
         else:
             fail(f"Tipo di oggetto non supportato per il modello base: {type(loaded_data)}")
             
-        # Aggiunta la gestione del Ribaltamento Z (se flag --flipz è passato)
         if args.flipz:
             logging.info("Ribaltamento del modello base lungo l'asse Z.")
             tf = np.eye(4)
@@ -212,25 +205,30 @@ def run_pipeline(args: argparse.Namespace) -> None:
     if qr_mesh.vertices.size == 0:
         logging.warning("Mesh QR vuota.")
 
-    # 4) Calcolo e CORREZIONE della POSIZIONE (logica di centraggio migliorata)
+    # 4) CORREZIONE DELLA POSIZIONE Z per l'INCISIONE A FILO
     base_bounds = base_model_mesh.bounds
-    base_min_z = base_bounds[0, 2] # Minima Z del modello base (il piano di stampa)
+    
+    # 1. Troviamo la Z Massima (la superficie superiore del portachiavi)
+    base_max_z = base_bounds[1, 2] 
     
     # Calcolo del centro XY del modello
     base_center_x = (base_bounds[0, 0] + base_bounds[1, 0]) / 2
     base_center_y = (base_bounds[0, 1] + base_bounds[1, 1]) / 2
     
-    # [X, Y]: Spostamento al centro del modello. La mesh QR è centrata a (0, 0)
+    # [X, Y]: Spostamento al centro del modello.
     translation_x = base_center_x 
     translation_y = base_center_y
     
-    # [Z]: Sposta il QR in Z_min, poi lo inserisce di 0.01 mm nel modello (incisione/aggancio)
-    qr_min_z = qr_mesh.bounds[0, 2] 
-    translation_z = base_min_z - qr_min_z + 0.01
+    # [Z]: Calcoliamo l'altezza totale della mesh QR (0.3mm)
+    qr_height = qr_mesh.bounds[1, 2] - qr_mesh.bounds[0, 2]
+    
+    # Calcolo della traslazione Z: Il TOP della mesh QR deve essere posizionato
+    # a base_max_z, meno un piccolo offset per l'aggancio.
+    translation_z = base_max_z - qr_height + AGGANCIO_INCISIONE_MM 
 
     qr_mesh.apply_translation([translation_x, translation_y, translation_z])
 
-    logging.info(f"Mesh QR posizionata e centrata sul modello base a Z={base_min_z:.3f} + 0.01.")
+    logging.info(f"Mesh QR posizionata e centrata per **incisione a filo**: Base QR a Z={translation_z:.3f}.")
 
     # 5) Unione delle parti
     out_parts = [("base_tag", base_model_mesh)]
@@ -251,7 +249,7 @@ if __name__ == "__main__":
     parser.add_argument("--qr-data", required=True, type=str)
     parser.add_argument("--qr-size-mm", type=float, default=22.0)
     parser.add_argument("--qr-margin-mm", type=float, default=1.5)
-    parser.add_argument("--flipz", action="store_true", help="Ribalta l'orientamento Z del modello base prima di posizionare il QR.") # <--- AGGIUNTO
+    parser.add_argument("--flipz", action="store_true", help="Ribalta l'orientamento Z del modello base prima di posizionare il QR.") 
     
     args = parser.parse_args()
     
