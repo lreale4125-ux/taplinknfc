@@ -12,7 +12,7 @@ const M3MF_SUBDIR = 'qr_3mf';
 // --- CONFIGURAZIONE SCRIPT PYTHON ---
 const SCRIPT_DIR = path.resolve(__dirname, '..', '..', 'scripts');
 const PYTHON_SCRIPT_PATH = path.join(SCRIPT_DIR, 'make_qr_3mf.py');
-const PYTHON_VENV_PATH = path.resolve(__dirname, '..', '..', 'venv_qr', 'bin', 'python');
+const PYTHON_VENV_PATH = path.resolve(__dirname, '..', '..', 'scripts', 'qr_env', 'bin', 'python');
 const BASE_MODEL_PATH = path.join(SCRIPT_DIR, 'base.3mf');
 const QR_SIZE_MM = 22;
 const QR_MARGIN_MM = 1.5;
