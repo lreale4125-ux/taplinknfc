@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NFC Analytics - Accesso</title>
-    <link rel="icon" type="image/png" href="/images/logoAltoTab.png">
+    <link rel="icon" type="image/png" href="/images/logoAltoTab.png" />
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -61,14 +61,24 @@
             <form id="loginForm" class="space-y-6">
                 <div>
                     <label for="email" class="text-sm font-medium text-gray-600" style="color: #34495e;">Email</label>
-                    <input type="email" id="email" required autocomplete="email" class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 transition" style="border-radius: 15px; background: rgba(255,255,255,0.8);">
+                    <input type="email" id="email" required autocomplete="email" class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 transition" style="border-radius: 15px; background: rgba(255,255,255,0.8);" />
                 </div>
                 <div>
                     <label for="password" class="text-sm font-medium text-gray-600" style="color: #34495e;">Password</label>
-                    <input type="password" id="password" required autocomplete="current-password" class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 transition" style="border-radius: 15px; background: rgba(255,255,255,0.8);">
+                    <input type="password" id="password" required autocomplete="current-password" class="w-full px-4 py-2 mt-1 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 transition" style="border-radius: 15px; background: rgba(255,255,255,0.8);" />
                 </div>
-                <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition" style="background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.3s ease;">Accedi</button>
+                <button type="submit" class="w-full py-2.5 px-4 bg-indigo-600 text-white font-semibold rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition" style="background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: all 0.3s ease;">
+                    Accedi
+                </button>
             </form>
+
+            <!-- Bottone Registrati -->
+            <div class="text-center">
+                <a href="/register.html" class="inline-block mt-4 px-6 py-2 text-indigo-600 font-semibold rounded-md border border-indigo-600 hover:bg-indigo-600 hover:text-white transition" style="border-radius: 25px;">
+                    Registrati
+                </a>
+            </div>
+
             <p id="loginMessage" class="text-center text-sm text-red-600" style="color: #e74c3c;"></p>
         </div>
     </div>
@@ -77,7 +87,7 @@
         const loginForm = document.getElementById('loginForm');
         const loginMessage = document.getElementById('loginMessage');
         const API_BASE_URL = '';
-    
+
         const handleLoginRedirect = (user) => {
             // Logica di reindirizzamento con priorità
             if (user.role === 'admin') {
@@ -94,7 +104,7 @@
                 loginMessage.textContent = 'Nessun permesso assegnato a questo account.';
             }
         };
-    
+
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             loginMessage.textContent = '';
@@ -118,7 +128,7 @@
                 loginMessage.textContent = error.message;
             }
         });
-    
+
         document.addEventListener('DOMContentLoaded', () => {
             const token = localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('userData'));
@@ -127,6 +137,5 @@
             }
         });
     </script>
-
 </body>
 </html>
