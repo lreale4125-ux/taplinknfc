@@ -12,18 +12,19 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 /**
- * Genera una frase motivazionale unica per un utente.
+ * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
  * @param {string} keychainId
+ * @param {string} topic
  * @returns {Promise<string>}
  */
-async function getMotivationalQuote(keychainId) {
+async function getMotivationalQuote(keychainId, topic = 'motivazione') {
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
 
     try {
         const timestamp = Date.now();
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -36,34 +37,26 @@ async function getMotivationalQuote(keychainId) {
 
 /**
  * Endpoint API: restituisce solo la frase motivazionale in formato JSON
- * Richiede JWT
  */
 async function getQuoteOnly(req, res) {
-    let user = null;
-    let keychainId = 'Ospite';
-
-    // JWT opzionale
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.split(' ')[1];
-        try {
-            user = jwt.verify(token, process.env.JWT_SECRET);
-            keychainId = user.id || 'Ospite';
-        } catch (err) {
-            console.warn('Token non valido, accesso come Ospite.');
-        }
+    // Estrae l'ID utente e il topic dalla query (usati per DB e Gemini)
+    const keychainId = req.query.id || 'Ospite';
+    const topic = req.query.topic || 'motivazione';
+    
+    // Aggiorna analytics (usa la chiave composta definita in db.js)
+    try {
+        db.prepare(`
+            INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+        `).run(keychainId, topic);
+    } catch (dbError) {
+        console.error("Errore DB in getQuoteOnly:", dbError.message);
+        // Continua comunque, la frase motivazionale è la priorità
     }
 
-    const topic = req.query.topic || 'motivazione';
 
-    // Salvataggio visualizzazione nel DB
-    db.prepare(`
-        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
-        VALUES (?, ?, 1)
-        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
-    `).run(keychainId, topic);
-
-    const quote = await getMotivationalQuote(keychainId);
+    const quote = await getMotivationalQuote(keychainId, topic); 
     res.json({ quote });
 }
 
@@ -73,29 +66,22 @@ async function getQuoteOnly(req, res) {
 async function handleMotivationalRequest(req, res) {
     let user = null;
     let keychainId = 'Ospite';
-    let token = req.query.token || null;
+    let token = req.query.token || null; // 1. Cerca il token dalla query (redirect da login/register)
+    
+    // 2. Se non c'è, cerca nell'header (ricaricamento o API)
     if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
         token = req.headers.authorization.split(' ')[1];
     }
-
+    
+    // Verifica il token
     if (token) {
         try {
             user = jwt.verify(token, process.env.JWT_SECRET);
-            keychainId = user.id || 'Ospite';
+            // IMPORTANTE: Prende l'ID dal token verificato
+            keychainId = user.id || 'Ospite'; 
         } catch (err) {
             console.warn('Token non valido, accesso come Ospite.');
-        }
-    }
-
-    // JWT check opzionale
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.split(' ')[1];
-        try {
-            user = jwt.verify(token, process.env.JWT_SECRET);
-            keychainId = user.id || 'Ospite';
-        } catch (err) {
-            console.warn('Token non valido, accesso come Ospite.');
+            token = null; // Invalida il token
         }
     }
 
@@ -108,13 +94,18 @@ async function handleMotivationalRequest(req, res) {
 
     const topic = req.query.topic || 'motivazione';
 
-    // Aggiorna analytics
-    db.prepare(`
-        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
-        VALUES (?, ?, 1)
-        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
-    `).run(keychainId, topic);
-
+    // Aggiorna analytics (usa la chiave composta)
+    try {
+        db.prepare(`
+            INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+        `).run(keychainId, topic);
+    } catch (dbError) {
+        console.error("Errore DB in handleMotivationalRequest:", dbError.message);
+    }
+    
+    // HTML della pagina motivazionale
     const htmlPage = `<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -150,14 +141,21 @@ async function handleMotivationalRequest(req, res) {
         <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
     </div>
     <script>
+        // TOKEN E ID INIETTATI DAL SERVER PER LA CHIAMATA AJAX
+        const keychainId = '${keychainId}';
+        const topic = '${topic}';
+        const token = '${token}';
+
         async function loadQuote() {
             try {
                 const headers = {};
-                if ('${token}' && '${token}' !== 'null') {
-                    headers['Authorization'] = 'Bearer ${token}';
+                if (token && token !== 'null') {
+                    // Invia il token nell'header per l'autenticazione lato server (se necessario)
+                    headers['Authorization'] = 'Bearer ' + token;
                 }
 
-                const response = await fetch('/api/quote?id=${keychainId}&topic=' + encodeURIComponent('${topic}'), { headers });
+                // Chiama l'API motivazionale, passando ID e TOPIC
+                const response = await fetch('/api/quote?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(topic), { headers });
 
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
                 const data = await response.json();
@@ -170,8 +168,13 @@ async function handleMotivationalRequest(req, res) {
         loadQuote();
 
         document.getElementById('change-topic-btn').addEventListener('click', () => {
-            const newTopic = prompt("Inserisci un nuovo argomento:", '${topic}') || '${topic}';
-            window.location.search = '?id=${keychainId}&topic=' + encodeURIComponent(newTopic);
+            const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
+            // Reindirizza mantenendo ID e TOKEN
+            let newUrl = '?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(newTopic);
+            if(token && token !== 'null') { // Controlla se il token esiste prima di aggiungerlo
+                newUrl += '&token=' + encodeURIComponent(token);
+            }
+            window.location.search = newUrl;
         });
     </script>
 </body>

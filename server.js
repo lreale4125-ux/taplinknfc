@@ -4,7 +4,10 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./src/db');
-const { authenticateToken } = require('./src/middleware/auth');
+// Nota: 'authenticateToken' non è più necessaria qui se gestiamo il token in motivational.js
+// La riga è stata commentata se non definita da un altro file
+// const { authenticateToken } = require('./src/middleware/auth'); 
+const jwt = require('jsonwebtoken'); // Necessario per la verifica opzionale nel middleware
 const { handleMotivationalRequest, getQuoteOnly } = require('./src/services/motivational');
 
 // Route modules
@@ -34,19 +37,8 @@ app.use(async (req, res, next) => {
         return next(); // Non è dominio motivazionale
     }
 
-    // Controllo token JWT opzionale per pagine motivazionali
-    let userPayload = null;
-    if (req.headers.authorization?.startsWith('Bearer ')) {
-        const token = req.headers.authorization.split(' ')[1];
-        try {
-            userPayload = authenticateToken(token);
-            if (userPayload.role !== 'motivational') {
-                return res.status(403).send('Accesso negato: ruolo non autorizzato.');
-            }
-        } catch (err) {
-            return res.status(401).send('Token non valido o scaduto.');
-        }
-    }
+    // Nota: La gestione del token JWT è stata spostata interamente in motivational.js
+    // per gestire sia token in query che in header. Qui ci concentriamo sul routing.
 
     // 1. API Motivazionale
     if (req.path === '/api/quote') {
@@ -61,7 +53,8 @@ app.use(async (req, res, next) => {
     // 2. Root HTML Motivazionale
     if (req.path === '/') {
         try {
-            return await handleMotivationalRequest(req, res, userPayload);
+            // handleMotivationalRequest ora gestisce l'autenticazione internamente
+            return await handleMotivationalRequest(req, res);
         } catch (err) {
             console.error('[MOTIVAZIONAL] Errore generazione pagina:', err);
             return res.status(500).send('Errore interno nel sito motivazionale');
