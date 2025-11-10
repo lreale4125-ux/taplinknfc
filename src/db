@@ -190,8 +190,9 @@ function insertDefaultData() {
     }
 }
 
-function resetData() {
-    console.log('--- ⚠️ ESECUZIONE RESET DATI ⚠️ ---');
+// --- Funzione di Reset Dati di Test (Chiamata da Admin) ---
+function resetTestData() {
+    console.log('--- ⚠️ ESECUZIONE RESET DATI DI TEST RICHIESTA DA ADMIN ⚠️ ---');
     
     // Rimuovi dati dipendenti (Transazioni, Analytics, Keychains)
     db.exec(`DELETE FROM transactions;`);
@@ -199,6 +200,7 @@ function resetData() {
     db.exec(`DELETE FROM keychains;`);
 
     // Rimuovi tutti gli utenti tranne l'admin (assumendo che role='admin' sia l'unico che vuoi mantenere)
+    // Se l'admin di default ha id=1, tutti gli altri saranno cancellati.
     db.exec(`DELETE FROM users WHERE role != 'admin';`);
 
     // Resetta l'ID AUTOINCREMENT per la tabella users
@@ -219,3 +221,4 @@ initializeDatabase();
 
 // --- Esportazione istanza DB ---
 module.exports = db;
+module.exports.resetTestData = resetTestData;
