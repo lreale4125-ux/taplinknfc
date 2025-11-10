@@ -210,35 +210,83 @@ pm2 restart server
 ## 🔧 Troubleshooting (Problemi Comuni)
 
 ### 🚨 Errore 1 — SSH: REMOTE HOST IDENTIFICATION HAS CHANGED!
+**Problema:** Non riesci a connetterti alla VPS dopo la reinstallazione.
+
+**Soluzione:** Elimina la vecchia chiave SSH dal tuo computer locale (Windows/macOS/Linux).
+
 ```bash
-ssh-keygen -R 51.75.70.149
+ssh-keygen -R [INDIRIZZO IP DELLA TUA VPS, es: 85.31.236.83]
 ```
+
+---
 
 ### 🚨 Errore 2 — `sudo nginx -t` fallisce (SSL)
-Commenta le righe SSL in `/etc/nginx/sites-available/taplinknfc`, poi:
+**Problema:** Nginx non si avvia perché cerca file di certificato SSL (.pem) inesistenti.
+
+**Causa:** Un tentativo precedente di Certbot è fallito (es. sul DNS) lasciando le direttive SSL attive.
+
+**Soluzione:** Rimuovi manualmente le direttive SSL non funzionanti (quelle di Certbot) per il dominio specifico (`motivazional.taplinknfc.it`) dal file:
+```
+/etc/nginx/sites-available/taplinknfc
+```
+
+Dopo la pulizia del file, esegui:
+
 ```bash
 sudo systemctl reload nginx
-sudo certbot --nginx
+sudo certbot --nginx -d motivazional.taplinknfc.it -d www.motivazional.taplinknfc.it
 ```
+
+---
 
 ### 🚨 Errore 3 — 403/500 su Homepage
+**Problema:** Il frontend non si carica, visualizzando errore **403 Forbidden** o **500 Internal Server Error**.
+
+**Causa 1 (500/403):** Permessi del filesystem sbagliati per l’utente Nginx (`www-data`).
+
+**Causa 2 (403):** Mancanza della regola `location /` nel blocco Nginx del sito principale.
+
+**Soluzione:** Correggi i permessi e verifica la configurazione Nginx.
+
 ```bash
+# 1. Correggi i permessi (proprietà e accesso)
+sudo chown -R ubuntu:www-data /home/ubuntu/taplinknfc
+sudo find /home/ubuntu/taplinknfc -type d -exec chmod 755 {} \;
+sudo find /home/ubuntu/taplinknfc -type f -exec chmod 644 {} \;
 sudo chmod 755 /home/ubuntu
-sudo chmod -R 755 /home/ubuntu/taplinknfc
+
+# 2. Verifica che nel blocco HTTPS principale esista:
+# location / { try_files $uri $uri/ /index.html; }
+
+# 3. Ricarica Nginx
+sudo systemctl reload nginx
 ```
 
+---
+
 ### 🚨 Errore 4 — “no such table: users”
+**Problema:** Il backend Node.js non riesce a connettersi o inizializzare il database (SQLite).
+
+**Soluzione:** Riavvia il processo PM2 per costringerlo a ricaricare l’applicazione e il database.
+
 ```bash
 pm2 restart server
 ```
 
+---
+
 ### 🚨 Errore 5 — 500 Generazione QR Code (EACCES)
+**Problema:** L’API non riesce a scrivere i file QR code nella cartella `public`.
+
+**Soluzione:** Assicurati che l’utente che esegue l’applicazione (probabilmente `ubuntu` o `root`) sia proprietario della cartella.
+
 ```bash
 sudo chown -R ubuntu:ubuntu /home/ubuntu/taplinknfc/public
 pm2 restart server
 ```
 
 ---
+
 
 ## 📁 Struttura del Progetto
 
@@ -329,6 +377,7 @@ pm2 stop server
 
 **Lorenzo Reale** — [GitHub](https://github.com/lreale4125-ux)  
 Piattaforma *NFC Analytics* — 2025
+
 
 
 
