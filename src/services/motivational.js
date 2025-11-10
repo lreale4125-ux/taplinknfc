@@ -87,7 +87,7 @@ async function handleMotivationalRequest(req, res) {
         }
     }
 
-    // Se nessun JWT presente, rimane Ospite
+    // Logging accesso
     if (!user) {
         console.log('[MOTIVAZIONAL] Accesso come Ospite');
     } else {
@@ -102,7 +102,6 @@ async function handleMotivationalRequest(req, res) {
         VALUES (?, ?, 1)
         ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
     `).run(keychainId, topic);
-
 
     const htmlPage = `<!DOCTYPE html>
 <html lang="it">
@@ -141,9 +140,13 @@ async function handleMotivationalRequest(req, res) {
     <script>
         async function loadQuote() {
             try {
-                const response = await fetch('/api/quote?id=${keychainId}&topic=' + encodeURIComponent('${topic}'), {
-                    headers: { 'Authorization': 'Bearer ${token}' }
-                });
+                const headers = {};
+                if ('${token}' && '${token}' !== 'null') {
+                    headers['Authorization'] = 'Bearer ${token}';
+                }
+
+                const response = await fetch('/api/quote?id=${keychainId}&topic=' + encodeURIComponent('${topic}'), { headers });
+
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
                 const data = await response.json();
                 document.getElementById('quote-text').innerText = '"' + data.quote + '"';
