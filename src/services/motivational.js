@@ -8,37 +8,35 @@ if (process.env.GEMINI_API_KEY) {
     console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
 }
 
-// Function to get motivational quote
-async function getMotivationalQuote(keychainId) {
+// Function to get motivational quote, ora accetta l'argomento (topic)
+async function getMotivationalQuote(keychainId, topic = 'motivazione') {
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
 
     try {
-        // Aggiungi la definizione di timestamp qui! 👈 CORREZIONE
-        const timestamp = Date.now(); 
+        const timestamp = Date.now(); // Per garantire l'unicità
         
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
         
-        // Usa il timestamp definito
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        // PROMPT AGGIORNATO: Include l'argomento dinamico
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text();
     } catch (error) {
-        // Se c'è un errore (es. chiave API non valida), questo log è fondamentale per il debug!
-        console.error("Errore durante la chiamata a Gemini:", error.message); 
+        console.error("Errore durante la chiamata a Gemini:", error.message);
         return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
     }
 }
 
-// NUOVA Function: Restituisce solo la frase motivazionale in formato JSON
+// NUOVA Function: Estrae ID e Argomento dalla query e restituisce la frase
 async function getQuoteOnly(req, res) {
     const keychainId = req.query.id || 'Ospite';
+    const topic = req.query.topic || 'motivazione'; // Estrae l'argomento
     
-    // getMotivationalQuote può fallire e restituire il messaggio di fallback
-    const quote = await getMotivationalQuote(keychainId); 
+    // Passa l'ID e l'argomento alla funzione Gemini
+    const quote = await getMotivationalQuote(keychainId, topic); 
     
-    // Per un debug avanzato: se il fallback è presente, potresti restituire 500
     if (quote === "La motivazione è dentro di te, non smettere di cercarla.") {
         return res.status(500).json({ error: "Gemini API Fallita", quote: quote });
     }
@@ -46,14 +44,16 @@ async function getQuoteOnly(req, res) {
     res.json({ quote: quote }); // Risposta JSON OK
 }
 
-// Function to handle motivational app request (Invariata - la logica 404 è ora nel server.js)
+// Function to handle motivational app request (Gestisce la pagina HTML)
 async function handleMotivationalRequest(req, res) {
     if (req.path === '/') {
         const keychainId = req.query.id || 'Ospite';
-        const topic = req.query.topic || 'motivazione'; // esempio argomento dinamico
+        // Estrae 'topic' dalla URL, se non c'è usa 'motivazione'
+        const topic = req.query.topic || 'motivazione'; 
 
-        console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}`);
+        console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}. Argomento: ${topic}`);
 
+        // Increment view counter ASINCRONAMENTE
         db.prepare(`INSERT INTO motivational_analytics (keychain_id, view_count) VALUES (?, 1) ON CONFLICT(keychain_id) DO UPDATE SET view_count = view_count + 1`).run(keychainId);
 
         const htmlPage = `
@@ -222,7 +222,7 @@ async function handleMotivationalRequest(req, res) {
                     <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
                 </header>
                 <main>
-                    <h2>Scopri una frase su <span id="topic-text">{argomento}</span></h2>
+                    <h2>Scopri una frase su <span id="topic-text">${topic}</span></h2>
                     <div id="quote-text">Caricamento della tua motivazione...</div>
                 </main>
                 <div class="bottom-bar">
@@ -236,12 +236,14 @@ async function handleMotivationalRequest(req, res) {
                 </div>
                 <footer class="footer">Diritti ecc.</footer>
                 <script>
-                    const topic = "${topic}";
+                    const keychainId = '${keychainId}';
+                    const topic = '${topic}';
                     document.getElementById('topic-text').innerText = topic;
 
                     async function loadQuote() {
                         try {
-                            const response = await fetch('/api/quote?id=${keychainId}&topic=' + encodeURIComponent(topic));
+                            // CHIAMATA AGGIORNATA: Passa l'argomento (topic) alla chiamata API
+                            const response = await fetch('/api/quote?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(topic));
                             if (!response.ok) {
                                 throw new Error('Risposta server non OK. Status: ' + response.status);
                             }
@@ -255,9 +257,10 @@ async function handleMotivationalRequest(req, res) {
                     loadQuote();
 
                     document.getElementById('change-topic-btn').addEventListener('click', () => {
-                        // Cambia argomento in modo semplice per demo (potresti voler implementare un picker o altro)
+                        // LOGICA AGGIORNATA: Reindirizza con il nuovo argomento
                         const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
-                        window.location.search = '?id=${keychainId}&topic=' + encodeURIComponent(newTopic);
+                        // Ricostruisce la URL includendo sempre l'ID per non perderlo
+                        window.location.search = '?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(newTopic);
                     });
                 </script>
             </body>
@@ -271,13 +274,14 @@ async function handleMotivationalRequest(req, res) {
 
 // Diagnostic function for Gemini models (Invariata)
 async function listAvailableModels() {
-    // ... (funzione listAvailableModels omessa per brevità, è invariata) ...
+    console.log("[TEST MODE] listAvailableModels non in uso.");
+    return []; 
 }
 
 
 module.exports = {
     getMotivationalQuote,
     handleMotivationalRequest,
-    getQuoteOnly, // *** NUOVA ESPORTAZIONE ***
+    getQuoteOnly,
     listAvailableModels
 };
