@@ -66,6 +66,7 @@ async function getQuoteOnly(req, res) {
 async function handleMotivationalRequest(req, res) {
     let user = null;
     let keychainId = 'Ospite';
+    let username = 'Ospite'; // 🎯 NUOVA VARIABILE PER IL NOME UTENTE
     let token = req.query.token || null; // 1. Cerca il token dalla query (redirect da login/register)
     
     // 2. Se non c'è, cerca nell'header (ricaricamento o API)
@@ -77,8 +78,9 @@ async function handleMotivationalRequest(req, res) {
     if (token) {
         try {
             user = jwt.verify(token, process.env.JWT_SECRET);
-            // IMPORTANTE: Prende l'ID dal token verificato
-            keychainId = user.id || 'Ospite'; 
+            // IMPORTANTE: Prende l'ID e il NOME UTENTE dal token verificato
+            keychainId = user.id || 'Ospite';
+            username = user.username || 'Utente Registrato'; // 🎯 AGGIUNGI L'ESTRAZIONE DELLO USERNAME
         } catch (err) {
             console.warn('Token non valido, accesso come Ospite.');
             token = null; // Invalida il token
@@ -89,7 +91,8 @@ async function handleMotivationalRequest(req, res) {
     if (!user) {
         console.log('[MOTIVAZIONAL] Accesso come Ospite');
     } else {
-        console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}`);
+        // Logging più preciso
+        console.log(`[MOTIVAZIONAL] Accesso da utente: ${username} (ID: ${keychainId})`);
     }
 
     const topic = req.query.topic || 'motivazione';
@@ -145,7 +148,8 @@ async function handleMotivationalRequest(req, res) {
         const keychainId = '${keychainId}';
         const topic = '${topic}';
         const token = '${token}';
-
+        const username = '${username}';
+        
         async function loadQuote() {
             try {
                 const headers = {};
