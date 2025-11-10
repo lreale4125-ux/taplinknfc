@@ -12,18 +12,19 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 /**
-* @param {string} userNameOrId
+ * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
+ * @param {string} userNameOrId - Nome utente o ID (se nome non disponibile) da inserire nel prompt.
  * @param {string} topic
  * @returns {Promise<string>}
  */
-async function getMotivationalQuote(userNameOrId, topic = 'motivazione') { // 🎯 RINOMINATO keychainId in userNameOrId
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
 
     try {
         const timestamp = Date.now();
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // 🎯 RIGA CORRETTA: Usa direttamente la variabile userNameOrId nel prompt
+        // Corretto: Usa la variabile userNameOrId (che ora contiene lo username) nel prompt
         const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
@@ -39,10 +40,12 @@ async function getMotivationalQuote(userNameOrId, topic = 'motivazione') { // �
  * Endpoint API: restituisce solo la frase motivazionale in formato JSON
  */
 async function getQuoteOnly(req, res) {
-    // Estrae l'ID utente e il topic dalla query (usati per DB)
+    // Estrae l'ID utente (per DB analytics) e lo username (per Gemini) dalla query
     const keychainId = req.query.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
-    const username = req.query.username || keychainId; // 🎯 NUOVA: Usa username (se presente) o l'ID come fallback
+    // ATTENZIONE: Il client passerà lo username nel parametro 'id', ma per Gemini va bene.
+    // Usiamo 'keychainId' per analytics, e 'username' per Gemini. Se 'username' è passato, usalo.
+    const username = req.query.username || keychainId; 
     
     // Aggiorna analytics (usa la chiave composta definita in db.js)
     try {
@@ -56,8 +59,8 @@ async function getQuoteOnly(req, res) {
         // Continua comunque, la frase motivazionale è la priorità
     }
 
-
-    const quote = await getMotivationalQuote(username, topic); // 🎯 USA LO USERNAME
+    // Passa lo username (o l'ID come fallback) a Gemini
+    const quote = await getMotivationalQuote(username, topic); 
     res.json({ quote });
 }
 
@@ -67,7 +70,7 @@ async function getQuoteOnly(req, res) {
 async function handleMotivationalRequest(req, res) {
     let user = null;
     let keychainId = 'Ospite';
-    let username = 'Ospite'; // 🎯 NUOVA VARIABILE PER IL NOME UTENTE
+    let username = 'Ospite'; // Variabile per lo username
     let token = req.query.token || null; // 1. Cerca il token dalla query (redirect da login/register)
     
     // 2. Se non c'è, cerca nell'header (ricaricamento o API)
@@ -81,7 +84,7 @@ async function handleMotivationalRequest(req, res) {
             user = jwt.verify(token, process.env.JWT_SECRET);
             // IMPORTANTE: Prende l'ID e il NOME UTENTE dal token verificato
             keychainId = user.id || 'Ospite';
-            username = user.username || 'Utente Registrato'; // 🎯 AGGIUNGI L'ESTRAZIONE DELLO USERNAME
+            username = user.username || keychainId; // ESTRAI LO USERNAME
         } catch (err) {
             console.warn('Token non valido, accesso come Ospite.');
             token = null; // Invalida il token
@@ -159,8 +162,10 @@ async function handleMotivationalRequest(req, res) {
                     headers['Authorization'] = 'Bearer ' + token;
                 }
 
-                // Chiama l'API motivazionale, passando ID e TOPIC
+                // *** CORREZIONE APPLICATA QUI ***
+                // Chiama l'API motivazionale, passando USERNAME e TOPIC
                 const response = await fetch('/api/quote?id=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic), { headers });
+                // ******************************
 
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
                 const data = await response.json();
@@ -174,8 +179,12 @@ async function handleMotivationalRequest(req, res) {
 
         document.getElementById('change-topic-btn').addEventListener('click', () => {
             const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
-            // Reindirizza mantenendo ID e TOKEN
+            // Reindirizza mantenendo ID, USERNAME e TOKEN
             let newUrl = '?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(newTopic);
+            
+            // Per il cambio argomento, è cruciale passare username per la generazione frase
+            newUrl += '&username=' + encodeURIComponent(username); 
+
             if(token && token !== 'null') { // Controlla se il token esiste prima di aggiungerlo
                 newUrl += '&token=' + encodeURIComponent(token);
             }
