@@ -14,7 +14,7 @@ if (process.env.GEMINI_API_KEY) {
  * @returns {Promise<string>}
  */
 async function getMotivationalQuote(keychainId) {
-    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
+    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
 
     try {
         const timestamp = Date.now();
@@ -27,7 +27,7 @@ async function getMotivationalQuote(keychainId) {
         return response.text();
     } catch (error) {
         console.error("Errore durante la chiamata a Gemini:", error.message);
-        return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
+        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
     }
 }
 
@@ -36,9 +36,18 @@ async function getMotivationalQuote(keychainId) {
  */
 async function getQuoteOnly(req, res) {
     const keychainId = req.query.id || 'Ospite';
+    const topic = req.query.topic || 'motivazione';
+
+    // Salvataggio visualizzazione nel DB
+    db.prepare(`
+        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+    `).run(keychainId, topic);
+
     const quote = await getMotivationalQuote(keychainId);
 
-    if (quote === "La motivazione è dentro di te, non smettere di cercarla.") {
+    if (!quote || quote === "La motivazione è dentro di te, non smettere di cercarla.") {
         return res.status(500).json({ error: "Gemini API Fallita", quote });
     }
 
@@ -49,20 +58,17 @@ async function getQuoteOnly(req, res) {
  * Gestisce la richiesta della pagina motivazionale
  */
 async function handleMotivationalRequest(req, res) {
-    if (req.path !== '/') {
-        return res.status(404).send('Pagina non trovata.');
-    }
-
     const keychainId = req.query.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
 
-    console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}`);
+    console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}, Topic: ${topic}`);
 
+    // Salvataggio visualizzazione nel DB
     db.prepare(`
-        INSERT INTO motivational_analytics (keychain_id, view_count)
-        VALUES (?, 1)
-        ON CONFLICT(keychain_id) DO UPDATE SET view_count = view_count + 1
-    `).run(keychainId);
+        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+    `).run(keychainId, topic);
 
     const htmlPage = `
     <!DOCTYPE html>
@@ -82,44 +88,10 @@ async function handleMotivationalRequest(req, res) {
             main h2 { font-weight: 600; font-size: 1.4rem; margin: 20px 0 15px 0; color: #2c3e50; }
             main span { font-weight: 700; color: #3498db; }
             #quote-text { margin-top: 20px; font-size: 1.2rem; font-weight: 400; min-height: 80px; color: #34495e; line-height: 1.5; font-style: italic; background: rgba(255,255,255,0.8); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            .footer { background: linear-gradient(135deg, #d7d9df 0%, #bdc3c7 100%); text-align: center; padding: 15px 10px; font-size: 0.9rem; color: #7f8c8d; user-select: none; }
             .bottom-bar { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto 10px auto; max-width: 500px; }
             button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
             button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
             button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-            .icon-button { background: rgba(255,255,255,0.9); font-size: 1.8rem; color: #7f8c8d; border: 2px solid transparent; }
-            .icon-button:hover { background: rgba(255,255,255,1); color: #caaeb3; border-color: #caaeb3; }
-            .icon-button.favorited { color: #e74c3c; background: rgba(255,255,255,1); border-color: #e74c3c; }
-            .hamburger { display: inline-block; width: 24px; height: 18px; position: relative; }
-            .hamburger span { background: #7f8c8d; position: absolute; height: 3px; width: 100%; border-radius: 3px; left: 0; transition: 0.3s ease; }
-            .hamburger span:nth-child(1) { top: 0; }
-            .hamburger span:nth-child(2) { top: 7px; }
-            .hamburger span:nth-child(3) { top: 14px; }
-            .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 1000; }
-            .modal-content { background: #fff; border-radius: 15px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.3); position: relative; }
-            .modal-content h3 { margin: 0 0 20px 0; font-size: 1.4rem; color: #333; }
-            .modal-buttons { display: flex; gap: 15px; justify-content: center; margin-top: 20px; }
-            .modal-buttons a { text-decoration: none; padding: 12px 25px; border-radius: 25px; font-weight: 600; font-size: 1rem; transition: all 0.3s ease; display: inline-block; }
-            .modal-buttons .login-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
-            .modal-buttons .register-btn { background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%); color: #fff; }
-            .modal-buttons a:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-            .close-btn { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; cursor: pointer; color: #7f8c8d; transition: color 0.3s ease; }
-            .close-btn:hover { color: #333; }
-            @media (max-width: 600px) { 
-                .header, main, .bottom-bar { margin: 10px 15px; max-width: calc(100% - 30px); }
-                .header { padding: 20px 15px; }
-                .header h1 { font-size: 1.5rem; }
-                .header p { font-size: 0.9rem; }
-                main h2 { font-size: 1.2rem; }
-                #quote-text { font-size: 1.1rem; padding: 15px; }
-                button, .icon-button { padding: 10px 20px; font-size: 0.9rem; }
-                .icon-button { font-size: 1.6rem; }
-                .bottom-bar { gap: 15px; }
-                .modal-content { padding: 20px; max-width: 90%; }
-                .modal-content h3 { font-size: 1.2rem; }
-                .modal-buttons { flex-direction: column; gap: 10px; }
-                .modal-buttons a { padding: 10px 20px; font-size: 0.9rem; }
-            }
         </style>
     </head>
     <body>
@@ -132,24 +104,7 @@ async function handleMotivationalRequest(req, res) {
             <div id="quote-text">Caricamento della tua motivazione...</div>
         </main>
         <div class="bottom-bar">
-            <button class="icon-button" aria-label="Menu">
-                <div class="hamburger" role="img" aria-label="Menu icon">
-                    <span></span><span></span><span></span>
-                </div>
-            </button>
             <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
-            <button class="icon-button" id="heart-btn" aria-label="Preferito">♥</button>
-        </div>
-        <footer class="footer">Diritti ecc.</footer>
-        <div class="modal-overlay" id="auth-modal">
-            <div class="modal-content">
-                <span class="close-btn" id="close-modal">&times;</span>
-                <h3>Please log in or register to continue.</h3>
-                <div class="modal-buttons">
-                    <a href="https://taplinknfc.it" class="login-btn">Log in</a>
-                    <a href="https://taplinknfc.it" class="register-btn">Register</a>
-                </div>
-            </div>
         </div>
         <script>
             async function loadQuote() {
@@ -169,21 +124,11 @@ async function handleMotivationalRequest(req, res) {
                 const newTopic = prompt("Inserisci un nuovo argomento:", '${topic}') || '${topic}';
                 window.location.search = '?id=${keychainId}&topic=' + encodeURIComponent(newTopic);
             });
-
-            const modal = document.getElementById('auth-modal');
-            const closeBtn = document.getElementById('close-modal');
-
-            function showModal() { modal.style.display = 'flex'; }
-            function hideModal() { modal.style.display = 'none'; }
-
-            closeBtn.addEventListener('click', hideModal);
-            modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(); });
-            document.querySelector('.icon-button[aria-label="Menu"]').addEventListener('click', showModal);
-            document.getElementById('heart-btn').addEventListener('click', showModal);
         </script>
     </body>
     </html>
     `;
+
     res.send(htmlPage);
 }
 
