@@ -212,6 +212,74 @@ async function handleMotivationalRequest(req, res) {
                     .hamburger span:nth-child(3) {
                         top: 14px;
                     }
+                    /* Modal styles */
+                    .modal-overlay {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.5);
+                        backdrop-filter: blur(5px);
+                        display: none;
+                        justify-content: center;
+                        align-items: center;
+                        z-index: 1000;
+                    }
+                    .modal-content {
+                        background: #fff;
+                        border-radius: 15px;
+                        padding: 30px;
+                        max-width: 400px;
+                        width: 90%;
+                        text-align: center;
+                        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                        position: relative;
+                    }
+                    .modal-content h3 {
+                        margin: 0 0 20px 0;
+                        font-size: 1.4rem;
+                        color: #333;
+                    }
+                    .modal-buttons {
+                        display: flex;
+                        gap: 15px;
+                        justify-content: center;
+                        margin-top: 20px;
+                    }
+                    .modal-buttons a {
+                        text-decoration: none;
+                        padding: 12px 25px;
+                        border-radius: 25px;
+                        font-weight: 600;
+                        font-size: 1rem;
+                        transition: all 0.3s ease;
+                        display: inline-block;
+                    }
+                    .modal-buttons .login-btn {
+                        background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
+                        color: #fff;
+                    }
+                    .modal-buttons .register-btn {
+                        background: linear-gradient(135deg, #bdc3c7 0%, #95a5a6 100%);
+                        color: #fff;
+                    }
+                    .modal-buttons a:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                    }
+                    .close-btn {
+                        position: absolute;
+                        top: 10px;
+                        right: 15px;
+                        font-size: 1.5rem;
+                        cursor: pointer;
+                        color: #7f8c8d;
+                        transition: color 0.3s ease;
+                    }
+                    .close-btn:hover {
+                        color: #333;
+                    }
                     @media (max-width: 600px) {
                         .header, main, .bottom-bar {
                             margin: 10px 15px;
@@ -243,6 +311,21 @@ async function handleMotivationalRequest(req, res) {
                         .bottom-bar {
                             gap: 15px;
                         }
+                        .modal-content {
+                            padding: 20px;
+                            max-width: 90%;
+                        }
+                        .modal-content h3 {
+                            font-size: 1.2rem;
+                        }
+                        .modal-buttons {
+                            flex-direction: column;
+                            gap: 10px;
+                        }
+                        .modal-buttons a {
+                            padding: 10px 20px;
+                            font-size: 0.9rem;
+                        }
                     }
                 </style>
             </head>
@@ -265,6 +348,16 @@ async function handleMotivationalRequest(req, res) {
                     <button class="icon-button" id="heart-btn" aria-label="Preferito">♥</button>
                 </div>
                 <footer class="footer">Diritti ecc.</footer>
+                <div class="modal-overlay" id="auth-modal">
+                    <div class="modal-content">
+                        <span class="close-btn" id="close-modal">&times;</span>
+                        <h3>Please log in or register to continue.</h3>
+                        <div class="modal-buttons">
+                            <a href="https://taplinknfc.it" class="login-btn">Log in</a>
+                            <a href="https://taplinknfc.it" class="register-btn">Register</a>
+                        </div>
+                    </div>
+                </div>
                 <script>
                     const topic = "${topic}";
                     document.getElementById('topic-text').innerText = topic;
@@ -290,17 +383,31 @@ async function handleMotivationalRequest(req, res) {
                         window.location.search = '?id=${keychainId}&topic=' + encodeURIComponent(newTopic);
                     });
 
-                    // Heart button toggle functionality
-                    const heartBtn = document.getElementById('heart-btn');
-                    let isFavorited = false;
-                    heartBtn.addEventListener('click', () => {
-                        isFavorited = !isFavorited;
-                        if (isFavorited) {
-                            heartBtn.classList.add('favorited');
-                        } else {
-                            heartBtn.classList.remove('favorited');
+                    // Modal functionality
+                    const modal = document.getElementById('auth-modal');
+                    const closeBtn = document.getElementById('close-modal');
+
+                    function showModal() {
+                        modal.style.display = 'flex';
+                    }
+
+                    function hideModal() {
+                        modal.style.display = 'none';
+                    }
+
+                    closeBtn.addEventListener('click', hideModal);
+                    modal.addEventListener('click', (e) => {
+                        if (e.target === modal) {
+                            hideModal();
                         }
                     });
+
+                    // Menu button click
+                    document.querySelector('.icon-button[aria-label="Menu"]').addEventListener('click', showModal);
+
+                    // Heart button click
+                    const heartBtn = document.getElementById('heart-btn');
+                    heartBtn.addEventListener('click', showModal);
                 </script>
             </body>
             </html>
