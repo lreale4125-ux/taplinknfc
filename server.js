@@ -35,26 +35,35 @@ app.use(cors());
 // --- MIDDLEWARE SPECIFICO PER IL SITO MOTIVAZIONALE ---
 // Questo middleware intercetta le richieste *prima* del server statico
 app.use(async (req, res, next) => {
-    // Controlla se la richiesta arriva dal dominio motivazionale
-    if (req.hostname === 'motivazional.taplinknfc.it' || req.hostname === 'www.motivazional.taplinknfc.it') {
-        
-        // 1. GESTIONE DELLA RICHIESTA API ASINCRONA
+    const motiDomain = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
+    
+    if (motiDomain.includes(req.hostname)) {
+
+        // --- 1. API Motivazionale ---
         if (req.path === '/api/quote') {
-            // Chiama la funzione API e risponde immediatamente
-            return getQuoteOnly(req, res); 
+            try {
+                return await getQuoteOnly(req, res);
+            } catch (err) {
+                console.error('[MOTIVAZIONAL] Errore API quote:', err);
+                return res.status(500).json({ error: 'Errore interno API motivazionale' });
+            }
         }
-        
-        // 2. GESTIONE DELLA ROOT (Caricamento HTML iniziale)
+
+        // --- 2. Root HTML Motivazionale ---
         if (req.path === '/') {
-            // Chiama il gestore della pagina HTML
-            return handleMotivationalRequest(req, res);
-        } 
-        
-        // 3. SE NON È NÉ / NÉ /api/quote, restituisce 404 specifico per il dominio motivazionale
-        return res.status(404).send('Pagina non trovata.');
-        
+            try {
+                return await handleMotivationalRequest(req, res);
+            } catch (err) {
+                console.error('[MOTIVAZIONAL] Errore generazione pagina:', err);
+                return res.status(500).send('Errore interno nel sito motivazionale');
+            }
+        }
+
+        // --- 3. Altri percorsi sul dominio motivazionale: 404 ---
+        return res.status(404).send('Pagina non trovata sul sito motivazionale');
+
     } else {
-        // Se NON è il dominio motivazionale, procedi con le altre route
+        // Non è dominio motivazionale: passa alle altre route
         next();
     }
 });
@@ -79,3 +88,4 @@ app.use('/', redirectRoutes);
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
 });
+
