@@ -1,36 +1,25 @@
+// db.js - gestione completa del database SQLite
+
 const Database = require('better-sqlite3');
-const bcrypt = require('bcryptjs'); // Assicurati che 'bcryptjs' sia installato
+const bcrypt = require('bcryptjs'); // hashing password
 
-// --- Configurazione del Database ---
-
-/**
- * Stabilisce la connessione al database SQLite.
- * @returns {Database} L'istanza del database connesso.
- */
+// --- Connessione al database ---
 function connectDatabase() {
-    let database;
+    let db;
     try {
-        // Connessione al database
-        database = new Database('./database.db');
-        // Abilita il Write-Ahead Logging per migliori prestazioni in concorrenza
-        database.pragma('journal_mode = WAL');
-        console.log('✅ Connesso al database SQLite usando better-sqlite3.');
-        return database;
+        db = new Database('./database.db');
+        db.pragma('journal_mode = WAL'); // migliore concorrenza
+        console.log('✅ Connesso a SQLite (better-sqlite3).');
+        return db;
     } catch (err) {
-        console.error('❌ ERRORE FATALE: Impossibile connettersi al database.', err);
-        // Termina l'applicazione in caso di errore di connessione critico
+        console.error('❌ ERRORE: impossibile connettersi al database.', err);
         process.exit(1);
     }
 }
 
 const db = connectDatabase();
 
-
-// --- Inizializzazione dello Schema del Database ---
-
-/**
- * Crea le tabelle se non esistono, usando lo schema PIÙ RECENTE.
- */
+// --- Creazione tabelle principali ---
 function createTables() {
     console.log('⏳ Creazione tabelle...');
 
@@ -40,7 +29,7 @@ function createTables() {
             name TEXT NOT NULL UNIQUE,
             description TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
+        );
     `);
 
     db.exec(`
@@ -57,13 +46,10 @@ function createTables() {
             can_access_analytics INTEGER DEFAULT 0,
             can_access_pos INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE SET NULL
-        )
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
+        );
     `);
 
-    // =================================================================
-    // NUOVA TABELLA: SELECTORS
-    // =================================================================
     db.exec(`
         CREATE TABLE IF NOT EXISTS selectors (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,50 +58,38 @@ function createTables() {
             description TEXT,
             created_by INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
-        )
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+        );
     `);
-    
-    // =================================================================
-    // TABELLA AGGIORNATA: LINKS
-    // Nota: 'url' non ha più NOT NULL, 'selector_id' è aggiunto.
-    // In un DB esistente, l'aggiunta di 'selector_id' è gestita da handleMigrations.
-    // La rimozione di NOT NULL su 'url' NON è possibile tramite ALTER TABLE semplice.
-    // Manteniamo 'url TEXT NOT NULL' qui per la creazione di NUOVI DB.
-    // La logica applicativa (adminController) gestirà il non-NOT NULL.
-    // =================================================================
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS links (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            url TEXT, /* <-- Rimosso NOT NULL qui per nuovi DB */
+            url TEXT,
             description TEXT,
             company_id INTEGER NOT NULL,
             created_by INTEGER NOT NULL,
+            selector_id INTEGER,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            selector_id INTEGER, /* <-- AGGIUNTO */
-            FOREIGN KEY (company_id) REFERENCES companies (id) ON DELETE CASCADE,
-            FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE CASCADE,
-            FOREIGN KEY (selector_id) REFERENCES selectors (id) ON DELETE SET NULL
-        )
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+            FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (selector_id) REFERENCES selectors(id) ON DELETE SET NULL
+        );
     `);
-    
-    // =================================================================
-    // TABELLA AGGIORNATA: KEYCHAINS
-    // Nota: 'keychain_number' ha ora UNIQUE.
-    // =================================================================
+
     db.exec(`
         CREATE TABLE IF NOT EXISTS keychains (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
             link_id INTEGER NOT NULL,
-            keychain_number TEXT UNIQUE, /* <-- AGGIUNTO UNIQUE */
+            keychain_number TEXT UNIQUE,
             data TEXT,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-            FOREIGN KEY (link_id) REFERENCES links (id) ON DELETE CASCADE
-        )
+            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE
+        );
     `);
 
     db.exec(`
@@ -136,17 +110,18 @@ function createTables() {
             click_count INTEGER DEFAULT 1 NOT NULL,
             first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (keychain_id) REFERENCES keychains (id) ON DELETE SET NULL,
-            FOREIGN KEY (link_id) REFERENCES links (id) ON DELETE CASCADE,
+            FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE SET NULL,
+            FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE,
             UNIQUE(link_id, ip_address, keychain_id)
-        )
+        );
     `);
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS motivational_analytics (
-            keychain_id TEXT PRIMARY KEY,
-            view_count INTEGER DEFAULT 0
-        )
+            keychain_id INTEGER PRIMARY KEY,
+            view_count INTEGER DEFAULT 0,
+            FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE CASCADE
+        );
     `);
 
     db.exec(`
@@ -159,21 +134,16 @@ function createTables() {
             description TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-        )
+        );
     `);
 
     console.log('✅ Tabelle create.');
 }
 
-// --- Funzioni di Migrazione (Per DB ESISTENTI) ---
-
-/**
- * Esegue la migrazione per aggiungere nuove colonne o vincoli.
- */
+// --- Migrazioni sicure per DB esistenti ---
 function handleMigrations() {
     console.log('⏳ Esecuzione migrazioni...');
 
-    // 1. Aggiungi colonne per i permessi Utente e Analytics (vecchie migrazioni)
     const columnUpdates = [
         { table: 'users', column: 'can_access_wallet', type: 'INTEGER DEFAULT 1' },
         { table: 'users', column: 'can_access_analytics', type: 'INTEGER DEFAULT 0' },
@@ -188,91 +158,51 @@ function handleMigrations() {
     columnUpdates.forEach(({ table, column, type }) => {
         try {
             db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
-        } catch (e) { /* Ignora se la colonna esiste */ }
+        } catch (e) { /* ignora se esiste */ }
     });
-    
-    // 2. Aggiunta colonna selector_id in 'links'
+
     try {
         db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`);
-        db.exec(`ALTER TABLE links ADD FOREIGN KEY (selector_id) REFERENCES selectors (id) ON DELETE SET NULL`);
-        console.log('Migrazione: Colonna selector_id aggiunta a links.');
-    } catch (e) {
-        if (!e.message.includes('duplicate column name')) {
-             console.log('Colonna selector_id già esistente (OK).');
-        }
-    }
+    } catch (e) { /* ignora se esiste */ }
 
-    // 3. Aggiunta vincolo UNIQUE in 'keychains'
-    // ATTENZIONE: Aggiungere UNIQUE a una colonna esistente con duplicati fallirà.
-    // L'unico modo per aggiungere un vincolo UNIQUE in SQLite su una colonna esistente
-    // è la ricostruzione della tabella. Saltiamo la ricostruzione automatica qui
-    // per non rischiare la perdita di dati. Se ci sono duplicati esistenti, la
-    // logica di 'adminController' gestirà l'errore al primo tentativo di inserimento.
     try {
-        // Tentiamo di creare un indice univoco se non esiste
-        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains (keychain_number) WHERE keychain_number IS NOT NULL`);
-        console.log('Migrazione: Indice UNIQUE aggiunto a keychains.keychain_number.');
-    } catch (e) {
-        console.log('Indice UNIQUE su keychains.keychain_number già esistente o fallito per duplicati (OK se già esistente).');
-    }
-    
+        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains(keychain_number) WHERE keychain_number IS NOT NULL`);
+    } catch (e) { /* ignora */ }
+
     console.log('✅ Migrazioni completate.');
 }
 
-
-/**
- * Inserisce i dati iniziali di default (Azienda e Utente Admin).
- */
+// --- Inserimento dati di default ---
 function insertDefaultData() {
     console.log('⏳ Inserimento dati di default...');
 
     try {
-        // Inserisce l'Azienda di default (ID 1)
-        const stmtCompany = db.prepare(`
+        db.prepare(`
             INSERT OR IGNORE INTO companies (id, name, description)
             VALUES (1, 'Default Company', 'Default company for new users')
-        `);
-        stmtCompany.run();
+        `).run();
 
-        // Inserisce l'utente admin di default
         const hashedPassword = bcrypt.hashSync('admin123', 10);
-        const stmtUser = db.prepare(`
+        db.prepare(`
             INSERT OR IGNORE INTO users (username, email, password, role, company_id, can_access_wallet, can_access_analytics, can_access_pos)
             VALUES (?, ?, ?, ?, ?, 1, 1, 1)
-        `);
-        // Usiamo un ID fisso per l'azienda di default
-        stmtUser.run('admin', 'admin@example.com', hashedPassword, 'admin', 1);
+        `).run('admin', 'admin@example.com', hashedPassword, 'admin', 1);
 
-        console.log('✅ Dati di default inseriti con successo.');
-
+        console.log('✅ Dati di default inseriti.');
     } catch (err) {
-        console.error('❌ Errore durante l\'inserimento dei dati di default:', err.message);
+        console.error('❌ Errore inserimento dati di default:', err.message);
     }
 }
 
-
-/**
- * Esegue tutte le operazioni di inizializzazione del database.
- */
+// --- Inizializzazione completa ---
 function initializeDatabase() {
-    try {
-        // 1. Crea le tabelle (se non esistono)
-        createTables();
-        
-        // 2. Esegui le migrazioni (per database esistenti)
-        handleMigrations();
-        
-        // 3. Inserisci i dati di base
-        insertDefaultData();
-        
-        console.log('--- Database inizializzato completamente! ---');
-    } catch (err) {
-        console.error('❌ Errore critico durante l\'inizializzazione del database:', err);
-    }
+    createTables();
+    handleMigrations();
+    insertDefaultData();
+    console.log('--- Database inizializzato completamente! ---');
 }
 
-// Esegui l'inizializzazione
 initializeDatabase();
 
-// Esporta l'istanza del database per l'uso in altre parti dell'applicazione
+// --- Esportazione istanza DB ---
 module.exports = db;
