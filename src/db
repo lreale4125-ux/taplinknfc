@@ -117,10 +117,11 @@ function createTables() {
 
     db.exec(`
         CREATE TABLE IF NOT EXISTS motivational_analytics (
-            keychain_id INTEGER PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            keychain_id TEXT NOT NULL,
+            topic TEXT NOT NULL,
             view_count INTEGER DEFAULT 0,
-            topic TEXT,
-            FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE CASCADE
+            UNIQUE(keychain_id, topic)
         );
     `);
 
