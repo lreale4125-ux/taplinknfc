@@ -32,8 +32,7 @@ async function login(req, res) {
 }
 
 // --- REGISTER ---
-// Gestisce registrazioni "motivazionali": vengono create solo come utenti normali
-// e reindirizzati automaticamente alla pagina motivazionale con token.
+// Nuovi utenti registrati qui vengono automaticamente assegnati al ruolo 'motivational'
 async function register(req, res) {
     const { email, password, username } = req.body;
 
@@ -49,10 +48,10 @@ async function register(req, res) {
         // Hash della password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Inserisce nuovo utente come normale (senza ruoli speciali)
+        // Inserisce nuovo utente con ruolo 'motivational'
         const stmt = db.prepare(`
             INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos)
-            VALUES (?, ?, ?, 'user', 0, 0, 0)
+            VALUES (?, ?, ?, 'motivational', 0, 0, 0)
         `);
         const info = stmt.run(email, hashedPassword, username);
 
@@ -60,7 +59,7 @@ async function register(req, res) {
         const payload = {
             id: info.lastInsertRowid,
             username,
-            role: 'user',
+            role: 'motivational',
             can_access_wallet: 0,
             can_access_analytics: 0,
             can_access_pos: 0
