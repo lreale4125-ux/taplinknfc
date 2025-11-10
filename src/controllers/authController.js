@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
+// --- LOGIN ---
 async function login(req, res) {
     const { email, password } = req.body;
     try {
@@ -24,10 +25,12 @@ async function login(req, res) {
 
         res.json({ token, user: payload });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Errore del server.' });
     }
 }
 
+// --- REGISTER ---
 async function register(req, res) {
     const { email, password, username } = req.body;
 
@@ -58,7 +61,7 @@ async function register(req, res) {
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // Rispondi con redirect alla pagina motivazionale con token nell'URL
+        // --- Redirect alla pagina motivazionale con token ---
         res.redirect(`/motivazional?id=${payload.id}&token=${token}&topic=motivazione`);
 
     } catch (error) {
