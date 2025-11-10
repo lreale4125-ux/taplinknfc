@@ -81,60 +81,69 @@
     </div>
 
     <script>
-        const registerForm = document.getElementById('registerForm');
-        const registerMessage = document.getElementById('registerMessage');
-        const API_BASE_URL = '';
+    const registerForm = document.getElementById('registerForm');
+    const registerMessage = document.getElementById('registerMessage');
+    const API_BASE_URL = '';
 
-        const handleRegisterRedirect = (user) => {
-            // Logica di reindirizzamento con priorità
-            if (user.role === 'admin') {
-                window.location.href = '/admin_panel.html';
-            } else if (user.can_access_pos) {
-                window.location.href = '/pos.html'; // Priorità massima per i venditori
-            } else if (user.can_access_analytics) {
-                window.location.href = '/dashboard_utente.html';
-            } else if (user.can_access_wallet) {
-                window.location.href = '/wallet.html';
-            } else {
-                // Se un utente non ha permessi, non può accedere
-                localStorage.clear();
-                registerMessage.textContent = 'Nessun permesso assegnato a questo account.';
+    const handleRegisterRedirect = (user) => {
+        // Logica di reindirizzamento con priorità (per utenti NON motivazional)
+        if (user.role === 'admin') {
+            window.location.href = '/admin_panel.html';
+        } else if (user.can_access_pos) {
+            window.location.href = '/pos.html'; // Priorità massima per i venditori
+        } else if (user.can_access_analytics) {
+            window.location.href = '/dashboard_utente.html';
+        } else if (user.can_access_wallet) {
+            window.location.href = '/wallet.html';
+        } else {
+            // Se un utente non ha permessi, non può accedere
+            localStorage.clear();
+            registerMessage.textContent = 'Nessun permesso assegnato a questo account.';
+        }
+    };
+
+    registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        registerMessage.textContent = '';
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: document.getElementById('email').value,
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value
+                })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || 'Registrazione fallita.');
             }
-        };
-
-        registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            registerMessage.textContent = '';
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: document.getElementById('email').value,
-                        username: document.getElementById('username').value,
-                        password: document.getElementById('password').value
-                    })
-                });
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.error || 'Registrazione fallita.');
-                }
-                localStorage.setItem('authToken', data.token);
-                localStorage.setItem('userData', JSON.stringify(data.user));
-                handleRegisterRedirect(data.user);
-            } catch (error) {
-                registerMessage.textContent = error.message;
+            
+            // =======================================================
+            // 🎯 NUOVA LOGICA: Gestisce il redirect motivazionale dal JSON
+            if (data.redirect) {
+                window.location.href = data.redirect;
+                return; // Ferma l'esecuzione e non salva il token in local storage
             }
-        });
+            // =======================================================
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const token = localStorage.getItem('authToken');
-            const user = JSON.parse(localStorage.getItem('userData'));
-            if (token && user) {
-                handleRegisterRedirect(user);
-            }
-        });
-    </script>
+            // Solo se NON c'è redirect motivazionale, salva il token
+            localStorage.setItem('authToken', data.token);
+            localStorage.setItem('userData', JSON.stringify(data.user));
+            handleRegisterRedirect(data.user);
+        } catch (error) {
+            registerMessage.textContent = error.message;
+        }
+    });
 
+    document.addEventListener('DOMContentLoaded', () => {
+        const token = localStorage.getItem('authToken');
+        const user = JSON.parse(localStorage.getItem('userData'));
+        if (token && user) {
+            handleRegisterRedirect(user);
+        }
+    });
+</script>
 </body>
 </html>
