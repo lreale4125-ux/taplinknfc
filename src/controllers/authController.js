@@ -30,6 +30,47 @@ async function login(req, res) {
     }
 }
 
+
+async function register(req, res) {
+    const { email, password, username } = req.body;
+
+    if (!email || !password || !username) {
+        return res.status(400).json({ error: 'Tutti i campi sono obbligatori.' });
+    }
+
+    try {
+        // Controllo se l'email è già registrata
+        const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+        if (existingUser) {
+            return res.status(400).json({ error: 'Email già registrata.' });
+        }
+
+        // Hash della password
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Inserisco nuovo utente nel DB, con permessi di base (puoi modificare se serve)
+        const stmt = db.prepare("INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos) VALUES (?, ?, ?, 'user', 0, 0, 0)");
+        const info = stmt.run(email, hashedPassword, username);
+
+        // Creo il payload per il token
+        const payload = {
+            id: info.lastInsertRowid,
+            username,
+            role: 'user',
+            can_access_wallet: 0,
+            can_access_analytics: 0,
+            can_access_pos: 0
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+        res.json({ token, user: payload });
+
+    } catch (error) {
+        res.status(500).json({ error: 'Errore del server.' });
+    }
+}
+
 module.exports = {
-    login
+    login,
+    register
 };
