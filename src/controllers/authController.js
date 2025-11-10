@@ -2,11 +2,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-/**
- * Handles user login
- * @param {object} req - Express request object
- * @param {object} res - Express response object
- */
 async function login(req, res) {
     const { email, password } = req.body;
     try {
@@ -17,7 +12,10 @@ async function login(req, res) {
         if (!validPassword) return res.status(400).json({ error: 'Credenziali non valide.' });
 
         const payload = {
-            id: user.id, username: user.username, role: user.role, company_id: user.company_id,
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            company_id: user.company_id,
             can_access_wallet: user.can_access_wallet,
             can_access_analytics: user.can_access_analytics,
             can_access_pos: user.can_access_pos
@@ -30,7 +28,6 @@ async function login(req, res) {
     }
 }
 
-
 async function register(req, res) {
     const { email, password, username } = req.body;
 
@@ -39,20 +36,17 @@ async function register(req, res) {
     }
 
     try {
-        // Controllo se l'email è già registrata
         const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-        if (existingUser) {
-            return res.status(400).json({ error: 'Email già registrata.' });
-        }
+        if (existingUser) return res.status(400).json({ error: 'Email già registrata.' });
 
-        // Hash della password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Inserisco nuovo utente nel DB, con permessi di base (puoi modificare se serve)
-        const stmt = db.prepare("INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos) VALUES (?, ?, ?, 'user', 0, 0, 0)");
+        const stmt = db.prepare(`
+            INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos)
+            VALUES (?, ?, ?, 'user', 0, 0, 0)
+        `);
         const info = stmt.run(email, hashedPassword, username);
 
-        // Creo il payload per il token
         const payload = {
             id: info.lastInsertRowid,
             username,
