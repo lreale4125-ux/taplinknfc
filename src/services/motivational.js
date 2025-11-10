@@ -160,7 +160,7 @@ async function handleMotivationalRequest(req, res) {
                 }
 
                 // Chiama l'API motivazionale, passando ID e TOPIC
-                const response = await fetch('/api/quote?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(topic), { headers });
+                const response = await fetch('/api/quote?id=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic), { headers });
 
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
                 const data = await response.json();
