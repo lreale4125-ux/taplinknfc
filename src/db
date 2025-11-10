@@ -1,4 +1,4 @@
-// db.js - gestione completa del database SQLite 
+// db.js - gestione completa del database SQLite
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs'); // hashing password
 
@@ -115,6 +115,7 @@ function createTables() {
         );
     `);
 
+    // TABELLA MOTIVAZIONALE: usa la chiave composta UNIQUE(keychain_id, topic)
     db.exec(`
         CREATE TABLE IF NOT EXISTS motivational_analytics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
