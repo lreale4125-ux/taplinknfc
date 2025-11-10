@@ -70,112 +70,132 @@ async function handleMotivationalRequest(req, res) {
                     }
                     body {
                         margin: 0;
-                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                        background-color: #f3e8e8;
-                        color: #1a1a1a;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%);
+                        color: #333;
                         display: flex;
                         flex-direction: column;
                         min-height: 100vh;
                         justify-content: space-between;
+                        line-height: 1.6;
                     }
                     .header {
-                        background-color: #caaeb3;
-                        border-radius: 20px;
+                        background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
+                        border-radius: 25px;
                         margin: 20px;
-                        padding: 20px;
-                        max-width: 480px;
+                        padding: 30px 20px;
+                        max-width: 500px;
                         align-self: center;
+                        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+                        text-align: center;
                     }
                     .header h1 {
-                        font-weight: 900;
-                        font-size: 1.6rem;
-                        margin: 0 0 10px 0;
-                        line-height: 1.2;
+                        font-weight: 700;
+                        font-size: 1.8rem;
+                        margin: 0 0 15px 0;
+                        line-height: 1.3;
+                        color: #fff;
                     }
                     .header p {
-                        font-weight: 300;
-                        font-size: 0.9rem;
+                        font-weight: 400;
+                        font-size: 1rem;
                         margin: 0;
-                        opacity: 0.75;
+                        opacity: 0.9;
+                        color: #fff;
                     }
                     main {
                         flex-grow: 1;
                         display: flex;
                         flex-direction: column;
                         align-items: center;
-                        padding: 10px 20px;
-                        max-width: 480px;
+                        padding: 20px;
+                        max-width: 500px;
                         margin: 0 auto;
                         text-align: center;
                     }
                     main h2 {
-                        font-weight: 800;
-                        font-size: 1.2rem;
-                        margin: 20px 0 10px 0;
-                        color: #0a2f5d;
+                        font-weight: 600;
+                        font-size: 1.4rem;
+                        margin: 20px 0 15px 0;
+                        color: #2c3e50;
                     }
                     main span {
-                        font-weight: 600;
-                        color: #0a2f5d;
+                        font-weight: 700;
+                        color: #3498db;
                     }
                     #quote-text {
-                        margin-top: 15px;
-                        font-size: 1.1rem;
+                        margin-top: 20px;
+                        font-size: 1.2rem;
                         font-weight: 400;
-                        min-height: 60px;
-                        color: #333;
-                        line-height: 1.4;
+                        min-height: 80px;
+                        color: #34495e;
+                        line-height: 1.5;
+                        font-style: italic;
+                        background: rgba(255,255,255,0.8);
+                        padding: 20px;
+                        border-radius: 15px;
+                        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
                     }
                     .footer {
-                        background-color: #d7d9df;
+                        background: linear-gradient(135deg, #d7d9df 0%, #bdc3c7 100%);
                         text-align: center;
-                        padding: 12px 10px;
-                        font-size: 0.8rem;
-                        color: #555;
+                        padding: 15px 10px;
+                        font-size: 0.9rem;
+                        color: #7f8c8d;
                         user-select: none;
                     }
                     .bottom-bar {
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        gap: 15px;
+                        gap: 20px;
                         margin: 20px auto 10px auto;
-                        max-width: 480px;
+                        max-width: 500px;
                     }
                     button, .icon-button {
                         cursor: pointer;
                         border: none;
-                        border-radius: 20px;
-                        padding: 10px 20px;
+                        border-radius: 25px;
+                        padding: 12px 25px;
                         font-weight: 600;
-                        font-size: 0.9rem;
+                        font-size: 1rem;
                         user-select: none;
-                        transition: background-color 0.3s ease;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
                     }
                     button {
-                        background-color: #caaeb3;
-                        color: #1a1a1a;
+                        background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
+                        color: #fff;
                     }
                     button:hover {
-                        background-color: #b49499;
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
                     }
                     .icon-button {
-                        background: none;
-                        font-size: 1.5rem;
-                        color: #1a1a1a;
+                        background: rgba(255,255,255,0.9);
+                        font-size: 1.8rem;
+                        color: #7f8c8d;
+                        border: 2px solid transparent;
                     }
                     .icon-button:hover {
+                        background: rgba(255,255,255,1);
                         color: #caaeb3;
+                        border-color: #caaeb3;
+                    }
+                    .icon-button.favorited {
+                        color: #e74c3c;
+                        background: rgba(255,255,255,1);
+                        border-color: #e74c3c;
                     }
                     /* Hamburger menu icon */
                     .hamburger {
                         display: inline-block;
-                        width: 22px;
-                        height: 16px;
+                        width: 24px;
+                        height: 18px;
                         position: relative;
                     }
                     .hamburger span {
-                        background: #1a1a1a;
+                        background: #7f8c8d;
                         position: absolute;
                         height: 3px;
                         width: 100%;
@@ -187,31 +207,41 @@ async function handleMotivationalRequest(req, res) {
                         top: 0;
                     }
                     .hamburger span:nth-child(2) {
-                        top: 6.5px;
+                        top: 7px;
                     }
                     .hamburger span:nth-child(3) {
-                        top: 13px;
+                        top: 14px;
                     }
                     @media (max-width: 600px) {
                         .header, main, .bottom-bar {
                             margin: 10px 15px;
-                            max-width: 100%;
+                            max-width: calc(100% - 30px);
+                        }
+                        .header {
+                            padding: 20px 15px;
                         }
                         .header h1 {
-                            font-size: 1.3rem;
+                            font-size: 1.5rem;
+                        }
+                        .header p {
+                            font-size: 0.9rem;
                         }
                         main h2 {
-                            font-size: 1.1rem;
+                            font-size: 1.2rem;
                         }
                         #quote-text {
-                            font-size: 1rem;
+                            font-size: 1.1rem;
+                            padding: 15px;
                         }
                         button, .icon-button {
-                            padding: 8px 15px;
-                            font-size: 0.85rem;
+                            padding: 10px 20px;
+                            font-size: 0.9rem;
                         }
                         .icon-button {
-                            font-size: 1.3rem;
+                            font-size: 1.6rem;
+                        }
+                        .bottom-bar {
+                            gap: 15px;
                         }
                     }
                 </style>
@@ -232,7 +262,7 @@ async function handleMotivationalRequest(req, res) {
                         </div>
                     </button>
                     <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
-                    <button class="icon-button" aria-label="Preferito">♥</button>
+                    <button class="icon-button" id="heart-btn" aria-label="Preferito">♥</button>
                 </div>
                 <footer class="footer">Diritti ecc.</footer>
                 <script>
@@ -258,6 +288,18 @@ async function handleMotivationalRequest(req, res) {
                         // Cambia argomento in modo semplice per demo (potresti voler implementare un picker o altro)
                         const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
                         window.location.search = '?id=${keychainId}&topic=' + encodeURIComponent(newTopic);
+                    });
+
+                    // Heart button toggle functionality
+                    const heartBtn = document.getElementById('heart-btn');
+                    let isFavorited = false;
+                    heartBtn.addEventListener('click', () => {
+                        isFavorited = !isFavorited;
+                        if (isFavorited) {
+                            heartBtn.classList.add('favorited');
+                        } else {
+                            heartBtn.classList.remove('favorited');
+                        }
                     });
                 </script>
             </body>
