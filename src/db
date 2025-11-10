@@ -116,10 +116,12 @@ function createTables() {
         );
     `);
 
+    // 🟢 Risolto: aggiunta colonna 'topic' a motivational_analytics
     db.exec(`
         CREATE TABLE IF NOT EXISTS motivational_analytics (
             keychain_id INTEGER PRIMARY KEY,
             view_count INTEGER DEFAULT 0,
+            topic TEXT,
             FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE CASCADE
         );
     `);
@@ -161,13 +163,12 @@ function handleMigrations() {
         } catch (e) { /* ignora se esiste */ }
     });
 
-    try {
-        db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`);
-    } catch (e) { /* ignora se esiste */ }
+    try { db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`); } catch (e) { }
+    try { db.exec(`ALTER TABLE motivational_analytics ADD COLUMN topic TEXT`); } catch(e) { }
 
     try {
         db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains(keychain_number) WHERE keychain_number IS NOT NULL`);
-    } catch (e) { /* ignora */ }
+    } catch (e) { }
 
     console.log('✅ Migrazioni completate.');
 }
