@@ -71,24 +71,30 @@ async function getQuoteOnly(req, res) {
  * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client
  */
 async function handleMotivationalRequest(req, res) {
-    // JWT check
+    let user = null;
+    let keychainId = 'Ospite';
+    let token = null;
+
+    // JWT check opzionale
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).send('Accesso non autorizzato: token mancante.');
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+        try {
+            user = jwt.verify(token, process.env.JWT_SECRET);
+            keychainId = user.id || 'Ospite';
+        } catch (err) {
+            console.warn('Token non valido, accesso come Ospite.');
+        }
     }
 
-    const token = authHeader.split(' ')[1];
-    let user;
-    try {
-        user = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-        return res.status(401).send('Accesso non autorizzato: token non valido.');
+    // Se nessun JWT presente, rimane Ospite
+    if (!user) {
+        console.log('[MOTIVAZIONAL] Accesso come Ospite');
+    } else {
+        console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}`);
     }
 
-    const keychainId = req.query.id || user.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
-
-    console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}, Topic: ${topic}`);
 
     // Aggiorna analytics
     db.prepare(`
@@ -96,6 +102,7 @@ async function handleMotivationalRequest(req, res) {
         VALUES (?, ?, 1)
         ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
     `).run(keychainId, topic);
+
 
     const htmlPage = `<!DOCTYPE html>
 <html lang="it">
