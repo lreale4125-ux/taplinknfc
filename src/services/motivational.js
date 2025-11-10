@@ -8,17 +8,13 @@ if (process.env.GEMINI_API_KEY) {
     console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
 }
 
-// Function to get motivational quote, ora accetta l'argomento (topic)
-async function getMotivationalQuote(keychainId, topic = 'motivazione') {
+// Function to get motivational quote
+async function getMotivationalQuote(keychainId) {
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // Fallback
 
     try {
-        const timestamp = Date.now(); // Per garantire l'unicità
-        
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-        
-        // PROMPT AGGIORNATO: Include l'argomento dinamico
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -29,238 +25,128 @@ async function getMotivationalQuote(keychainId, topic = 'motivazione') {
     }
 }
 
-// NUOVA Function: Estrae ID e Argomento dalla query e restituisce la frase
-async function getQuoteOnly(req, res) {
-    const keychainId = req.query.id || 'Ospite';
-    const topic = req.query.topic || 'motivazione'; // Estrae l'argomento
-    
-    // Passa l'ID e l'argomento alla funzione Gemini
-    const quote = await getMotivationalQuote(keychainId, topic); 
-    
-    if (quote === "La motivazione è dentro di te, non smettere di cercarla.") {
-        return res.status(500).json({ error: "Gemini API Fallita", quote: quote });
-    }
-    
-    res.json({ quote: quote }); // Risposta JSON OK
-}
-
-// Function to handle motivational app request (Gestisce la pagina HTML)
+// Function to handle motivational app request
 async function handleMotivationalRequest(req, res) {
     if (req.path === '/') {
         const keychainId = req.query.id || 'Ospite';
-        // Estrae 'topic' dalla URL, se non c'è usa 'motivazione'
-        const topic = req.query.topic || 'motivazione'; 
+        console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}`);
 
-        console.log(`[MOTIVAZIONAL] Scansione ricevuta da ID: ${keychainId}. Argomento: ${topic}`);
-
-        // Increment view counter ASINCRONAMENTE
+        // Increment view counter asynchronously
         db.prepare(`INSERT INTO motivational_analytics (keychain_id, view_count) VALUES (?, 1) ON CONFLICT(keychain_id) DO UPDATE SET view_count = view_count + 1`).run(keychainId);
 
+        const quote = await getMotivationalQuote(keychainId);
+
+        // Build HTML page
         const htmlPage = `
             <!DOCTYPE html>
             <html lang="it">
             <head>
-                <meta charset="UTF-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1" />
-                <title>Frase Motivazionale</title>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>La tua Frase del Giorno</title>
                 <style>
-                    /* Reset base */
-                    * {
-                        box-sizing: border-box;
-                    }
                     body {
-                        margin: 0;
                         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                        background-color: #f3e8e8;
-                        color: #1a1a1a;
-                        display: flex;
-                        flex-direction: column;
-                        min-height: 100vh;
-                        justify-content: space-between;
-                    }
-                    .header {
-                        background-color: #caaeb3;
-                        border-radius: 20px;
-                        margin: 20px;
-                        padding: 20px;
-                        max-width: 480px;
-                        align-self: center;
-                    }
-                    .header h1 {
-                        font-weight: 900;
-                        font-size: 1.6rem;
-                        margin: 0 0 10px 0;
-                        line-height: 1.2;
-                    }
-                    .header p {
-                        font-weight: 300;
-                        font-size: 0.9rem;
-                        margin: 0;
-                        opacity: 0.75;
-                    }
-                    main {
-                        flex-grow: 1;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                        padding: 10px 20px;
-                        max-width: 480px;
-                        margin: 0 auto;
-                        text-align: center;
-                    }
-                    main h2 {
-                        font-weight: 800;
-                        font-size: 1.2rem;
-                        margin: 20px 0 10px 0;
-                        color: #0a2f5d;
-                    }
-                    main span {
-                        font-weight: 600;
-                        color: #0a2f5d;
-                    }
-                    #quote-text {
-                        margin-top: 15px;
-                        font-size: 1.1rem;
-                        font-weight: 400;
-                        min-height: 60px;
-                        color: #333;
-                        line-height: 1.4;
-                    }
-                    .footer {
-                        background-color: #d7d9df;
-                        text-align: center;
-                        padding: 12px 10px;
-                        font-size: 0.8rem;
-                        color: #555;
-                        user-select: none;
-                    }
-                    .bottom-bar {
                         display: flex;
                         justify-content: center;
                         align-items: center;
-                        gap: 15px;
-                        margin: 20px auto 10px auto;
-                        max-width: 480px;
+                        min-height: 100vh;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        margin: 0;
+                        padding: 1rem;
+                        box-sizing: border-box;
+                        overflow-x: hidden;
                     }
-                    button, .icon-button {
-                        cursor: pointer;
-                        border: none;
-                        border-radius: 20px;
-                        padding: 10px 20px;
-                        font-weight: 600;
-                        font-size: 0.9rem;
-                        user-select: none;
-                        transition: background-color 0.3s ease;
-                    }
-                    button {
-                        background-color: #caaeb3;
-                        color: #1a1a1a;
-                    }
-                    button:hover {
-                        background-color: #b49499;
-                    }
-                    .icon-button {
-                        background: none;
-                        font-size: 1.5rem;
-                        color: #1a1a1a;
-                    }
-                    .icon-button:hover {
-                        color: #caaeb3;
-                    }
-                    /* Hamburger menu icon */
-                    .hamburger {
-                        display: inline-block;
-                        width: 22px;
-                        height: 16px;
-                        position: relative;
-                    }
-                    .hamburger span {
-                        background: #1a1a1a;
-                        position: absolute;
-                        height: 3px;
+                    .card {
+                        background: rgba(255, 255, 255, 0.1);
+                        backdrop-filter: blur(10px);
+                        border-radius: 1.5rem;
+                        padding: 2rem;
+                        max-width: 90vw;
                         width: 100%;
-                        border-radius: 3px;
-                        left: 0;
-                        transition: 0.3s ease;
+                        text-align: center;
+                        box-shadow: 0 0.5rem 2rem rgba(0, 0, 0, 0.3);
+                        animation: fadeIn 1s ease-in-out;
+                        transition: transform 0.3s ease;
                     }
-                    .hamburger span:nth-child(1) {
-                        top: 0;
+                    .card:hover {
+                        transform: translateY(-5px);
                     }
-                    .hamburger span:nth-child(2) {
-                        top: 6.5px;
+                    h1 {
+                        font-size: 1.25rem;
+                        opacity: 0.8;
+                        margin: 0 0 1rem 0;
                     }
-                    .hamburger span:nth-child(3) {
-                        top: 13px;
+                    p {
+                        font-size: 1.75rem;
+                        font-weight: 600;
+                        line-height: 1.4;
+                        margin: 0 0 2rem 0;
                     }
-                    @media (max-width: 600px) {
-                        .header, main, .bottom-bar {
-                            margin: 10px 15px;
-                            max-width: 100%;
+                    .heart-btn {
+                        background: none;
+                        border: none;
+                        font-size: 2rem;
+                        color: #ccc;
+                        cursor: pointer;
+                        transition: color 0.3s ease, transform 0.2s ease;
+                        margin-top: 1rem;
+                    }
+                    .heart-btn:hover {
+                        transform: scale(1.1);
+                    }
+                    .heart-btn.active {
+                        color: #ff6b6b;
+                    }
+                    @keyframes fadeIn {
+                        from { opacity: 0; transform: translateY(20px); }
+                        to { opacity: 1; transform: translateY(0); }
+                    }
+                    @media (max-width: 768px) {
+                        .card {
+                            padding: 1.5rem;
+                            border-radius: 1rem;
                         }
-                        .header h1 {
-                            font-size: 1.3rem;
-                        }
-                        main h2 {
-                            font-size: 1.1rem;
-                        }
-                        #quote-text {
+                        h1 {
                             font-size: 1rem;
                         }
-                        button, .icon-button {
-                            padding: 8px 15px;
-                            font-size: 0.85rem;
+                        p {
+                            font-size: 1.5rem;
                         }
-                        .icon-button {
-                            font-size: 1.3rem;
+                        .heart-btn {
+                            font-size: 1.5rem;
+                        }
+                    }
+                    @media (max-width: 480px) {
+                        body {
+                            padding: 0.5rem;
+                        }
+                        .card {
+                            padding: 1rem;
+                        }
+                        h1 {
+                            font-size: 0.9rem;
+                        }
+                        p {
+                            font-size: 1.25rem;
+                        }
+                        .heart-btn {
+                            font-size: 1.25rem;
                         }
                     }
                 </style>
             </head>
             <body>
-                <header class="header">
-                    <h1>365 giorni per una versione più felice di te</h1>
-                    <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
-                </header>
-                <main>
-                    <h2>Scopri una frase su <span id="topic-text">${topic}</span></h2>
-                    <div id="quote-text">Caricamento della tua motivazione...</div>
-                </main>
-                <div class="bottom-bar">
-                    <button class="icon-button" aria-label="Menu">
-                        <div class="hamburger" role="img" aria-label="Menu icon">
-                            <span></span><span></span><span></span>
-                        </div>
-                    </button>
-                    <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
-                    <button class="icon-button" aria-label="Preferito">♥</button>
+                <div class="card">
+                    <h1>Ciao, ${keychainId}</h1>
+                    <p>"${quote}"</p>
+                    <button class="heart-btn" id="heartBtn">♥</button>
                 </div>
-                <footer class="footer">Diritti ecc.</footer>
                 <script>
-                    const keychainId = '${keychainId}';
-                    const topic = '${topic}';
-                    document.getElementById('topic-text').innerText = topic;
-
-                    async function loadQuote() {
-                        try {
-                            // CHIAMATA AGGIORNATA: Passa l'argomento (topic) alla chiamata API
-                            const response = await fetch('/api/quote?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(topic));
-                            if (!response.ok) {
-                                throw new Error('Risposta server non OK. Status: ' + response.status);
-                            }
-                            const data = await response.json();
-                            document.getElementById('quote-text').innerText = '"' + data.quote + '"';
-                        } catch (e) {
-                            console.error("Errore nel caricamento della frase:", e);
-                            document.getElementById('quote-text').innerText = ':( La motivazione è dentro di te, non smettere di cercarla.';
-                        }
-                    }
-                    loadQuote();
-
-                    document.getElementById('change-topic-btn').addEventListener('click', () => {
-                        // LOGICA AGGIORNATA: Reindirizza con il nuovo argomento
-                        const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
-                        // Ricostruisce la URL includendo sempre l'ID per non perderlo
-                        window.location.search = '?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(newTopic);
+                    const heartBtn = document.getElementById('heartBtn');
+                    heartBtn.addEventListener('click', function() {
+                        this.classList.toggle('active');
                     });
                 </script>
             </body>
@@ -268,20 +154,43 @@ async function handleMotivationalRequest(req, res) {
         `;
         res.send(htmlPage);
     } else {
+        // If requesting other pages on motivational domain, return 404
         res.status(404).send('Pagina non trovata.');
     }
 }
 
-// Diagnostic function for Gemini models (Invariata)
+// Diagnostic function for Gemini models
 async function listAvailableModels() {
-    console.log("[TEST MODE] listAvailableModels non in uso.");
-    return []; 
-}
+    if (!genAI) {
+        console.error("[DIAGNOSI] genAI non inizializzato.");
+        return;
+    }
+    try {
+        console.log("[DIAGNOSI] Provo a listare i modelli...");
 
+        // Attempt to use the base model
+        const modelNameToTest = "gemini-2.5-flash";
+        const model = genAI.getGenerativeModel({ model: modelNameToTest });
+        console.log(`[DIAGNOSI] Tentativo di usare il modello base: ${modelNameToTest}`);
+        const result = await model.generateContent("Ciao");
+        console.log("[DIAGNOSI] Chiamata di test con gemini-pro RIUSCITA!");
+
+    } catch (error) {
+        console.error(`[DIAGNOSI] Errore durante il test del modello base: ${error.message}`);
+        if (error.status === 404) {
+            console.error("[DIAGNOSI] Il modello gemini-pro NON è trovato per questa chiave/progetto/versione API.");
+        } else if (error.status === 400 && error.message.includes('API key not valid')) {
+            console.error("[DIAGNOSI] ERRORE CHIAVE API: La chiave API non è valida o non ha i permessi corretti.");
+        } else if (error.message.includes('Billing')) {
+            console.error("[DIAGNOSI] ERRORE BILLING: Controlla che il billing sia abilitato per il progetto Google Cloud.");
+        } else {
+            console.error("[DIAGNOSI] Altro errore:", error);
+        }
+    }
+}
 
 module.exports = {
     getMotivationalQuote,
     handleMotivationalRequest,
-    getQuoteOnly,
     listAvailableModels
 };
