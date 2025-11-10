@@ -1,5 +1,4 @@
-// db.js - gestione completa del database SQLite
-
+// db.js - gestione completa del database SQLite 
 const Database = require('better-sqlite3');
 const bcrypt = require('bcryptjs'); // hashing password
 
@@ -120,6 +119,7 @@ function createTables() {
         CREATE TABLE IF NOT EXISTS motivational_analytics (
             keychain_id INTEGER PRIMARY KEY,
             view_count INTEGER DEFAULT 0,
+            topic TEXT,
             FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE CASCADE
         );
     `);
@@ -144,30 +144,24 @@ function createTables() {
 function handleMigrations() {
     console.log('⏳ Esecuzione migrazioni...');
 
-    const columnUpdates = [
+    const safeColumns = [
         { table: 'users', column: 'can_access_wallet', type: 'INTEGER DEFAULT 1' },
         { table: 'users', column: 'can_access_analytics', type: 'INTEGER DEFAULT 0' },
-        { table: 'users', column: 'can_access_pos', type: 'INTEGER DEFAULT 0' },
-        { table: 'analytics', column: 'os_name', type: 'TEXT' },
-        { table: 'analytics', column: 'browser_name', type: 'TEXT' },
-        { table: 'analytics', column: 'device_type', type: 'TEXT' },
-        { table: 'analytics', column: 'lat', type: 'REAL' },
-        { table: 'analytics', column: 'lon', type: 'REAL' },
+        { table: 'users', column: 'can_access_pos', type: 'INTEGER DEFAULT 0' }
     ];
 
-    columnUpdates.forEach(({ table, column, type }) => {
+    safeColumns.forEach(({ table, column, type }) => {
         try {
             db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
         } catch (e) { /* ignora se esiste */ }
     });
 
-    try {
-        db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`);
-    } catch (e) { /* ignora se esiste */ }
+    try { db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`); } catch(e) { }
+    try { db.exec(`ALTER TABLE motivational_analytics ADD COLUMN topic TEXT`); } catch(e) { }
 
     try {
         db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains(keychain_number) WHERE keychain_number IS NOT NULL`);
-    } catch (e) { /* ignora */ }
+    } catch (e) { }
 
     console.log('✅ Migrazioni completate.');
 }
