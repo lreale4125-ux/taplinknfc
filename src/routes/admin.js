@@ -1,5 +1,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { resetTestData } = require('../db'); // 🎯 1. IMPORTAZIONE DELLA FUNZIONE DI RESET
+
 const {
     adjustBalance,
     getCompanies,
@@ -11,7 +13,7 @@ const {
     deleteUser,
     getAnalyticsSummary,
     getAnalyticsDetail,
-    generateQrCode, // Questa è la vecchia funzione, la lasciamo se serve
+    generateQrCode, 
     
     // --- IMPORTAZIONI AGGIUNTE ---
     createSelector,
@@ -19,10 +21,22 @@ const {
     updateSelector,
     deleteSelector,
     getLinksWithQr,
-    createKeychainQr // <-- NUOVO: Endpoint per associare Link e QR
+    createKeychainQr
 } = require('../controllers/adminController');
 
 const router = express.Router();
+
+// --- Rotta per il RESET DATI DI TEST (NUOVA) ---
+// Protezione: Solo admin e con token valido
+router.post('/reset-data', authenticateToken, requireAdmin, (req, res) => {
+    try {
+        resetTestData(); // Chiama la funzione di reset importata
+        res.json({ message: 'Reset dei dati di test eseguito con successo. Utenti, analytics e transazioni cancellati.' });
+    } catch (error) {
+        console.error('Errore durante il reset dei dati:', error);
+        res.status(500).json({ error: 'Errore interno del server durante il reset.' });
+    }
+});
 
 // --- Rotte per i Selettori (NUOVE) ---
 router.get('/selectors', authenticateToken, requireAdmin, getSelectors);
