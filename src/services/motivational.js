@@ -39,21 +39,21 @@ async function getMotivationalQuote(keychainId) {
  * Richiede JWT
  */
 async function getQuoteOnly(req, res) {
-    // JWT check
+    let user = null;
+    let keychainId = 'Ospite';
+
+    // JWT opzionale
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).json({ error: 'Accesso non autorizzato: token mancante.' });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.split(' ')[1];
+        try {
+            user = jwt.verify(token, process.env.JWT_SECRET);
+            keychainId = user.id || 'Ospite';
+        } catch (err) {
+            console.warn('Token non valido, accesso come Ospite.');
+        }
     }
 
-    const token = authHeader.split(' ')[1];
-    let user;
-    try {
-        user = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (err) {
-        return res.status(401).json({ error: 'Accesso non autorizzato: token non valido.' });
-    }
-
-    const keychainId = req.query.id || user.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
 
     // Salvataggio visualizzazione nel DB
