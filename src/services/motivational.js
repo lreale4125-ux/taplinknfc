@@ -73,7 +73,19 @@ async function getQuoteOnly(req, res) {
 async function handleMotivationalRequest(req, res) {
     let user = null;
     let keychainId = 'Ospite';
-    let token = null;
+    let token = req.query.token || null;
+    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+    }
+
+    if (token) {
+        try {
+            user = jwt.verify(token, process.env.JWT_SECRET);
+            keychainId = user.id || 'Ospite';
+        } catch (err) {
+            console.warn('Token non valido, accesso come Ospite.');
+        }
+    }
 
     // JWT check opzionale
     const authHeader = req.headers.authorization;
