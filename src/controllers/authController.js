@@ -5,7 +5,9 @@ const db = require('../db');
 // --- LOGIN ---
 // Gestisce login per tutti gli utenti (wallet, analytics, POS ecc.)
 async function login(req, res) {
-    const { email, password } = req.body;
+    // Nota: La tua logica usa 'email' per la ricerca, ma 'username' nel payload/registrazione. 
+    // Assumiamo che la ricerca avvenga tramite 'email' come nel tuo codice.
+    const { email, password } = req.body; 
     try {
         // Recupera utente dal DB
         const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
@@ -31,6 +33,7 @@ async function login(req, res) {
 
         // Se l'utente è "motivazional", redirect automatico alla pagina motivazionale
         if (user.role === 'motivazional') {
+            // Reindirizza con ID e Token nella query string
             return res.redirect(`https://motivazional.taplinknfc.it?id=${payload.id}&token=${token}&topic=motivazione`);
         }
 
@@ -53,14 +56,14 @@ async function register(req, res) {
     }
 
     try {
-        // Controlla se l'utente esiste già
+        // Controlla se l'utente esiste già (previene l'errore SQL UNIQUE constraint)
         const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
         if (existingUser) return res.status(400).json({ error: 'Email già registrata.' });
 
         // Hash della password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Inserisce nuovo utente con ruolo 'motivazional'
+        // Inserisce nuovo utente con ruolo 'motivazional' e permessi disattivati per gli altri servizi
         const stmt = db.prepare(`
             INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos)
             VALUES (?, ?, ?, 'motivazional', 0, 0, 0)
@@ -79,10 +82,12 @@ async function register(req, res) {
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // Redirect automatico alla pagina motivazionale
+        // Redirect automatico alla pagina motivazionale subito dopo la registrazione
         res.redirect(`https://motivazional.taplinknfc.it?id=${payload.id}&token=${token}&topic=motivazione`);
 
     } catch (error) {
+        // L'errore UNIQUE constraint su username/email non dovrebbe più verificarsi qui 
+        // grazie al controllo 'existingUser' sopra, ma catturiamo altri errori DB.
         console.error(error);
         res.status(500).json({ error: 'Errore del server.' });
     }
