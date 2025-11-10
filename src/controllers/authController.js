@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 
 // --- LOGIN ---
+// Gestisce login per tutti gli utenti (wallet, analytics, POS ecc.)
 async function login(req, res) {
     const { email, password } = req.body;
     try {
@@ -31,6 +32,8 @@ async function login(req, res) {
 }
 
 // --- REGISTER ---
+// Gestisce registrazioni "motivazionali": vengono create solo come utenti normali
+// e reindirizzati automaticamente alla pagina motivazionale con token.
 async function register(req, res) {
     const { email, password, username } = req.body;
 
@@ -39,17 +42,21 @@ async function register(req, res) {
     }
 
     try {
+        // Controlla se l'utente esiste già
         const existingUser = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
         if (existingUser) return res.status(400).json({ error: 'Email già registrata.' });
 
+        // Hash della password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Inserisce nuovo utente come normale (senza ruoli speciali)
         const stmt = db.prepare(`
             INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos)
             VALUES (?, ?, ?, 'user', 0, 0, 0)
         `);
         const info = stmt.run(email, hashedPassword, username);
 
+        // Prepara payload JWT
         const payload = {
             id: info.lastInsertRowid,
             username,
@@ -61,9 +68,8 @@ async function register(req, res) {
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // --- Redirect alla pagina motivazionale con token ---
-        res.redirect(`/motivazional?id=${payload.id}&token=${token}&topic=motivazione`);
-
+        // Redirect automatico alla pagina motivazionale
+        res.redirect(`https://motivazional.taplinknfc.it?id=${payload.id}&token=${token}&topic=motivazione`);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Errore del server.' });
