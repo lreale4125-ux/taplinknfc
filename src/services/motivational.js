@@ -12,19 +12,19 @@ if (process.env.GEMINI_API_KEY) {
 }
 
 /**
- * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
- * @param {string} keychainId
+* @param {string} userNameOrId
  * @param {string} topic
  * @returns {Promise<string>}
  */
-async function getMotivationalQuote(keychainId, topic = 'motivazione') {
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') { // 🎯 RINOMINATO keychainId in userNameOrId
     if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
 
     try {
         const timestamp = Date.now();
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${username}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        // 🎯 RIGA CORRETTA: Usa direttamente la variabile userNameOrId nel prompt
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
@@ -39,9 +39,10 @@ async function getMotivationalQuote(keychainId, topic = 'motivazione') {
  * Endpoint API: restituisce solo la frase motivazionale in formato JSON
  */
 async function getQuoteOnly(req, res) {
-    // Estrae l'ID utente e il topic dalla query (usati per DB e Gemini)
+    // Estrae l'ID utente e il topic dalla query (usati per DB)
     const keychainId = req.query.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
+    const username = req.query.username || keychainId; // 🎯 NUOVA: Usa username (se presente) o l'ID come fallback
     
     // Aggiorna analytics (usa la chiave composta definita in db.js)
     try {
@@ -56,7 +57,7 @@ async function getQuoteOnly(req, res) {
     }
 
 
-    const quote = await getMotivationalQuote(keychainId, topic); 
+    const quote = await getMotivationalQuote(username, topic); // 🎯 USA LO USERNAME
     res.json({ quote });
 }
 
