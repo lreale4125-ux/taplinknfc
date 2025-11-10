@@ -8,7 +8,7 @@ const cors = require('cors');
 // Import custom modules
 const db = require('./src/db');
 const { authenticateToken } = require('./src/middleware/auth');
-// Importiamo entrambe le funzioni
+// Importiamo entrambe le funzioni del servizio motivazionale
 const { handleMotivationalRequest, getQuoteOnly } = require('./src/services/motivational'); 
 
 // Import route modules
@@ -28,19 +28,19 @@ if (!process.env.JWT_SECRET) {
 // --- Creazione app Express e Middleware ---
 const app = express();
 
-// Middleware di parsing
+// Middleware di parsing e CORS
 app.use(express.json());
 app.use(cors());
 
-// --- MIDDLEWARE PER GESTIRE IL SITO MOTIVAZIONALE ---
-// Questo middleware intercetta le richieste *prima* del server statico e risolve l'errore 404
+// --- MIDDLEWARE SPECIFICO PER IL SITO MOTIVAZIONALE ---
+// Questo middleware intercetta le richieste *prima* del server statico
 app.use(async (req, res, next) => {
     // Controlla se la richiesta arriva dal dominio motivazionale
     if (req.hostname === 'motivazional.taplinknfc.it' || req.hostname === 'www.motivazional.taplinknfc.it') {
         
         // 1. GESTIONE DELLA RICHIESTA API ASINCRONA
         if (req.path === '/api/quote') {
-            // Chiama la funzione API e si assicura che il server risponda subito (non deve chiamare next)
+            // Chiama la funzione API e risponde immediatamente
             return getQuoteOnly(req, res); 
         }
         
@@ -51,7 +51,7 @@ app.use(async (req, res, next) => {
         } 
         
         // 3. SE NON È NÉ / NÉ /api/quote, restituisce 404 specifico per il dominio motivazionale
-        res.status(404).send('Pagina non trovata.');
+        return res.status(404).send('Pagina non trovata.');
         
     } else {
         // Se NON è il dominio motivazionale, procedi con le altre route
@@ -62,11 +62,7 @@ app.use(async (req, res, next) => {
 // Serve static files
 app.use(express.static('.'));
 
-// --- ROUTE API (Queste route sono attive solo se non intercettate dal middleware motivazionale) ---
-
-// ** RIMOZIONE: l'endpoint /api/quote non è più necessario qui, è gestito dal middleware di dominio **
-// app.get('/api/quote', getQuoteOnly); 
-
+// --- ROUTE API (non include più /api/quote perché gestito dal middleware motivazionale) ---
 // Authentication routes
 app.use('/api/auth', authRoutes);
 
@@ -76,7 +72,7 @@ app.use('/api/user', userRoutes);
 // Admin routes
 app.use('/api/admin', adminRoutes);
 
-// Redirect routes
+// Redirect routes generiche
 app.use('/', redirectRoutes);
 
 // --- AVVIO DEL SERVER ---
