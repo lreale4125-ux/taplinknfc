@@ -1,5 +1,6 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../db');
+const jwt = require('jsonwebtoken');
 
 let genAI;
 if (process.env.GEMINI_API_KEY) {
@@ -8,68 +9,48 @@ if (process.env.GEMINI_API_KEY) {
     console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
 }
 
-/**
- * Genera una frase motivazionale unica per un utente.
- * @param {string} keychainId
- * @returns {Promise<string>}
- */
 async function getMotivationalQuote(keychainId) {
-    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
-
+    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; 
     try {
         const timestamp = Date.now();
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
         const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "ID-${keychainId}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
-
         const result = await model.generateContent(prompt);
         const response = await result.response;
         return response.text();
     } catch (error) {
         console.error("Errore durante la chiamata a Gemini:", error.message);
-        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+        return "La motivazione è dentro di te, non smettere di cercarla."; 
     }
 }
 
-/**
- * Endpoint API: restituisce solo la frase motivazionale in formato JSON
- */
-async function getQuoteOnly(req, res) {
-    const keychainId = req.query.id || 'Ospite';
-    const topic = req.query.topic || 'motivazione';
-
-    // Salvataggio visualizzazione nel DB
-    db.prepare(`
-        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
-        VALUES (?, ?, 1)
-        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
-    `).run(keychainId, topic);
-
-    const quote = await getMotivationalQuote(keychainId);
-
-    if (!quote || quote === "La motivazione è dentro di te, non smettere di cercarla.") {
-        return res.status(500).json({ error: "Gemini API Fallita", quote });
-    }
-
-    res.json({ quote });
-}
-
-/**
- * Gestisce la richiesta della pagina motivazionale
- */
 async function handleMotivationalRequest(req, res) {
-    const keychainId = req.query.id || 'Ospite';
+    // JWT check
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).send('Accesso non autorizzato: token mancante.');
+    }
+
+    const token = authHeader.split(' ')[1];
+    let user;
+    try {
+        user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+        return res.status(401).send('Accesso non autorizzato: token non valido.');
+    }
+
+    const keychainId = req.query.id || user.id || 'Ospite';
     const topic = req.query.topic || 'motivazione';
 
-    console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}, Topic: ${topic}`);
+    console.log(`[MOTIVAZIONAL] Accesso da ID: ${keychainId}`);
 
-    // Salvataggio visualizzazione nel DB
     db.prepare(`
         INSERT INTO motivational_analytics (keychain_id, topic, view_count)
         VALUES (?, ?, 1)
         ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
     `).run(keychainId, topic);
 
+    
     const htmlPage = `
     <!DOCTYPE html>
     <html lang="it">
@@ -131,24 +112,35 @@ async function handleMotivationalRequest(req, res) {
 
     res.send(htmlPage);
 }
-
-/**
- * Diagnostic function for Gemini models
- */
-async function listAvailableModels() {
-    if (!genAI) return [];
-    try {
-        const models = await genAI.listModels();
-        return models;
-    } catch (err) {
-        console.error("Errore listing models:", err);
-        return [];
+async function getQuoteOnly(req, res) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ error: 'Accesso non autorizzato: token mancante.' });
     }
+
+    const token = authHeader.split(' ')[1];
+    let user;
+    try {
+        user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+        return res.status(401).json({ error: 'Accesso non autorizzato: token non valido.' });
+    }
+
+    const keychainId = req.query.id || user.id || 'Ospite';
+    const topic = req.query.topic || 'motivazione';
+
+    db.prepare(`
+        INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+        VALUES (?, ?, 1)
+        ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+    `).run(keychainId, topic);
+
+    const quote = await getMotivationalQuote(keychainId);
+    res.json({ quote });
 }
 
 module.exports = {
     getMotivationalQuote,
     handleMotivationalRequest,
-    getQuoteOnly,
-    listAvailableModels
+    getQuoteOnly
 };
