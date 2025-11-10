@@ -107,6 +107,16 @@
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Credenziali non valide.');
+            
+            // =======================================================
+            // 🎯 NUOVA LOGICA: Gestisce il redirect motivazionale dal JSON
+            if (data.redirect) {
+                window.location.href = data.redirect;
+                return; // Ferma l'esecuzione e non salva il token in local storage
+            }
+            // =======================================================
+
+            // Solo se NON c'è redirect motivazionale, salva il token
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('userData', JSON.stringify(data.user));
             handleLoginRedirect(data.user);
