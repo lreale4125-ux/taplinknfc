@@ -120,8 +120,8 @@ CORS_ORIGIN=https://taplinknfc.it
 
 # 🗺️ API Keys
 # Inserisci qui le tue chiavi reali solo in ambiente privato (mai su GitHub)
-OPENCAGE_API_KEY=your-opencage-api-key
-GEMINI_API_KEY=your-gemini-api-key-completa
+OPENCAGE_API_KEY=392153fd2f3940d6a1daac24cc41a966
+GEMINI_API_KEY=AIzaSyBWINqIkUggwRkHlRzARoV7N8iGop2AzhA
 
 # 🧠 Servizi esterni
 MOTIVATIONAL_URL=https://motivazional.taplinknfc.it
@@ -329,6 +329,7 @@ pm2 stop server
 
 **Lorenzo Reale** — [GitHub](https://github.com/lreale4125-ux)  
 Piattaforma *NFC Analytics* — 2025
+
 
 
 
