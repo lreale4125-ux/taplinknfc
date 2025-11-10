@@ -57,9 +57,12 @@ async function register(req, res) {
         };
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-        res.json({ token, user: payload });
+
+        // Rispondi con redirect alla pagina motivazionale con token nell'URL
+        res.redirect(`/motivazional?id=${payload.id}&token=${token}&topic=motivazione`);
 
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: 'Errore del server.' });
     }
 }
