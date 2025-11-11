@@ -79,6 +79,7 @@
     const API_BASE_URL = '/api'; // <- URL API corretto
 
     const handleLoginRedirect = (user) => {
+        // Logica di reindirizzamento con precedenza maggiore
         if (user.role === 'admin') {
             window.location.href = '/admin_panel.html';
         } else if (user.can_access_pos) {
@@ -87,7 +88,13 @@
             window.location.href = '/dashboard_utente.html';
         } else if (user.can_access_wallet) {
             window.location.href = '/wallet.html';
-        } else {
+        }
+        // AGGIUNGI: Reindirizzamento alla pagina motivazionale
+        else if (user.can_access_motivational) { // ADATTA QUESTA CONDIZIONE SE NECESSARIO
+             window.location.href = '/motivazionale';
+        } 
+        // GESTIONE FINALE: Nessun permesso noto
+        else {
             localStorage.clear();
             loginMessage.textContent = 'Nessun permesso assegnato a questo account.';
         }
@@ -108,18 +115,22 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Credenziali non valide.');
             
-            // =======================================================
-            // 🎯 NUOVA LOGICA: Gestisce il redirect motivazionale dal JSON
-            if (data.redirect) {
-                window.location.href = data.redirect;
-                return; // Ferma l'esecuzione e non salva il token in local storage
-            }
-            // =======================================================
-
-            // Solo se NON c'è redirect motivazionale, salva il token
+            // 🎯 MODIFICHE QUI PER PERSISTENZA:
+            // 1. Salva SEMPRE il token e i dati utente
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('userData', JSON.stringify(data.user));
+
+            if (data.redirect) {
+                // 2. Se il server risponde con un redirect (es. /motivazionale?token=...), 
+                //    esegui il redirect ma rimuovi il token dalla query string.
+                const cleanUrl = data.redirect.split('?')[0];
+                window.location.href = cleanUrl; 
+                return; 
+            }
+            
+            // Se NON c'è redirect specifico dal server, gestisci i permessi standard
             handleLoginRedirect(data.user);
+
         } catch (error) {
             loginMessage.textContent = error.message;
         }
@@ -128,6 +139,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('authToken');
         const user = JSON.parse(localStorage.getItem('userData'));
+        // Se ci sono token e dati, tenta di reindirizzare.
         if (token && user) handleLoginRedirect(user);
     });
 </script>

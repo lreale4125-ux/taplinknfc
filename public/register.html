@@ -95,8 +95,13 @@
             window.location.href = '/dashboard_utente.html';
         } else if (user.can_access_wallet) {
             window.location.href = '/wallet.html';
-        } else {
-            // Se un utente non ha permessi, non può accedere
+        }
+        // AGGIUNTO: Reindirizzamento alla pagina motivazionale per persistenza
+        else if (user.can_access_motivational) { // ADATTA QUESTA CONDIZIONE SE NECESSARIO
+            window.location.href = '/motivazionale'; 
+        } 
+        else {
+            // Se un utente non ha permessi noti, non può accedere
             localStorage.clear();
             registerMessage.textContent = 'Nessun permesso assegnato a questo account.';
         }
@@ -120,18 +125,21 @@
                 throw new Error(data.error || 'Registrazione fallita.');
             }
             
-            // =======================================================
-            // 🎯 NUOVA LOGICA: Gestisce il redirect motivazionale dal JSON
-            if (data.redirect) {
-                window.location.href = data.redirect;
-                return; // Ferma l'esecuzione e non salva il token in local storage
-            }
-            // =======================================================
-
-            // Solo se NON c'è redirect motivazionale, salva il token
+            // 🎯 NUOVA LOGICA: Salva SEMPRE il token e i dati utente dopo il successo
             localStorage.setItem('authToken', data.token);
             localStorage.setItem('userData', JSON.stringify(data.user));
+
+            if (data.redirect) {
+                // Se il server risponde con un redirect (es. /motivazionale?token=...), 
+                // reindirizza all'URL pulito per evitare token in query.
+                const cleanUrl = data.redirect.split('?')[0];
+                window.location.href = cleanUrl; 
+                return;
+            }
+            
+            // Se NON c'è redirect, gestisci i permessi standard
             handleRegisterRedirect(data.user);
+
         } catch (error) {
             registerMessage.textContent = error.message;
         }
@@ -140,6 +148,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('authToken');
         const user = JSON.parse(localStorage.getItem('userData'));
+        // Se ci sono token e dati, tenta di reindirizzare.
         if (token && user) {
             handleRegisterRedirect(user);
         }
