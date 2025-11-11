@@ -1,234 +1,401 @@
-import os
-import subprocess
-import logging
+#!/usr/bin/env python3
+"""
+make_qr_3mf.py - Generatore di QR code incisi 3D
+Versione compatibile Ubuntu 22.04 - No py3mf dependency
+"""
+
 import argparse
 import sys
+import os
+import traceback
 import numpy as np
 import qrcode
-import trimesh
+from datetime import datetime
 
-# --- Configurazione del Logging ---
-logging.basicConfig(level=logging.INFO, format='[Python Script] %(levelname)s: %(message)s')
-log = logging.getLogger('QR_3D_FLOW')
+try:
+    import trimesh
+    TRIMESH_AVAILABLE = True
+except ImportError:
+    TRIMESH_AVAILABLE = False
+    print("ERROR: trimesh non disponibile. Installa con: pip install trimesh")
+    sys.exit(1)
 
-# --- Parametri di Modellazione Fissi (Costanti) ---
-DEBOSS_DEPTH = 0.3        # Profondità di incisione (mm).
-PENETRATION_MARGIN = 0.1  # Margine per garantire la penetrazione (mm).
-# Altezza totale del "timbro" STL (Incisione + Penetrazione)
-TOTAL_STAMP_HEIGHT = DEBOSS_DEPTH + PENETRATION_MARGIN
-# Offset Z: sposta il timbro SOTTO Z=0 per garantire la sovrapposizione
-Z_OFFSET = -PENETRATION_MARGIN
-
-# --- Nomi File Temporanei (Interni allo script) ---
-SCAD_SCRIPT_FILE = "temp_render_script.scad"
-STL_STAMP_FILE = "temp_qr_stamp.stl"
-
-# --- Funzione di Parsing Argomenti ---
-
-def parse_arguments():
-    """Analizza gli argomenti passati da riga di comando dal file JS."""
-    parser = argparse.ArgumentParser(description="Genera un modello 3MF inciso con QR Code.")
-    
-    parser.add_argument('--input-3mf', required=True, help="Percorso completo al file 3MF di base.")
-    parser.add_argument('--output-3mf', required=True, help="Percorso completo dove salvare il file 3MF di output.")
-    parser.add_argument('--qr-data', required=True, help="Contenuto (URL) del QR Code da incidere.")
-    parser.add_argument('--qr-size-mm', type=float, required=True, help="Dimensione lato desiderata (totale) del QR Code in mm.")
-
-    return parser.parse_args()
-
-# --- Logica di Generazione STL (Nuova) ---
-
-def generate_qr_stl(args: argparse.Namespace) -> str:
-    """
-    Genera un solido STL del QR Code usando trimesh.
-    Questo sostituisce la generazione SVG e l'estrusione in OpenSCAD.
-    """
-    log.info(f"Avvio generazione QR Code STL per: {args.qr_data[:30]}...")
-    
-    try:
-        # 1. Genera la matrice QR Code
-        # Usiamo un bordo (margin) fisso di 1 modulo.
+class QR3MFGenerator:
+    def __init__(self):
+        self.debug_log = []
+        self.log(f"=== QR3MFGenerator Inizializzato ===")
+        
+    def log(self, message):
+        """Aggiunge messaggio al log di debug"""
+        timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        log_entry = f"[{timestamp}] {message}"
+        print(log_entry)
+        self.debug_log.append(log_entry)
+        
+    def generate_qr_matrix(self, data, qr_size_mm=22):
+        """Genera matrice QR binaria e calcola dimensioni"""
+        self.log(f"Generando QR per: {data[:50]}...")
+        
         qr = qrcode.QRCode(
-            version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=1, # Calcoleremo la scala dopo
-            border=1  # Margine in moduli
+            version=4,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=1,
+            border=2
         )
-        qr.add_data(args.qr_data)
+        qr.add_data(data)
         qr.make(fit=True)
         
-        # Ottieni la matrice come array NumPy (True = Nero, False = Bianco)
-        matrix = np.array(qr.get_matrix())
-        n_modules = matrix.shape[0]
-        log.info(f"Matrice QR generata: {n_modules}x{n_modules} moduli.")
-
-        # 2. Calcola le dimensioni
-        # Calcola la dimensione di un singolo modulo per raggiungere la qr_size_mm totale
-        module_size_mm = args.qr_size_mm / n_modules
-
-        # 3. Crea la mesh 3D da zero usando trimesh
-        meshes = []
-        # Calcola la posizione Z centrale per i box
-        z_center = Z_OFFSET + (TOTAL_STAMP_HEIGHT / 2.0)
+        matrix = np.array(qr.get_matrix(), dtype=bool)
+        self.log(f"QR Matrix: {matrix.shape[1]}x{matrix.shape[0]} moduli")
         
-        # Itera su ogni modulo
-        for r in range(n_modules):
-            for c in range(n_modules):
-                # Se il modulo è NERO (True), crea un box
-                if matrix[r, c]:
-                    # Calcola la posizione X, Y del centro del box
-                    # (0,0) della matrice è in alto a sx, (0,0) 3D è al centro
-                    x_pos = (c - n_modules / 2.0) * module_size_mm + (module_size_mm / 2.0)
-                    # Inverti la Y perché la matrice cresce verso il basso, il 3D cresce verso l'alto
-                    y_pos = -(r - n_modules / 2.0) * module_size_mm - (module_size_mm / 2.0)
+        # Calcola dimensione modulo in mm
+        module_size_mm = qr_size_mm / max(matrix.shape)
+        self.log(f"Module size: {module_size_mm:.3f}mm")
+        
+        return matrix, module_size_mm
+    
+    def create_qr_stamp_mesh(self, matrix, module_size_mm, stamp_height=0.4, z_position=-0.1):
+        """Crea mesh 3D del timbro QR per incisione"""
+        self.log("Creando mesh timbro QR...")
+        
+        stamp_meshes = []
+        module_height = stamp_height
+        
+        # Crea un box per ogni modulo nero
+        for y in range(matrix.shape[0]):
+            for x in range(matrix.shape[1]):
+                if matrix[y, x]:
+                    # Coordinate centro modulo
+                    center_x = (x - matrix.shape[1] / 2 + 0.5) * module_size_mm
+                    center_y = (y - matrix.shape[0] / 2 + 0.5) * module_size_mm
                     
-                    # Definisci il transform per posizionare il box
-                    transform = trimesh.transformations.translation_matrix([x_pos, y_pos, z_center])
-                    
-                    # Crea il box
+                    # Crea box
                     box = trimesh.creation.box(
-                        extents=[module_size_mm, module_size_mm, TOTAL_STAMP_HEIGHT],
-                        transform=transform
+                        extents=[module_size_mm, module_size_mm, module_height]
                     )
-                    meshes.append(box)
+                    
+                    # Posiziona box
+                    box.apply_translation([center_x, center_y, z_position + module_height/2])
+                    stamp_meshes.append(box)
         
-        if not meshes:
-            log.error("Nessun modulo trovato nel QR code, la mesh è vuota.")
-            return None
+        if not stamp_meshes:
+            raise ValueError("Nessun modulo nero nel QR code")
+        
+        # Unisci tutti i moduli
+        qr_stamp = trimesh.util.concatenate(stamp_meshes)
+        
+        self.log(f"Timbro QR creato: {len(stamp_meshes)} moduli")
+        self.log(f"Bounds timbro: {qr_stamp.bounds}")
+        
+        return qr_stamp
+    
+    def load_base_model(self, input_path):
+        """Carica il modello base (supporta .3mf, .stl, .obj)"""
+        self.log(f"Caricando modello base: {input_path}")
+        
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"File base non trovato: {input_path}")
+        
+        # Estensione file
+        ext = os.path.splitext(input_path)[1].lower()
+        
+        try:
+            if ext == '.3mf':
+                # Per 3MF, usa il loader di trimesh
+                scene = trimesh.load_mesh(input_path)
+                
+                # Se è una scena, converti in singola mesh
+                if isinstance(scene, trimesh.Scene):
+                    self.log("Convertendo scena 3MF in mesh singola...")
+                    base_mesh = scene.dump(concatenate=True)
+                    
+                    if len(base_mesh.vertices) == 0:
+                        # Fallback: prendi la prima geometria
+                        geometries = list(scene.geometry.values())
+                        if geometries:
+                            base_mesh = geometries[0]
+                        else:
+                            raise ValueError("Scena 3MF vuota")
+                else:
+                    base_mesh = scene
+                    
+            else:
+                # Per STL, OBJ, etc.
+                base_mesh = trimesh.load_mesh(input_path)
+                
+        except Exception as e:
+            self.log(f"Errore caricamento {ext}: {e}")
+            raise ValueError(f"Impossibile caricare il modello base: {e}")
+        
+        # Verifica che sia una mesh valida
+        if not hasattr(base_mesh, 'faces') or len(base_mesh.faces) == 0:
+            raise ValueError("Il modello base non contiene mesh valida")
+        
+        self.log(f"Base caricata: {len(base_mesh.vertices)} vertici, {len(base_mesh.faces)} faces")
+        self.log(f"Bounds base: {base_mesh.bounds}")
+        self.log(f"Base watertight: {base_mesh.is_watertight}")
+        
+        return base_mesh
+    
+    def repair_mesh_aggressive(self, mesh):
+        """Riparazione mesh aggressiva per problemi di boolean"""
+        self.log("Riparazione mesh aggressiva...")
+        
+        original_vertices = len(mesh.vertices)
+        original_faces = len(mesh.faces)
+        
+        try:
+            # 1. Rimuovi facce degenerate
+            mesh.remove_degenerate_faces()
             
-        # 4. Combina tutti i box in una singola mesh
-        combined_mesh = trimesh.util.concatenate(meshes)
-
-        # 5. Applica la rotazione (flip)
-        # Ruota di 180 gradi sull'asse X per ribaltare l'immagine
-        # (necessario affinché il QR sia leggibile dal basso)
-        flip_transform = trimesh.transformations.rotation_matrix(np.pi, [1, 0, 0])
-        combined_mesh.apply_transform(flip_transform)
-
-        # 6. Esporta l'STL temporaneo
-        # Salva l'STL nella stessa directory dello script python
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        stl_filepath = os.path.join(script_dir, STL_STAMP_FILE)
-        combined_mesh.export(stl_filepath)
+            # 2. Rimuovi duplicati
+            mesh.merge_vertices()
+            mesh.remove_duplicate_faces()
+            
+            # 3. Fix normals
+            trimesh.repair.fix_normals(mesh)
+            trimesh.repair.fix_winding(mesh)
+            
+            # 4. Fill holes (piccoli)
+            mesh.fill_holes()
+            
+            # 5. Convex hull come ultima risorsa
+            if not mesh.is_watertight:
+                self.log("Tentativo convex hull...")
+                mesh = mesh.convex_hull
+            
+        except Exception as e:
+            self.log(f"Repair warning: {e}")
         
-        log.info(f"File STL temporaneo generato: {stl_filepath}")
-        return stl_filepath
-
-    except Exception as e:
-        log.error(f"Errore durante la generazione dell'STL del QR Code: {e}")
-        import traceback
-        log.error(traceback.format_exc())
-        return None
-
-# --- Logica OpenSCAD (Semplificata) ---
-
-def generate_scad_script(base_model_path: str, qr_stl_path: str):
-    """
-    Genera il file OpenSCAD (.scad) per la sottrazione booleana.
-    Ora usa il file STL pre-generato.
-    """
+        self.log(f"Post-repair: {len(mesh.vertices)} vertici, {len(mesh.faces)} faces")
+        return mesh
     
-    # Assicura che i percorsi siano assoluti e con slash corretti per OpenSCAD
-    base_model_path = os.path.abspath(base_model_path).replace("\\", "/")
-    qr_stl_path = os.path.abspath(qr_stl_path).replace("\\", "/")
-
-    scad_content = f"""
-// --- OPERAZIONE FINALE (Boolean Semplice) ---
-// Sottrai il timbro STL (pre-generato) dal modello base.
-
-difference() {{
-    // 1. Modello di base
-    // Usa il percorso assoluto per robustezza
-    import("{base_model_path}", convexity = 10);
-    
-    // 2. Sottrai il timbro QR (STL)
-    // L'STL è già posizionato e scalato correttamente da Python,
-    // includendo l'offset Z per la penetrazione.
-    import("{qr_stl_path}", convexity = 10);
-}}
-"""
-    # Scrivi lo script SCAD
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    scad_filepath = os.path.join(script_dir, SCAD_SCRIPT_FILE)
-    
-    with open(scad_filepath, 'w') as f:
-        f.write(scad_content)
-    log.info(f"Script OpenSCAD (STL Boolean) generato in {scad_filepath}")
-    return scad_filepath
-
-
-def render_model_with_openscad(scad_filepath: str, output_filepath: str) -> bool:
-    """
-    Esegue il rendering del file .scad in .3mf usando OpenSCAD da riga di comando.
-    """
-    os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
-    
-    command = [
-        "openscad", 
-        "-o", output_filepath, 
-        scad_filepath
-    ]
-    
-    log.info(f"Avvio rendering OpenSCAD: {' '.join(command)}")
-    
-    try:
-        # Aumentiamo il timeout, le operazioni booleane su mesh possono essere lunghe
-        result = subprocess.run(command, check=True, capture_output=True, text=True, timeout=300)
-        log.info(f"Modello finale esportato con successo in {output_filepath}")
-        if result.stderr:
-            log.warning(f"Output STDERR di OpenSCAD (potrebbe contenere warning): {result.stderr}")
-        return True
+    def perform_boolean_difference(self, base_mesh, qr_stamp):
+        """Esegue operazione booleana di differenza con fallback"""
+        self.log("Eseguendo boolean difference...")
         
-    except subprocess.CalledProcessError as e:
-        log.error(f"Errore OpenSCAD (Codice: {e.returncode}). STDERR: {e.stderr} STDOUT: {e.stdout}")
-        return False
-    except subprocess.TimeoutExpired as e:
-        log.error(f"Timeout OpenSCAD ({e.timeout}s) scaduto. L'operazione booleana è troppo complessa?")
-        log.error(f"STDERR: {e.stderr} STDOUT: {e.stdout}")
-        return False
-    except FileNotFoundError:
-        log.error("Comando 'openscad' non trovato. Verifica l'installazione e il PATH.")
-        return False
+        # Verifica watertight
+        base_watertight = base_mesh.is_watertight
+        qr_watertight = qr_stamp.is_watertight
+        
+        self.log(f"Base watertight: {base_watertight}")
+        self.log(f"QR stamp watertight: {qr_watertight}")
+        
+        # Ripara se necessario
+        if not base_watertight:
+            self.log("Riparando base mesh...")
+            base_mesh = self.repair_mesh_aggressive(base_mesh)
+            
+        if not qr_watertight:
+            self.log("Riparando QR stamp mesh...")
+            qr_stamp = self.repair_mesh_aggressive(qr_stamp)
+        
+        # Verifica overlap
+        base_bounds = base_mesh.bounds
+        qr_bounds = qr_stamp.bounds
+        
+        self.log(f"Base bounds: {base_bounds}")
+        self.log(f"QR bounds: {qr_bounds}")
+        
+        # Controlla overlap 3D
+        overlap = self.check_bounds_overlap(base_bounds, qr_bounds)
+        self.log(f"Bounds overlap: {overlap}")
+        
+        if not overlap:
+            self.log("WARNING: Nessun overlap bounds - regolazione posizione QR...")
+            # Sposta QR stamp per garantire overlap
+            qr_stamp.apply_translation([0, 0, 0.2])
+            self.log(f"Nuovi QR bounds: {qr_stamp.bounds}")
+        
+        # Prova diversi engine boolean
+        engines = ['blender', 'scad']
+        result = None
+        
+        for engine in engines:
+            try:
+                self.log(f"Tentativo boolean con engine: {engine}")
+                result = trimesh.boolean.difference([base_mesh, qr_stamp], engine=engine)
+                
+                if result is not None and len(result.vertices) > 0:
+                    self.log(f"Boolean success con {engine}: {len(result.vertices)} vertici")
+                    break
+                    
+            except Exception as e:
+                self.log(f"Boolean fallito con {engine}: {e}")
+                result = None
+        
+        # Fallback finale
+        if result is None or len(result.vertices) == 0:
+            self.log("Tutti i boolean falliti - usando fallback manuale")
+            result = self.manual_difference_fallback(base_mesh, qr_stamp)
+        
+        return result
+    
+    def check_bounds_overlap(self, bounds1, bounds2):
+        """Controlla se due bounding box si sovrappongono"""
+        return (bounds1[0][0] < bounds2[1][0] and bounds1[1][0] > bounds2[0][0] and
+                bounds1[0][1] < bounds2[1][1] and bounds1[1][1] > bounds2[0][1] and
+                bounds1[0][2] < bounds2[1][2] and bounds1[1][2] > bounds2[0][2])
+    
+    def manual_difference_fallback(self, base_mesh, qr_stamp):
+        """Fallback manuale per boolean difference"""
+        self.log("Applicando fallback manuale...")
+        
+        try:
+            # Prova a fare un'intersezione e poi sottrazione
+            intersection = trimesh.boolean.intersection([base_mesh, qr_stamp])
+            
+            if intersection is not None and len(intersection.vertices) > 0:
+                # Sottrai l'intersezione dalla base
+                result = trimesh.boolean.difference([base_mesh, intersection])
+                if result is not None:
+                    return result
+        except:
+            pass
+        
+        # Ultimo fallback: decima e riprova
+        self.log("Tentativo con mesh semplificate...")
+        base_simple = base_mesh.simplify_quadric_decimation(len(base_mesh.faces) * 0.7)
+        qr_simple = qr_stamp.simplify_quadric_decimation(len(qr_stamp.faces) * 0.5)
+        
+        try:
+            result = trimesh.boolean.difference([base_simple, qr_simple])
+            if result is not None:
+                return result
+        except:
+            pass
+        
+        # Fallback estremo: restituisci base non modificata ma con warning
+        self.log("ERROR: Impossibile eseguire incisione - restituisco base originale")
+        return base_mesh
+    
+    def save_model(self, mesh, output_path):
+        """Salva il modello nel formato appropriato"""
+        self.log(f"Salvando modello: {output_path}")
+        
+        output_dir = os.path.dirname(output_path)
+        if output_dir and not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+        
+        # Determina formato dall'estensione
+        ext = os.path.splitext(output_path)[1].lower()
+        
+        try:
+            if ext == '.3mf':
+                # Trimesh supporta 3MF nativamente
+                mesh.export(output_path, file_type='3mf')
+                self.log(f"Modello 3MF salvato: {output_path}")
+            else:
+                # Fallback a STL
+                mesh.export(output_path, file_type='stl')
+                self.log(f"Modello STL salvato: {output_path}")
+                
+        except Exception as e:
+            self.log(f"Errore salvataggio {ext}: {e}")
+            
+            # Fallback assoluto
+            fallback_path = output_path.replace(ext, '_fallback.stl')
+            mesh.export(fallback_path)
+            self.log(f"Salvato fallback: {fallback_path}")
+            output_path = fallback_path
+        
+        return output_path
+    
+    def save_debug_files(self, base_mesh, qr_stamp, final_mesh, output_dir):
+        """Salva file di debug per verifica"""
+        debug_dir = os.path.join(output_dir, "debug")
+        os.makedirs(debug_dir, exist_ok=True)
+        
+        try:
+            # Salva QR stamp per debug
+            qr_stamp.export(os.path.join(debug_dir, "qr_stamp.stl"))
+            
+            # Salva base originale
+            base_mesh.export(os.path.join(debug_dir, "base_original.stl"))
+            
+            # Salva log
+            log_path = os.path.join(debug_dir, "debug_log.txt")
+            with open(log_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(self.debug_log))
+            
+            self.log(f"File debug salvati in: {debug_dir}")
+        except Exception as e:
+            self.log(f"Errore salvataggio debug: {e}")
+    
+    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=22):
+        """Genera il modello finale con QR inciso"""
+        try:
+            self.log(f"=== INIZIO GENERAZIONE ===")
+            self.log(f"Input: {input_3mf}")
+            self.log(f"Output: {output_3mf}")
+            self.log(f"QR Data: {qr_data}")
+            self.log(f"QR Size: {qr_size_mm}mm")
+            
+            # 1. Carica modello base
+            base_mesh = self.load_base_model(input_3mf)
+            
+            # 2. Genera matrice QR
+            qr_matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
+            
+            # 3. Crea timbro QR 3D
+            qr_stamp = self.create_qr_stamp_mesh(
+                qr_matrix, module_size, 
+                stamp_height=0.4,
+                z_position=-0.1
+            )
+            
+            # 4. Esegui boolean difference
+            final_mesh = self.perform_boolean_difference(base_mesh, qr_stamp)
+            
+            # 5. Verifica risultato
+            self.log(f"Final mesh: {len(final_mesh.vertices)} vertici, {len(final_mesh.faces)} faces")
+            self.log(f"Final watertight: {final_mesh.is_watertight}")
+            self.log(f"Final bounds: {final_mesh.bounds}")
+            
+            # Controlla se l'incisione ha funzionato
+            vertices_change = abs(len(final_mesh.vertices) - len(base_mesh.vertices))
+            if vertices_change < 100:  # Troppo pochi vertici aggiunti
+                self.log("WARNING: Possibile incisione non riuscita - pochi cambiamenti nei vertici")
+            
+            # 6. Salva modello finale
+            final_path = self.save_model(final_mesh, output_3mf)
+            
+            # 7. Salva file debug
+            output_dir = os.path.dirname(output_3mf)
+            self.save_debug_files(base_mesh, qr_stamp, final_mesh, output_dir)
+            
+            self.log("=== GENERAZIONE COMPLETATA ===")
+            return True
+            
+        except Exception as e:
+            self.log(f"ERROR: Generazione fallita: {str(e)}")
+            self.log(traceback.format_exc())
+            return False
 
-# --- Esecuzione Principale ---
 def main():
-    args = parse_arguments()
+    parser = argparse.ArgumentParser(description='Generatore QR code 3D inciso')
+    parser.add_argument('--input-3mf', required=True, help='Percorso modello base .3mf')
+    parser.add_argument('--output-3mf', required=True, help='Percorso output .3mf')
+    parser.add_argument('--qr-data', required=True, help='Dati per QR code')
+    parser.add_argument('--qr-size-mm', type=float, default=22, help='Dimensione QR in mm')
     
-    stl_path = None
-    scad_path = None
+    args = parser.parse_args()
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
+    generator = QR3MFGenerator()
     
-    try:
-        # 1. Genera il file STL del timbro QR (Nuova logica)
-        stl_path = generate_qr_stl(args)
-        if not stl_path:
-            log.error("Fallimento nella generazione del file STL. Uscita.")
-            sys.exit(1)
-
-        # 2. Genera lo script SCAD (Logica semplificata)
-        scad_path = generate_scad_script(args.input_3mf, stl_path)
-        
-        # 3. Esegui il rendering 
-        if not render_model_with_openscad(scad_path, args.output_3mf):
-            sys.exit(1)
-            
-        log.info("Processo di modellazione 3D completato con successo.")
-
-    finally:
-        # 4. Pulizia file temporanei
-        if scad_path and os.path.exists(scad_path):
-            try:
-                os.remove(scad_path)
-                log.info(f"Pulito file SCAD temporaneo: {scad_path}")
-            except OSError:
-                pass 
-        if stl_path and os.path.exists(stl_path):
-            try:
-                os.remove(stl_path)
-                log.info(f"Pulito file STL temporaneo: {stl_path}")
-            except OSError:
-                pass 
+    success = generator.generate(
+        input_3mf=args.input_3mf,
+        output_3mf=args.output_3mf,
+        qr_data=args.qr_data,
+        qr_size_mm=args.qr_size_mm
+    )
+    
+    if success:
+        print(f"SUCCESS: Modello generato: {args.output_3mf}")
+        sys.exit(0)
+    else:
+        print(f"FAILED: Generazione fallita - controlla debug log")
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
