@@ -8,13 +8,14 @@ import sys
 logging.basicConfig(level=logging.INFO, format='[Python Script] %(levelname)s: %(message)s')
 log = logging.getLogger('QR_3D_FLOW')
 
-# --- Parametri di Modellazione Fissi (Costanti Essenziali) ---
-DEBOSS_DEPTH = 0.3      # Profondità dell'incisione (mm) - Copiato dal codice originale
+# --- Parametri di Modellazione Fissi (Costanti) ---
+DEBOSS_DEPTH = 0.3      # Profondità dell'incisione (mm). (Dal tuo codice originale)
 MODEL_Z_HEIGHT = 5.0   # <<< CRITICO: Altezza Z totale del tuo 'base.3mf' in mm. MODIFICARE QUI!
+QR_SCALE_FACTOR = 0.65  # Fattore di scala per adattare il QR al modello.
 
 # --- Nomi File Temporanei (Interni allo script) ---
 SCAD_SCRIPT_FILE = "temp_render_script.scad"
-# Sotto-directory per la derivazione dei percorsi da output 3MF
+# Sotto-directory per la derivazione dei percorsi SVG/3MF dal JS
 SVG_SUBDIR = 'qr_svg'
 M3MF_SUBDIR = 'qr_3mf' 
 
@@ -24,7 +25,6 @@ def parse_arguments():
     """Analizza gli argomenti passati da riga di comando dal file JS."""
     parser = argparse.ArgumentParser(description="Genera un modello 3MF inciso con QR Code.")
     
-    # Argomenti richiesti (passati dal JS)
     parser.add_argument('--input-3mf', required=True, help="Percorso completo al file 3MF di base.")
     parser.add_argument('--output-3mf', required=True, help="Percorso completo dove salvare il file 3MF di output.")
     parser.add_argument('--qr-data', required=True, help="Contenuto (URL) del QR Code da incidere.")
@@ -37,49 +37,51 @@ def parse_arguments():
 
 def generate_scad_script(args: argparse.Namespace, svg_path: str):
     """
-    Genera il file OpenSCAD (.scad) iniettando i parametri per la sola incisione (difference).
+    Genera il file OpenSCAD (.scad) per la sola incisione sulla faccia inferiore.
     """
-    # Usiamo un fattore di scala fisso per adattare il QR al modello. 
-    QR_SCALE_FACTOR = 0.65 
-
+    
     scad_content = f"""
 // --- VARIABILI INIETTATE DA PYTHON ---
 MODEL_FILENAME = "{args.input_3mf}";
 QR_SVG_FILENAME = "{svg_path}";
 DEBOSS_DEPTH = {DEBOSS_DEPTH};
-MODEL_Z_HEIGHT = {MODEL_Z_HEIGHT};
+MODEL_Z_HEIGHT = {MODEL_Z_HEIGHT}; 
 QR_SIZE_MM = {args.qr_size_mm};
 
 // --- QR CODE ESTRUSO (TIMBRO DI INCISIONE) ---
 module qr_stamp() {{
-    // Lo estrudiamo più in alto del necessario (Z + 1.0) per garantire un taglio completo
-    linear_extrude(height = MODEL_Z_HEIGHT + 1.0, center = true) {{ 
-        // Applica la scala per adattare il QR all'area di incisione.
-        scale([{QR_SCALE_FACTOR}, {QR_SCALE_FACTOR}]) 
-        import(QR_SVG_FILENAME, center = true);
+    // Estrundi il profilo SVG con l'altezza di incisione. center=false.
+    linear_extrude(height = DEBOSS_DEPTH, center = false) {{ 
+        // 1. Ruota di 180 gradi sull'asse X per ribaltare l'immagine 
+        // (necessario affinché il QR sia leggibile dopo la stampa e l'incisione dal basso).
+        rotate([180, 0, 0]) {{ 
+            // 2. Applica la scala e centra l'SVG nel suo spazio 2D.
+            scale([{QR_SCALE_FACTOR}, {QR_SCALE_FACTOR}]) 
+            import(QR_SVG_FILENAME, center = true); 
+        }}
     }}
 }}
 
 // --- OPERAZIONE FINALE (SOLO INCISIONE) ---
-// difference(base_model, qr_stamp)
+// Sottrai il timbro QR dal modello base.
 difference() {{
-    // 1. Modello di base (importato)
+    // 1. Modello di base
     import(MODEL_FILENAME, convexity = 10);
     
     // 2. Sottrai il timbro QR (incisione)
-    // Posiziona la base dell'incisione a Z_max - DEBOSS_DEPTH
-    // Il timbro è centrato (center=true), quindi lo spostiamo per allineare l'incisione.
-    translate([0, 0, MODEL_Z_HEIGHT/2 - DEBOSS_DEPTH/2]) {{ 
-         qr_stamp(); 
+    // Trasla il timbro in Z. Diamo un leggero offset (0.01mm) verso l'alto 
+    // per assicurare che il taglio avvenga appena sopra la base (Z=0).
+    translate([0, 0, 0.01]) {{
+        qr_stamp(); 
     }}
 }}
 """
-    # Scrivi lo script SCAD nella directory dello script Python
+    # Scrivi lo script SCAD
     scad_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), SCAD_SCRIPT_FILE)
     
     with open(scad_filepath, 'w') as f:
         f.write(scad_content)
-    log.info(f"Script OpenSCAD per sola incisione generato in {scad_filepath}")
+    log.info(f"Script OpenSCAD per sola incisione (lato inferiore) generato in {scad_filepath}")
     return scad_filepath
 
 
@@ -113,10 +115,8 @@ def render_model_with_openscad(scad_filepath: str, output_filepath: str) -> bool
 def main():
     args = parse_arguments()
     
-    # 1. Deriva il percorso del file SVG dal percorso di output 3MF passato dal JS
+    # 1. Deriva il percorso del file SVG dal percorso di output 3MF
     svg_filename = os.path.basename(args.output_3mf).replace('.3mf', '.svg')
-    # Ricostruisce il percorso assoluto dell'SVG basandosi sulla struttura delle directory di Node.js
-    # Esempio: /.../public/qrcodes/qr_3mf -> /.../public/qrcodes/qr_svg
     svg_dir = os.path.dirname(args.output_3mf).replace(M3MF_SUBDIR, SVG_SUBDIR)
     
     svg_path = os.path.join(svg_dir, svg_filename)
