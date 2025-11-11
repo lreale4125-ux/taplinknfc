@@ -25,22 +25,30 @@ function runPythonScript(command) {
 
     return new Promise((resolve, reject) => {
         exec(command, (error, stdout, stderr) => {
+            // Stampa TUTTI gli output per debug
             if (stdout) {
-                console.log(`[Python Script] ${stdout.trim()}`);
+                const stdoutLines = stdout.trim().split('\n');
+                stdoutLines.forEach(line => {
+                    console.log(`[Python STDOUT] ${line}`);
+                });
             }
             if (stderr) {
-                console.error(`[Python Error] ${stderr.trim()}`);
+                const stderrLines = stderr.trim().split('\n');
+                stderrLines.forEach(line => {
+                    console.error(`[Python STDERR] ${line}`);
+                });
             }
+            
             if (error) {
-                const errorMessage = stderr || error.message;
-                reject(new Error(`Errore script Python: ${errorMessage.trim()}`));
+                console.error(`[Python EXIT CODE] ${error.code}`);
+                const errorMessage = stderr || stdout || error.message;
+                reject(new Error(`Script Python fallito: ${errorMessage}`));
                 return;
             }
             resolve();
         });
     });
 }
-
 
 /**
  * Genera il QR Code con l'URL e lo salva in formato PNG e 3MF.
