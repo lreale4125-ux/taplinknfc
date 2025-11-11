@@ -40,14 +40,29 @@ async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
  * Endpoint API: restituisce solo la frase motivazionale in formato JSON
  */
 async function getQuoteOnly(req, res) {
-    // Estrae l'ID utente (per DB analytics) e lo username (per Gemini) dalla query
-    const keychainId = req.query.id || 'Ospite';
-    const topic = req.query.topic || 'motivazione';
-    // ATTENZIONE: Il client passerà lo username nel parametro 'id', ma per Gemini va bene.
-    // Usiamo 'keychainId' per analytics, e 'username' per Gemini. Se 'username' è passato, usalo.
-    const username = req.query.username || keychainId; 
+    // Nota: Quando l'API è chiamata dal frontend, il token è nell'header.
+    // Dobbiamo estrarre l'utente dall'HEADER per l'analytics, se presente.
+    let keychainId = req.query.id || 'Ospite'; // Usato come fallback/username nel frontend
+    let topic = req.query.topic || 'motivazione';
+    let username = req.query.username || keychainId; // L'username viene passato nel parametro 'id' dal frontend
+
+    let user = null;
+    let token = null;
+
+    // Tentativo di estrarre il token dall'header per validazione (se richiesto dal routing)
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        token = req.headers.authorization.split(' ')[1];
+        try {
+            user = jwt.verify(token, process.env.JWT_SECRET);
+            // Se autenticato, usa i dati reali per analytics (keychainId è l'ID)
+            keychainId = user.id || keychainId;
+            username = user.username || username;
+        } catch (err) {
+            console.warn('Token non valido in getQuoteOnly.');
+        }
+    }
     
-    // Aggiorna analytics (usa la chiave composta definita in db.js)
+    // Aggiorna analytics
     try {
         db.prepare(`
             INSERT INTO motivational_analytics (keychain_id, topic, view_count)
@@ -56,10 +71,9 @@ async function getQuoteOnly(req, res) {
         `).run(keychainId, topic);
     } catch (dbError) {
         console.error("Errore DB in getQuoteOnly:", dbError.message);
-        // Continua comunque, la frase motivazionale è la priorità
     }
 
-    // Passa lo username (o l'ID come fallback) a Gemini
+    // Passa lo username per la generazione della frase
     const quote = await getMotivationalQuote(username, topic); 
     res.json({ quote });
 }
@@ -68,49 +82,11 @@ async function getQuoteOnly(req, res) {
  * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client
  */
 async function handleMotivationalRequest(req, res) {
-    let user = null;
-    let keychainId = 'Ospite';
-    let username = 'Ospite'; // Variabile per lo username
-    let token = req.query.token || null; // 1. Cerca il token dalla query (redirect da login/register)
+    // 🎯 RIMOZIONE LOGICA LATO SERVER PER TOKEN E USERNAME
+    // La gestione dell'utente autenticato e del topic iniziale è demandata al frontend (localStorage).
     
-    // 2. Se non c'è, cerca nell'header (ricaricamento o API)
-    if (!token && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
-        token = req.headers.authorization.split(' ')[1];
-    }
-    
-    // Verifica il token
-    if (token) {
-        try {
-            user = jwt.verify(token, process.env.JWT_SECRET);
-            // IMPORTANTE: Prende l'ID e il NOME UTENTE dal token verificato
-            keychainId = user.id || 'Ospite';
-            username = user.username || keychainId; // ESTRAI LO USERNAME
-        } catch (err) {
-            console.warn('Token non valido, accesso come Ospite.');
-            token = null; // Invalida il token
-        }
-    }
-
-    // Logging accesso
-    if (!user) {
-        console.log('[MOTIVAZIONAL] Accesso come Ospite');
-    } else {
-        // Logging più preciso
-        console.log(`[MOTIVAZIONAL] Accesso da utente: ${username} (ID: ${keychainId})`);
-    }
-
-    const topic = req.query.topic || 'motivazione';
-
-    // Aggiorna analytics (usa la chiave composta)
-    try {
-        db.prepare(`
-            INSERT INTO motivational_analytics (keychain_id, topic, view_count)
-            VALUES (?, ?, 1)
-            ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
-        `).run(keychainId, topic);
-    } catch (dbError) {
-        console.error("Errore DB in handleMotivationalRequest:", dbError.message);
-    }
+    // Solo per la prima visualizzazione (Ospite), usiamo un topic di base.
+    const topicFromUrl = req.query.topic || 'motivazione';
     
     // HTML della pagina motivazionale
     const htmlPage = `<!DOCTYPE html>
@@ -141,54 +117,72 @@ async function handleMotivationalRequest(req, res) {
         <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
     </header>
     <main>
-        <h2>Scopri una frase su <span id="topic-text">${topic}</span></h2>
+        <h2>Scopri una frase su <span id="topic-text">${topicFromUrl}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
     </main>
     <div class="bottom-bar">
         <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
     </div>
     <script>
-        // TOKEN E ID INIETTATI DAL SERVER PER LA CHIAMATA AJAX
-        const keychainId = '${keychainId}';
-        const topic = '${topic}';
-        const token = '${token}';
-        const username = '${username}';
-        
-        async function loadQuote() {
+        // 🎯 LOGICA ORA GESTITA INTERAMENTE LATO CLIENT (LOCAL STORAGE)
+        const loadQuote = async () => {
+            const token = localStorage.getItem('authToken');
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            const savedTopic = localStorage.getItem('lastTopic');
+
+            // 1. Definisci USERNAME e TOPIC
+            // Se l'utente è loggato, usa i suoi dati e l'ultimo topic salvato.
+            // Altrimenti, usa i dati di 'Ospite' e il topic di default.
+            const isUserLoggedIn = token && userData;
+            const username = isUserLoggedIn ? userData.username : 'Ospite';
+            const keychainId = isUserLoggedIn ? userData.id : 'Ospite'; // ID per analytics
+            const topic = savedTopic || 'motivazione'; 
+            
+            // Aggiorna il testo del topic visualizzato
+            document.getElementById('topic-text').innerText = topic;
+
             try {
                 const headers = {};
-                if (token && token !== 'null') {
-                    // Invia il token nell'header per l'autenticazione lato server (se necessario)
+                if (token) {
+                    // 2. Invia il token nell'header per l'autenticazione lato server
                     headers['Authorization'] = 'Bearer ' + token;
                 }
+                
+                // 3. Chiama l'API motivazionale.
+                // Passiamo username e topic per la generazione della frase.
+                // Passiamo keychainId per l'analytics del DB (nel caso in cui username e id siano diversi).
+                const url = '/api/quote?' + 
+                    'id=' + encodeURIComponent(keychainId) + // ID per Analytics (vecchio nome chiave)
+                    '&username=' + encodeURIComponent(username) + // Username per Gemini (nuovo nome chiave)
+                    '&topic=' + encodeURIComponent(topic);
 
-                // *** CORREZIONE APPLICATA QUI ***
-                // Chiama l'API motivazionale, passando USERNAME e TOPIC
-                const response = await fetch('/api/quote?id=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic), { headers });
-                // ******************************
+                const response = await fetch(url, { headers });
 
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
+                
                 const data = await response.json();
                 document.getElementById('quote-text').innerText = '"' + data.quote + '"';
             } catch (e) {
                 console.error("Errore caricamento frase:", e);
                 document.getElementById('quote-text').innerText = ':( La motivazione è dentro di te, non smettere di cercarla.';
             }
-        }
+        };
         loadQuote();
 
         document.getElementById('change-topic-btn').addEventListener('click', () => {
-            const newTopic = prompt("Inserisci un nuovo argomento:", topic) || topic;
-            // Reindirizza mantenendo ID, USERNAME e TOKEN
-            let newUrl = '?id=' + encodeURIComponent(keychainId) + '&topic=' + encodeURIComponent(newTopic);
-            
-            // Per il cambio argomento, è cruciale passare username per la generazione frase
-            newUrl += '&username=' + encodeURIComponent(username); 
+            const topicTextElement = document.getElementById('topic-text');
+            const currentTopic = topicTextElement.innerText;
 
-            if(token && token !== 'null') { // Controlla se il token esiste prima di aggiungerlo
-                newUrl += '&token=' + encodeURIComponent(token);
+            const newTopic = prompt("Inserisci un nuovo argomento:", currentTopic) || currentTopic;
+            
+            if (newTopic !== currentTopic) {
+                // 1. SALVA IL NUOVO ARGOMENTO in localStorage per la persistenza
+                localStorage.setItem('lastTopic', newTopic);
+                
+                // 2. Ricarica la pagina. La logica di loadQuote() caricherà il nuovo topic.
+                // L'URL pulito è preferibile:
+                window.location.href = '/motivazionale'; 
             }
-            window.location.search = newUrl;
         });
     </script>
 </body>
