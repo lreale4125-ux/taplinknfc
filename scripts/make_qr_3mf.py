@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 make_qr_3mf.py - Generatore di QR code incisi 3D
-Compatibile con qrgenerator.js - Flusso headless per Ubuntu 22.04
+Versione compatibile Ubuntu 22.04 - No py3mf dependency
 """
 
 import argparse
@@ -19,13 +19,6 @@ except ImportError:
     TRIMESH_AVAILABLE = False
     print("ERROR: trimesh non disponibile. Installa con: pip install trimesh")
     sys.exit(1)
-
-try:
-    import py3mf
-    PY3MF_AVAILABLE = True
-except ImportError:
-    PY3MF_AVAILABLE = False
-    print("WARNING: py3mf non disponibile. Userò STL per export")
 
 class QR3MFGenerator:
     def __init__(self):
@@ -96,45 +89,89 @@ class QR3MFGenerator:
         
         return qr_stamp
     
-    def load_base_model(self, input_3mf_path):
-        """Carica il modello base 3MF"""
-        self.log(f"Caricando modello base: {input_3mf_path}")
+    def load_base_model(self, input_path):
+        """Carica il modello base (supporta .3mf, .stl, .obj)"""
+        self.log(f"Caricando modello base: {input_path}")
         
-        if not os.path.exists(input_3mf_path):
-            raise FileNotFoundError(f"File base non trovato: {input_3mf_path}")
+        if not os.path.exists(input_path):
+            raise FileNotFoundError(f"File base non trovato: {input_path}")
+        
+        # Estensione file
+        ext = os.path.splitext(input_path)[1].lower()
         
         try:
-            # Prova a caricare come 3MF
-            scene = trimesh.load_mesh(input_3mf_path)
-            
-            # Se è una scena, prendi la prima mesh
-            if isinstance(scene, trimesh.Scene):
-                if len(scene.geometry) == 0:
-                    raise ValueError("Scena 3MF vuota")
-                base_mesh = list(scene.geometry.values())[0]
-            else:
-                base_mesh = scene
+            if ext == '.3mf':
+                # Per 3MF, usa il loader di trimesh
+                scene = trimesh.load_mesh(input_path)
                 
-            # Converti in mesh se è PointCloud o altro
-            if not hasattr(base_mesh, 'faces'):
-                raise ValueError("Il modello base non contiene mesh valida")
+                # Se è una scena, converti in singola mesh
+                if isinstance(scene, trimesh.Scene):
+                    self.log("Convertendo scena 3MF in mesh singola...")
+                    base_mesh = scene.dump(concatenate=True)
+                    
+                    if len(base_mesh.vertices) == 0:
+                        # Fallback: prendi la prima geometria
+                        geometries = list(scene.geometry.values())
+                        if geometries:
+                            base_mesh = geometries[0]
+                        else:
+                            raise ValueError("Scena 3MF vuota")
+                else:
+                    base_mesh = scene
+                    
+            else:
+                # Per STL, OBJ, etc.
+                base_mesh = trimesh.load_mesh(input_path)
                 
         except Exception as e:
-            self.log(f"Errore caricamento 3MF: {e}")
-            # Fallback: prova a caricare come STL
-            try:
-                base_mesh = trimesh.load_mesh(input_3mf_path)
-                self.log("Caricato come STL fallback")
-            except:
-                raise ValueError(f"Impossibile caricare il modello base: {e}")
+            self.log(f"Errore caricamento {ext}: {e}")
+            raise ValueError(f"Impossibile caricare il modello base: {e}")
+        
+        # Verifica che sia una mesh valida
+        if not hasattr(base_mesh, 'faces') or len(base_mesh.faces) == 0:
+            raise ValueError("Il modello base non contiene mesh valida")
         
         self.log(f"Base caricata: {len(base_mesh.vertices)} vertici, {len(base_mesh.faces)} faces")
         self.log(f"Bounds base: {base_mesh.bounds}")
+        self.log(f"Base watertight: {base_mesh.is_watertight}")
         
         return base_mesh
     
+    def repair_mesh_aggressive(self, mesh):
+        """Riparazione mesh aggressiva per problemi di boolean"""
+        self.log("Riparazione mesh aggressiva...")
+        
+        original_vertices = len(mesh.vertices)
+        original_faces = len(mesh.faces)
+        
+        try:
+            # 1. Rimuovi facce degenerate
+            mesh.remove_degenerate_faces()
+            
+            # 2. Rimuovi duplicati
+            mesh.merge_vertices()
+            mesh.remove_duplicate_faces()
+            
+            # 3. Fix normals
+            trimesh.repair.fix_normals(mesh)
+            trimesh.repair.fix_winding(mesh)
+            
+            # 4. Fill holes (piccoli)
+            mesh.fill_holes()
+            
+            # 5. Convex hull come ultima risorsa
+            if not mesh.is_watertight:
+                self.log("Tentativo convex hull...")
+                mesh = mesh.convex_hull
+            
+        except Exception as e:
+            self.log(f"Repair warning: {e}")
+        
+        self.log(f"Post-repair: {len(mesh.vertices)} vertici, {len(mesh.faces)} faces")
+        return mesh
+    
     def perform_boolean_difference(self, base_mesh, qr_stamp):
-        """Esegue operazione booleana di differenza"""
+        """Esegue operazione booleana di differenza con fallback"""
         self.log("Eseguendo boolean difference...")
         
         # Verifica watertight
@@ -144,116 +181,120 @@ class QR3MFGenerator:
         self.log(f"Base watertight: {base_watertight}")
         self.log(f"QR stamp watertight: {qr_watertight}")
         
+        # Ripara se necessario
         if not base_watertight:
             self.log("Riparando base mesh...")
-            base_mesh = self.repair_mesh(base_mesh)
+            base_mesh = self.repair_mesh_aggressive(base_mesh)
             
         if not qr_watertight:
             self.log("Riparando QR stamp mesh...")
-            qr_stamp = self.repair_mesh(qr_stamp)
+            qr_stamp = self.repair_mesh_aggressive(qr_stamp)
         
-        # Verifica overlap bounds
+        # Verifica overlap
         base_bounds = base_mesh.bounds
         qr_bounds = qr_stamp.bounds
         
         self.log(f"Base bounds: {base_bounds}")
         self.log(f"QR bounds: {qr_bounds}")
         
-        # Controlla se c'è overlap sull'asse Z
-        z_overlap = (qr_bounds[1][2] > base_bounds[0][2]) and (qr_bounds[0][2] < base_bounds[1][2])
-        self.log(f"Overlap Z: {z_overlap}")
+        # Controlla overlap 3D
+        overlap = self.check_bounds_overlap(base_bounds, qr_bounds)
+        self.log(f"Bounds overlap: {overlap}")
         
-        if not z_overlap:
-            self.log("WARNING: Nessun overlap sull'asse Z - incisione potrebbe non funzionare")
+        if not overlap:
+            self.log("WARNING: Nessun overlap bounds - regolazione posizione QR...")
+            # Sposta QR stamp per garantire overlap
+            qr_stamp.apply_translation([0, 0, 0.2])
+            self.log(f"Nuovi QR bounds: {qr_stamp.bounds}")
+        
+        # Prova diversi engine boolean
+        engines = ['blender', 'scad']
+        result = None
+        
+        for engine in engines:
+            try:
+                self.log(f"Tentativo boolean con engine: {engine}")
+                result = trimesh.boolean.difference([base_mesh, qr_stamp], engine=engine)
+                
+                if result is not None and len(result.vertices) > 0:
+                    self.log(f"Boolean success con {engine}: {len(result.vertices)} vertici")
+                    break
+                    
+            except Exception as e:
+                self.log(f"Boolean fallito con {engine}: {e}")
+                result = None
+        
+        # Fallback finale
+        if result is None or len(result.vertices) == 0:
+            self.log("Tutti i boolean falliti - usando fallback manuale")
+            result = self.manual_difference_fallback(base_mesh, qr_stamp)
+        
+        return result
+    
+    def check_bounds_overlap(self, bounds1, bounds2):
+        """Controlla se due bounding box si sovrappongono"""
+        return (bounds1[0][0] < bounds2[1][0] and bounds1[1][0] > bounds2[0][0] and
+                bounds1[0][1] < bounds2[1][1] and bounds1[1][1] > bounds2[0][1] and
+                bounds1[0][2] < bounds2[1][2] and bounds1[1][2] > bounds2[0][2])
+    
+    def manual_difference_fallback(self, base_mesh, qr_stamp):
+        """Fallback manuale per boolean difference"""
+        self.log("Applicando fallback manuale...")
         
         try:
-            # Esegui differenza booleana
-            result = trimesh.boolean.difference([base_mesh, qr_stamp], engine='blender')
+            # Prova a fare un'intersezione e poi sottrazione
+            intersection = trimesh.boolean.intersection([base_mesh, qr_stamp])
             
-            if result is None:
-                raise ValueError("Boolean difference ha restituito None")
-                
-            if len(result.vertices) == 0:
-                raise ValueError("Mesh risultante vuota")
-                
-            self.log(f"Boolean success: {len(result.vertices)} vertici, {len(result.faces)} faces")
-            
-        except Exception as e:
-            self.log(f"Boolean difference fallita: {e}")
-            self.log("Tentativo fallback: unione e riparazione...")
-            
-            # Fallback: prova a fare un'operazione più semplice
-            result = self.boolean_fallback(base_mesh, qr_stamp)
+            if intersection is not None and len(intersection.vertices) > 0:
+                # Sottrai l'intersezione dalla base
+                result = trimesh.boolean.difference([base_mesh, intersection])
+                if result is not None:
+                    return result
+        except:
+            pass
         
-        return result
+        # Ultimo fallback: decima e riprova
+        self.log("Tentativo con mesh semplificate...")
+        base_simple = base_mesh.simplify_quadric_decimation(len(base_mesh.faces) * 0.7)
+        qr_simple = qr_stamp.simplify_quadric_decimation(len(qr_stamp.faces) * 0.5)
+        
+        try:
+            result = trimesh.boolean.difference([base_simple, qr_simple])
+            if result is not None:
+                return result
+        except:
+            pass
+        
+        # Fallback estremo: restituisci base non modificata ma con warning
+        self.log("ERROR: Impossibile eseguire incisione - restituisco base originale")
+        return base_mesh
     
-    def boolean_fallback(self, base_mesh, qr_stamp):
-        """Fallback per boolean difference problematiche"""
-        self.log("Usando fallback boolean...")
-        
-        # Prova a ridurre la complessità del QR stamp
-        qr_simple = qr_stamp.simplify_quadric_decimation(
-            len(qr_stamp.faces) * 0.5
-        )
-        
-        # Ripara entrambe le mesh
-        base_repaired = self.repair_mesh(base_mesh)
-        qr_repaired = self.repair_mesh(qr_simple)
-        
-        # Prova differenza con mesh riparate
-        result = trimesh.boolean.difference([base_repaired, qr_repaired])
-        
-        if result is None or len(result.vertices) == 0:
-            self.log("ERROR: Fallback boolean fallito - restituisco base originale")
-            return base_mesh
-            
-        return result
-    
-    def repair_mesh(self, mesh):
-        """Ripara una mesh per renderla watertight"""
-        self.log("Riparando mesh...")
-        
-        # Fill holes
-        mesh.fill_holes()
-        
-        # Fix normals
-        trimesh.repair.fix_normals(mesh)
-        
-        # Fix winding
-        trimesh.repair.fix_winding(mesh)
-        
-        # Remove duplicate vertices
-        mesh.remove_duplicate_faces()
-        mesh.remove_degenerate_faces()
-        
-        return mesh
-    
-    def save_model(self, mesh, output_path, format='3mf'):
-        """Salva il modello nel formato richiesto"""
+    def save_model(self, mesh, output_path):
+        """Salva il modello nel formato appropriato"""
         self.log(f"Salvando modello: {output_path}")
         
         output_dir = os.path.dirname(output_path)
         if output_dir and not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
         
+        # Determina formato dall'estensione
+        ext = os.path.splitext(output_path)[1].lower()
+        
         try:
-            if format.lower() == '3mf' and PY3MF_AVAILABLE:
-                # Usa py3mf per export 3MF
+            if ext == '.3mf':
+                # Trimesh supporta 3MF nativamente
                 mesh.export(output_path, file_type='3mf')
                 self.log(f"Modello 3MF salvato: {output_path}")
             else:
                 # Fallback a STL
-                if format.lower() == '3mf':
-                    self.log("WARNING: py3mf non disponibile, uso STL fallback")
-                    output_path = output_path.replace('.3mf', '.stl')
-                
                 mesh.export(output_path, file_type='stl')
                 self.log(f"Modello STL salvato: {output_path}")
                 
         except Exception as e:
-            self.log(f"Errore salvataggio {format}: {e}")
-            # Fallback assoluto a STL
-            fallback_path = output_path.replace('.3mf', '_fallback.stl')
+            self.log(f"Errore salvataggio {ext}: {e}")
+            
+            # Fallback assoluto
+            fallback_path = output_path.replace(ext, '_fallback.stl')
             mesh.export(fallback_path)
             self.log(f"Salvato fallback: {fallback_path}")
             output_path = fallback_path
@@ -265,15 +306,21 @@ class QR3MFGenerator:
         debug_dir = os.path.join(output_dir, "debug")
         os.makedirs(debug_dir, exist_ok=True)
         
-        # Salva QR stamp per debug
-        qr_stamp.export(os.path.join(debug_dir, "qr_stamp.stl"))
-        
-        # Salva log
-        log_path = os.path.join(debug_dir, "debug_log.txt")
-        with open(log_path, 'w', encoding='utf-8') as f:
-            f.write("\n".join(self.debug_log))
-        
-        self.log(f"File debug salvati in: {debug_dir}")
+        try:
+            # Salva QR stamp per debug
+            qr_stamp.export(os.path.join(debug_dir, "qr_stamp.stl"))
+            
+            # Salva base originale
+            base_mesh.export(os.path.join(debug_dir, "base_original.stl"))
+            
+            # Salva log
+            log_path = os.path.join(debug_dir, "debug_log.txt")
+            with open(log_path, 'w', encoding='utf-8') as f:
+                f.write("\n".join(self.debug_log))
+            
+            self.log(f"File debug salvati in: {debug_dir}")
+        except Exception as e:
+            self.log(f"Errore salvataggio debug: {e}")
     
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=22):
         """Genera il modello finale con QR inciso"""
@@ -293,8 +340,8 @@ class QR3MFGenerator:
             # 3. Crea timbro QR 3D
             qr_stamp = self.create_qr_stamp_mesh(
                 qr_matrix, module_size, 
-                stamp_height=0.4,  # Altezza timbro
-                z_position=-0.1    # Posizione Z (negativo = dentro la base)
+                stamp_height=0.4,
+                z_position=-0.1
             )
             
             # 4. Esegui boolean difference
@@ -304,6 +351,11 @@ class QR3MFGenerator:
             self.log(f"Final mesh: {len(final_mesh.vertices)} vertici, {len(final_mesh.faces)} faces")
             self.log(f"Final watertight: {final_mesh.is_watertight}")
             self.log(f"Final bounds: {final_mesh.bounds}")
+            
+            # Controlla se l'incisione ha funzionato
+            vertices_change = abs(len(final_mesh.vertices) - len(base_mesh.vertices))
+            if vertices_change < 100:  # Troppo pochi vertici aggiunti
+                self.log("WARNING: Possibile incisione non riuscita - pochi cambiamenti nei vertici")
             
             # 6. Salva modello finale
             final_path = self.save_model(final_mesh, output_3mf)
@@ -328,11 +380,6 @@ def main():
     parser.add_argument('--qr-size-mm', type=float, default=22, help='Dimensione QR in mm')
     
     args = parser.parse_args()
-    
-    # Verifica dipendenze
-    if not TRIMESH_AVAILABLE:
-        print("ERROR: trimesh non disponibile")
-        sys.exit(1)
     
     generator = QR3MFGenerator()
     
