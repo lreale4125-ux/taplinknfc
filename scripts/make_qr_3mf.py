@@ -1,8 +1,3 @@
-cd /home/ubuntu/taplinknfc/scripts
-
-# CREA il file ALTERNATIVE (quello che funziona)
-cat > make_qr_3mf_ALTERNATIVE.py << 'EOF'
-#!/usr/bin/env python3
 """
 make_qr_3mf_ALTERNATIVE.py - Versione con QR incastonato
 """
@@ -159,7 +154,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-EOF
-
-# ESEGUI la versione NUOVA
-python make_qr_3mf_ALTERNATIVE.py --input-3mf base.3mf --output-3mf /tmp/qr_incastonato.3mf --qr-data "https://taplinknfc.it/k/10" --qr-size-mm 22
