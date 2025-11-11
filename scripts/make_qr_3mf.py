@@ -106,7 +106,9 @@ def generate_qr_stl(args: argparse.Namespace) -> str:
         combined_mesh.apply_transform(flip_transform)
 
         # 6. Esporta l'STL temporaneo
-        stl_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), STL_STAMP_FILE)
+        # Salva l'STL nella stessa directory dello script python
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        stl_filepath = os.path.join(script_dir, STL_STAMP_FILE)
         combined_mesh.export(stl_filepath)
         
         log.info(f"File STL temporaneo generato: {stl_filepath}")
@@ -146,7 +148,8 @@ difference() {{
 }}
 """
     # Scrivi lo script SCAD
-    scad_filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), SCAD_SCRIPT_FILE)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    scad_filepath = os.path.join(script_dir, SCAD_SCRIPT_FILE)
     
     with open(scad_filepath, 'w') as f:
         f.write(scad_content)
@@ -157,7 +160,6 @@ difference() {{
 def render_model_with_openscad(scad_filepath: str, output_filepath: str) -> bool:
     """
     Esegue il rendering del file .scad in .3mf usando OpenSCAD da riga di comando.
-    (Questa funzione è identica al tuo script originale)
     """
     os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
     
@@ -194,6 +196,8 @@ def main():
     
     stl_path = None
     scad_path = None
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     
     try:
         # 1. Genera il file STL del timbro QR (Nuova logica)
