@@ -36,7 +36,7 @@ class QR3MFGenerator:
         """Aggiunge messaggio al log di debug"""
         timestamp = datetime.now().strftime("%H:%M:%S.%f")[:-3]
         log_entry = f"[{timestamp}] {message}"
-        print(log_entry, flush=True)  # Force flush per output immediato
+        print(log_entry, flush=True)
         self.debug_log.append(log_entry)
         
     def generate_qr_matrix(self, data, qr_size_mm=22):
@@ -56,7 +56,6 @@ class QR3MFGenerator:
             matrix = np.array(qr.get_matrix(), dtype=bool)
             self.log(f"QR Matrix generata: {matrix.shape[1]}x{matrix.shape[0]} moduli")
             
-            # Calcola dimensione modulo in mm
             module_size_mm = qr_size_mm / max(matrix.shape)
             self.log(f"Module size: {module_size_mm:.3f}mm")
             
@@ -74,27 +73,21 @@ class QR3MFGenerator:
             stamp_meshes = []
             module_height = stamp_height
 
-            # Crea un box per ogni modulo nero
             for y in range(matrix.shape[0]):
                 for x in range(matrix.shape[1]):
                     if matrix[y, x]:
-                        # Coordinate centro modulo
                         center_x = (x - matrix.shape[1] / 2 + 0.5) * module_size_mm
                         center_y = (y - matrix.shape[0] / 2 + 0.5) * module_size_mm
                         
-                        # Crea box
                         box = trimesh.creation.box(
                             extents=[module_size_mm, module_size_mm, module_height]
                         )
-                        
-                        # Posiziona box
                         box.apply_translation([center_x, center_y, z_position + module_height/2])
                         stamp_meshes.append(box)
             
             if not stamp_meshes:
                 raise ValueError("Nessun modulo nero nel QR code")
             
-            # Unisci tutti i moduli
             qr_stamp = trimesh.util.concatenate(stamp_meshes)
             
             self.log(f"Timbro QR creato: {len(stamp_meshes)} moduli")
@@ -120,19 +113,16 @@ class QR3MFGenerator:
             raise ValueError("File base è vuoto")
         
         try:
-            # Prova a caricare con trimesh
             scene = trimesh.load_mesh(input_path, force='mesh')
             
             if scene is None:
                 raise ValueError("trimesh.load_mesh ha restituito None")
                 
-            # Gestione diversi tipi di output
             if isinstance(scene, trimesh.Scene):
                 self.log("Modello è una Scene, estraggo mesh...")
                 if len(scene.geometry) == 0:
                     raise ValueError("Scena non contiene geometrie")
                 
-                # Combina tutte le mesh della scena
                 meshes = list(scene.geometry.values())
                 if len(meshes) == 1:
                     base_mesh = meshes[0]
@@ -144,15 +134,16 @@ class QR3MFGenerator:
             else:
                 raise ValueError(f"Tipo non supportato: {type(scene)}")
             
-            # Verifica mesh valida
+            # VERIFICA MESH VALIDA
             if not hasattr(base_mesh, 'vertices') or len(base_mesh.vertices) == 0:
                 raise ValueError("Mesh senza vertici")
                 
             if not hasattr(base_mesh, 'faces') or len(base_mesh.faces) == 0:
                 raise ValueError("Mesh senza facce")
             
+            # CORREZIONE: base_bounds → base_mesh.bounds
             self.log(f"✓ Base caricata: {len(base_mesh.vertices)} vertici, {len(base_mesh.faces)} faces")
-            self.log(f"Bounds base: {base_bounds}")
+            self.log(f"Bounds base: {base_mesh.bounds}")  # <-- CORRETTO
             self.log(f"Base watertight: {base_mesh.is_watertight}")
             
             return base_mesh
@@ -161,7 +152,6 @@ class QR3MFGenerator:
             self.log(f"ERRORE caricamento modello: {e}")
             self.log("Tentativo caricamento diretto...")
             
-            # Tentativo alternativo
             try:
                 base_mesh = trimesh.load_mesh(input_path)
                 if base_mesh is not None and len(base_mesh.vertices) > 0:
@@ -176,19 +166,16 @@ class QR3MFGenerator:
         """Esegue boolean difference con fallback robusti"""
         self.log("Tentativo boolean difference...")
         
-        # Verifica preliminare
         base_watertight = base_mesh.is_watertight
         qr_watertight = qr_stamp.is_watertight
         
         self.log(f"Base watertight: {base_watertight}")
         self.log(f"QR stamp watertight: {qr_watertight}")
         
-        # Ripara le mesh se necessario
         if not base_watertight:
             self.log("Riparazione base mesh...")
-            base_mesh = base_mesh.convex_hull  # Fallback semplice ma efficace
+            base_mesh = base_mesh.convex_hull
         
-        # Prova boolean difference
         try:
             result = trimesh.boolean.difference([base_mesh, qr_stamp])
             if result is not None and len(result.vertices) > 0:
@@ -197,7 +184,6 @@ class QR3MFGenerator:
         except Exception as e:
             self.log(f"Boolean difference fallita: {e}")
         
-        # Fallback: prova intersection + difference
         self.log("Tentativo fallback con intersection...")
         try:
             intersection = trimesh.boolean.intersection([base_mesh, qr_stamp])
@@ -209,7 +195,6 @@ class QR3MFGenerator:
         except Exception as e:
             self.log(f"Fallback intersection fallito: {e}")
         
-        # Fallback finale: restituisci base non modificata
         self.log("⚠️  Tutti i boolean falliti - restituisco base originale")
         return base_mesh
     
@@ -218,13 +203,11 @@ class QR3MFGenerator:
         self.log(f"Salvataggio modello: {output_path}")
         
         try:
-            # Crea directory se non esiste
             output_dir = os.path.dirname(output_path)
             if output_dir and not os.path.exists(output_dir):
                 os.makedirs(output_dir, exist_ok=True)
                 self.log(f"Creata directory: {output_dir}")
             
-            # Determina formato
             ext = os.path.splitext(output_path)[1].lower()
             
             if ext == '.3mf':
@@ -237,7 +220,6 @@ class QR3MFGenerator:
             
         except Exception as e:
             self.log(f"ERRORE salvataggio: {e}")
-            # Fallback a STL
             fallback_path = output_path.replace(ext, '.stl')
             try:
                 mesh.export(fallback_path)
@@ -251,19 +233,10 @@ class QR3MFGenerator:
         try:
             self.log("=== INIZIO GENERAZIONE ===")
             
-            # 1. Carica base
             base_mesh = self.load_base_model(input_3mf)
-            
-            # 2. Genera QR
             qr_matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
-            
-            # 3. Crea timbro
             qr_stamp = self.create_qr_stamp_mesh(qr_matrix, module_size)
-            
-            # 4. Boolean difference
             final_mesh = self.safe_boolean_difference(base_mesh, qr_stamp)
-            
-            # 5. Salva
             self.save_model(final_mesh, output_3mf)
             
             self.log("=== GENERAZIONE COMPLETATA CON SUCCESSO ===")
@@ -286,7 +259,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Log degli argomenti ricevuti
     print(f"Arguments received:")
     print(f"  input-3mf: {args.input_3mf}")
     print(f"  output-3mf: {args.output_3mf}") 
