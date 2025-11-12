@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_25mm.py - Versione che forza ESATTAMENTE 25mm
+make_qr_3mf_25mm_BORDER.py - Versione con border incluso
 """
 
 import argparse
@@ -28,74 +28,45 @@ class QR3MFGenerator:
         print(log_entry, flush=True)
         self.debug_log.append(log_entry)
 
-    def generate_qr_matrix_25mm(self, data):
-        """Genera QR che sarà ESATTAMENTE 25x25mm"""
-        self.log(f"GENERAZIONE QR 25mm: {data}")
+    def generate_qr_matrix_with_border(self, data, border=2):
+        """Genera QR con border incluso nel calcolo"""
+        self.log(f"GENERAZIONE QR 25mm con border {border}: {data}")
         
-        # Prova versioni crescenti
-        for version in range(4, 8):
-            qr = qrcode.QRCode(
-                version=version,
-                error_correction=qrcode.constants.ERROR_CORRECT_M,
-                box_size=1,
-                border=2  # Border fisso di 2 moduli
-            )
-            qr.add_data(data)
-            try:
-                qr.make(fit=False)
-                matrix = np.array(qr.get_matrix(), dtype=bool)
-                
-                # Calcola la dimensione del modulo per avere ESATTAMENTE 25mm
-                # Dimensione totale = (numero_moduli + 2*border) × module_size
-                total_modules = matrix.shape[0] + 4  # +4 per border di 2 su ogni lato
-                module_size = 25.0 / total_modules
-                
-                actual_size = total_modules * module_size
-                
-                self.log(f"QR versione {version}: {matrix.shape} moduli")
-                self.log(f"Module size per 25mm: {module_size:.3f}mm")
-                self.log(f"Dimensione effettiva: {actual_size:.1f}mm")
-                
-                return matrix, module_size
-                
-            except qrcode.exceptions.DataOverflowError:
-                continue
-        
-        # Fallback
-        self.log("Fallback: usando versione automatica")
+        # Crea QR normalmente
         qr = qrcode.QRCode(
-            version=None,
+            version=4,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=1,
-            border=2
+            border=border
         )
         qr.add_data(data)
         qr.make(fit=True)
-        matrix = np.array(qr.get_matrix(), dtype=bool)
-        total_modules = matrix.shape[0] + 4
-        module_size = 25.0 / total_modules
         
-        self.log(f"QR auto: {matrix.shape} moduli")
+        # Ottieni la matrice COMPLETA (incluso border)
+        matrix = np.array(qr.get_matrix(), dtype=bool)
+        
+        # Calcola module_size per avere ESATTAMENTE 25mm
+        total_size = 25.0  # mm
+        module_size = total_size / matrix.shape[0]  # Tutti i moduli incluso border
+        
+        self.log(f"QR: {matrix.shape} moduli (incluso border)")
         self.log(f"Module size: {module_size:.3f}mm")
+        self.log(f"Dimensione calcolata: {matrix.shape[0] * module_size:.1f}mm")
         
         return matrix, module_size
 
     def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
-        """Crea QR ESATTAMENTE 25x25mm"""
-        self.log("CREAZIONE QR 25mm")
+        """Crea QR con tutti i moduli (incluso border)"""
+        self.log("CREAZIONE QR COMPLETO 25mm")
         self.log(f"Centro base: {base_center}")
         
         boxes = []
         
-        # Calcola la dimensione totale reale
-        total_size = (matrix.shape[0] + 4) * module_size  # +4 per border
-        self.log(f"Dimensione QR calcolata: {total_size:.1f}mm")
-        
+        # Crea TUTTI i moduli della matrice (incluso border)
         for y in range(matrix.shape[0]):
             for x in range(matrix.shape[1]):
                 if matrix[y, x]:
-                    # Coordinate considerando il border di 2 moduli
-                    # Il QR è centrato, quindi spostiamo di 2 moduli
+                    # Coordinate centrate
                     rel_x = (x - matrix.shape[1]/2 + 0.5) * module_size
                     rel_y = (y - matrix.shape[0]/2 + 0.5) * module_size
                     center_x = rel_x + base_center[0]
@@ -115,9 +86,19 @@ class QR3MFGenerator:
         qr_width = qr_embossed.bounds[1][0] - qr_embossed.bounds[0][0]
         qr_height = qr_embossed.bounds[1][1] - qr_embossed.bounds[0][1]
         
-        self.log(f"QR creato: {len(boxes)} moduli")
+        self.log(f"QR creato: {len(boxes)} moduli (incluso border)")
         self.log(f"✅ Dimensione QR FINALE: {qr_width:.1f}x{qr_height:.1f}mm")
         self.log(f"QR bounds: {qr_embossed.bounds}")
+        
+        # Verifica che sia effettivamente 25mm
+        expected_size = matrix.shape[0] * module_size
+        actual_size = qr_width
+        size_diff = abs(actual_size - expected_size)
+        
+        if size_diff > 0.1:
+            self.log(f"⚠️  DISCREPANZA: Atteso {expected_size:.1f}mm, Ottenuto {actual_size:.1f}mm")
+        else:
+            self.log(f"✅ DIMENSIONE CORRETTA: {actual_size:.1f}mm")
         
         return qr_embossed
 
@@ -158,22 +139,22 @@ class QR3MFGenerator:
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR 25mm ESATTO")
+            self.log("🚀 INIZIO GENERAZIONE - QR 25mm CON BORDER")
             
             # 1. Carica base
             base, base_center = self.load_single_base(input_3mf)
             
-            # 2. Genera QR che sarà ESATTAMENTE 25mm
-            matrix, module_size = self.generate_qr_matrix_25mm(qr_data)
+            # 2. Genera QR con border INCLUSO nel calcolo
+            matrix, module_size = self.generate_qr_matrix_with_border(qr_data, border=2)
             
-            # 3. Crea QR
+            # 3. Crea QR con TUTTI i moduli (incluso border)
             qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
             
             # 4. Salva come OGGETTI SEPARATI
             self.save_separate_objects(base, qr_embossed, output_3mf)
             
             self.log(f"✅ Salvato: {output_3mf}")
-            self.log("🎉 COMPLETATO - QR 25mm ESATTO")
+            self.log("🎉 COMPLETATO - QR 25mm CON BORDER")
             return True
             
         except Exception as e:
@@ -190,7 +171,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== VERSIONE QR 25mm ESATTO ===")
+    print("=== VERSIONE QR 25mm CON BORDER ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
