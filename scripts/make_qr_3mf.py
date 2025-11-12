@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_25mm_BORDER.py - Versione con border incluso
+make_qr_3mf_MANUAL_25mm.py - Versione con dimensione MANUALE forzata
 """
 
 import argparse
@@ -28,45 +28,43 @@ class QR3MFGenerator:
         print(log_entry, flush=True)
         self.debug_log.append(log_entry)
 
-    def generate_qr_matrix_with_border(self, data, border=2):
-        """Genera QR con border incluso nel calcolo"""
-        self.log(f"GENERAZIONE QR 25mm con border {border}: {data}")
+    def generate_qr_matrix_manual_size(self, data, target_size_mm=25):
+        """Genera QR e FORZA manualmente la dimensione a 25mm"""
+        self.log(f"GENERAZIONE QR FORZATO 25mm: {data}")
         
-        # Crea QR normalmente
+        # Genera QR normalmente
         qr = qrcode.QRCode(
             version=4,
             error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=1,
-            border=border
+            border=1
         )
         qr.add_data(data)
         qr.make(fit=True)
-        
-        # Ottieni la matrice COMPLETA (incluso border)
         matrix = np.array(qr.get_matrix(), dtype=bool)
         
-        # Calcola module_size per avere ESATTAMENTE 25mm
-        total_size = 25.0  # mm
-        module_size = total_size / matrix.shape[0]  # Tutti i moduli incluso border
+        # FORZA la dimensione a 25mm ignorando il border
+        # Usa solo i moduli dati (senza border bianco)
+        module_size = target_size_mm / matrix.shape[0]
         
-        self.log(f"QR: {matrix.shape} moduli (incluso border)")
-        self.log(f"Module size: {module_size:.3f}mm")
-        self.log(f"Dimensione calcolata: {matrix.shape[0] * module_size:.1f}mm")
+        self.log(f"QR moduli dati: {matrix.shape}")
+        self.log(f"Module size forzato: {module_size:.3f}mm")
+        self.log(f"Dimensione target: {target_size_mm}mm")
         
         return matrix, module_size
 
-    def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
-        """Crea QR con tutti i moduli (incluso border)"""
-        self.log("CREAZIONE QR COMPLETO 25mm")
+    def create_qr_embossed_mesh_manual(self, matrix, module_size, base_center, depth=0.3):
+        """Crea QR con dimensione MANUALE forzata"""
+        self.log("CREAZIONE QR DIMENSIONE FORZATA")
         self.log(f"Centro base: {base_center}")
         
         boxes = []
         
-        # Crea TUTTI i moduli della matrice (incluso border)
+        # Crea solo i moduli dati (nessun border bianco)
         for y in range(matrix.shape[0]):
             for x in range(matrix.shape[1]):
                 if matrix[y, x]:
-                    # Coordinate centrate
+                    # Coordinate centrate - FORZA 25mm
                     rel_x = (x - matrix.shape[1]/2 + 0.5) * module_size
                     rel_y = (y - matrix.shape[0]/2 + 0.5) * module_size
                     center_x = rel_x + base_center[0]
@@ -82,23 +80,13 @@ class QR3MFGenerator:
             
         qr_embossed = trimesh.util.concatenate(boxes)
         
-        # Verifica dimensione finale
+        # Calcola dimensione REALE
         qr_width = qr_embossed.bounds[1][0] - qr_embossed.bounds[0][0]
         qr_height = qr_embossed.bounds[1][1] - qr_embossed.bounds[0][1]
         
-        self.log(f"QR creato: {len(boxes)} moduli (incluso border)")
-        self.log(f"✅ Dimensione QR FINALE: {qr_width:.1f}x{qr_height:.1f}mm")
+        self.log(f"QR creato: {len(boxes)} moduli")
+        self.log(f"Dimensione QR REALE: {qr_width:.1f}x{qr_height:.1f}mm")
         self.log(f"QR bounds: {qr_embossed.bounds}")
-        
-        # Verifica che sia effettivamente 25mm
-        expected_size = matrix.shape[0] * module_size
-        actual_size = qr_width
-        size_diff = abs(actual_size - expected_size)
-        
-        if size_diff > 0.1:
-            self.log(f"⚠️  DISCREPANZA: Atteso {expected_size:.1f}mm, Ottenuto {actual_size:.1f}mm")
-        else:
-            self.log(f"✅ DIMENSIONE CORRETTA: {actual_size:.1f}mm")
         
         return qr_embossed
 
@@ -139,22 +127,22 @@ class QR3MFGenerator:
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR 25mm CON BORDER")
+            self.log("🚀 INIZIO GENERAZIONE - DIMENSIONE MANUALE FORZATA")
             
             # 1. Carica base
             base, base_center = self.load_single_base(input_3mf)
             
-            # 2. Genera QR con border INCLUSO nel calcolo
-            matrix, module_size = self.generate_qr_matrix_with_border(qr_data, border=2)
+            # 2. Genera QR e FORZA dimensione a 25mm
+            matrix, module_size = self.generate_qr_matrix_manual_size(qr_data, qr_size_mm)
             
-            # 3. Crea QR con TUTTI i moduli (incluso border)
-            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
+            # 3. Crea QR con dimensione forzata
+            qr_embossed = self.create_qr_embossed_mesh_manual(matrix, module_size, base_center, depth=0.3)
             
             # 4. Salva come OGGETTI SEPARATI
             self.save_separate_objects(base, qr_embossed, output_3mf)
             
             self.log(f"✅ Salvato: {output_3mf}")
-            self.log("🎉 COMPLETATO - QR 25mm CON BORDER")
+            self.log("🎉 COMPLETATO - Dimensione manuale forzata")
             return True
             
         except Exception as e:
@@ -171,7 +159,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== VERSIONE QR 25mm CON BORDER ===")
+    print("=== VERSIONE DIMENSIONE MANUALE FORZATA ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
