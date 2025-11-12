@@ -1,128 +1,173 @@
-const path = require('path');
-const QRCode = require('qrcode');
-const fs = require('fs/promises');
-const { exec } = require('child_process');
+#!/usr/bin/env python3
+"""
+make_qr_3mf.py - Generatore QR code 25mm inciso e RUITATO
+"""
 
-// --- CONFIGURAZIONE PERCORSI ---
-const QR_BASE_DIR = path.resolve(__dirname, '..', '..', 'public', 'qrcodes');
-const PNG_SUBDIR = 'qr_png';
-// const SVG_SUBDIR = 'qr_svg'; // Non più usato per il 3MF
-const M3MF_SUBDIR = 'qr_3mf';
+import argparse
+import sys
+import os
+import traceback
+import numpy as np
+import qrcode
+from datetime import datetime
 
-// --- CONFIGURAZIONE SCRIPT PYTHON ---
-const SCRIPT_DIR = path.resolve(__dirname, '..', '..', 'scripts');
-const PYTHON_SCRIPT_PATH = path.join(SCRIPT_DIR, 'make_qr_3mf.py');
-const PYTHON_VENV_PATH = path.resolve(__dirname, '..', '..', 'scripts', 'qr_env', 'bin', 'python');
-const BASE_MODEL_PATH = path.join(SCRIPT_DIR, 'base.3mf');
-const QR_SIZE_MM = 25;
-// const QR_MARGIN_MM = 1.5; // RIMOSSO - Non più necessario per il nuovo script
+try:
+    import trimesh
+    print("✓ trimesh importato")
+except ImportError as e:
+    print(f"✗ trimesh: {e}")
+    sys.exit(1)
 
-/**
- * Esegue lo script Python e gestisce i suoi output/errori.
- */
-function runPythonScript(command) {
-    console.log(`[QR Generator] Esecuzione comando: ${command}`);
+class QR3MFGenerator:
+    def __init__(self):
+        self.debug_log = []
+        
+    def log(self, message):
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        log_entry = f"[{timestamp}] {message}"
+        print(log_entry, flush=True)
+        self.debug_log.append(log_entry)
 
-    return new Promise((resolve, reject) => {
-        exec(command, (error, stdout, stderr) => {
-            // Stampa TUTTI gli output per debug
-            if (stdout) {
-                const stdoutLines = stdout.trim().split('\n');
-                stdoutLines.forEach(line => {
-                    console.log(`[Python STDOUT] ${line}`);
-                });
-            }
-            if (stderr) {
-                const stderrLines = stderr.trim().split('\n');
-                stderrLines.forEach(line => {
-                    console.error(`[Python STDERR] ${line}`);
-                });
-            }
+    def generate_qr_matrix_25mm(self, data):
+        """Genera QR che sarà ESATTAMENTE 25x25mm"""
+        self.log(f"GENERAZIONE QR 25mm: {data}")
+        
+        qr = qrcode.QRCode(
+            version=4,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
+            box_size=1,
+            border=1
+        )
+        qr.add_data(data)
+        qr.make(fit=True)
+        matrix = np.array(qr.get_matrix(), dtype=bool)
+        
+        # Calcola module_size per 25mm
+        module_size = 25.0 / matrix.shape[0]
+        
+        self.log(f"QR: {matrix.shape} moduli")
+        self.log(f"Module size: {module_size:.3f}mm")
+        self.log(f"Dimensione target: 25.0mm")
+        
+        return matrix, module_size
+
+    def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
+        """Crea QR inciso sulla superficie inferiore e RUITATO 180°"""
+        self.log("CREAZIONE QR INCASTONATO E RUITATO")
+        self.log(f"Centro base: {base_center}")
+        
+        boxes = []
+        
+        for y in range(matrix.shape[0]):
+            for x in range(matrix.shape[1]):
+                if matrix[y, x]:
+                    # Coordinate centrate - RUITATE di 180°
+                    # Per ruotare 180°: invertiamo x e y
+                    rel_x = (x - matrix.shape[1]/2 + 0.5) * module_size
+                    rel_y = (y - matrix.shape[0]/2 + 0.5) * module_size
+                    
+                    # Applica rotazione 180° (inverte entrambi gli assi)
+                    rel_x_rotated = -rel_x
+                    rel_y_rotated = -rel_y
+                    
+                    center_x = rel_x_rotated + base_center[0]
+                    center_y = rel_y_rotated + base_center[1]
+                    
+                    box = trimesh.creation.box([module_size, module_size, depth])
+                    box_z_position = depth / 2  # Z tra 0.0 e 0.3mm
+                    box.apply_translation([center_x, center_y, box_z_position])
+                    boxes.append(box)
+        
+        if not boxes:
+            raise ValueError("Nessun modulo QR!")
             
-            if (error) {
-                console.error(`[Python EXIT CODE] ${error.code}`);
-                const errorMessage = stderr || stdout || error.message;
-                reject(new Error(`Script Python fallito: ${errorMessage}`));
-                return;
-            }
-            resolve();
-        });
-    });
-}
+        qr_embossed = trimesh.util.concatenate(boxes)
+        
+        # Verifica dimensione
+        qr_width = qr_embossed.bounds[1][0] - qr_embossed.bounds[0][0]
+        qr_height = qr_embossed.bounds[1][1] - qr_embossed.bounds[0][1]
+        
+        self.log(f"QR creato: {len(boxes)} moduli (ruitato 180°)")
+        self.log(f"✅ Dimensione QR: {qr_width:.1f}x{qr_height:.1f}mm")
+        self.log(f"QR Z-range: [{qr_embossed.bounds[0][2]:.3f}, {qr_embossed.bounds[1][2]:.3f}]")
+        self.log(f"QR bounds: {qr_embossed.bounds}")
+        
+        return qr_embossed
 
-/**
- * Genera il QR Code con l'URL e lo salva in formato PNG e 3MF.
- * @param {string} keychainId - L'ID univoco (es. '001', 'Ospite').
- */
-async function generateAndSaveQR(keychainId) {
+    def load_single_base(self, path):
+        """Carica SOLO la mesh principale"""
+        self.log(f"CARICAMENTO BASE: {path}")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Base non trovata: {path}")
+            
+        scene = trimesh.load_mesh(path)
+        
+        if isinstance(scene, trimesh.Scene):
+            self.log(f"Scena con {len(scene.geometry)} oggetti - prendo solo il primo")
+            base_mesh = list(scene.geometry.values())[0]
+        else:
+            base_mesh = scene
+        
+        base_center = base_mesh.centroid
+        
+        self.log("=== ANALISI BASE ===")
+        self.log(f"Vertici: {len(base_mesh.vertices)}")
+        self.log(f"Facce: {len(base_mesh.faces)}")
+        self.log(f"Centro: {base_center}")
+        
+        return base_mesh, base_center
+
+    def save_separate_objects(self, base, qr_embossed, output_path):
+        """Salva base e QR come oggetti SEPARATI"""
+        self.log("SALVATAGGIO OGGETTI SEPARATI")
+        
+        scene = trimesh.Scene()
+        scene.add_geometry(base, node_name="base_portachiavi")
+        scene.add_geometry(qr_embossed, node_name="qr_code_25mm_ruitato")
+        
+        self.log(f"Scena creata con {len(scene.geometry)} oggetti separati")
+        scene.export(output_path)
+        return output_path
+
+    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
+        try:
+            self.log("🚀 INIZIO GENERAZIONE - QR 25mm RUITATO")
+            
+            # 1. Carica base
+            base, base_center = self.load_single_base(input_3mf)
+            
+            # 2. Genera QR 25mm
+            matrix, module_size = self.generate_qr_matrix_25mm(qr_data)
+            
+            # 3. Crea QR inciso e RUITATO
+            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
+            
+            # 4. Salva come oggetti separati
+            self.save_separate_objects(base, qr_embossed, output_3mf)
+            
+            self.log(f"✅ Salvato: {output_3mf}")
+            self.log("🎉 COMPLETATO - QR 25mm ruitato incorporato")
+            return True
+            
+        except Exception as e:
+            self.log(f"💥 ERRORE: {e}")
+            self.log(traceback.format_exc())
+            return False
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--input-3mf', required=True)
+    parser.add_argument('--output-3mf', required=True)
+    parser.add_argument('--qr-data', required=True)
+    parser.add_argument('--qr-size-mm', type=float, default=25)
     
-    // ===================================================================
-    // 🛑 MODIFICA CRUCIALE 1: URL DI BASE
-    // ===================================================================
-    const baseUrl = process.env.APP_DOMAIN || 'https://taplinknfc.it';
+    args = parser.parse_args()
     
-    // ===================================================================
-    // 🛑 MODIFICA CRUCIALE 2: STRUTTURA URL
-    // ===================================================================
-    const qrData = `${baseUrl}/k/${encodeURIComponent(keychainId)}`;
+    print("=== GENERATORE QR 25mm RUITATO ===")
+    generator = QR3MFGenerator()
+    success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
-    
-    // 2. Definizione dei percorsi
-    const filename = keychainId;
+    sys.exit(0 if success else 1)
 
-    const pngDir = path.join(QR_BASE_DIR, PNG_SUBDIR);
-    // const svgDir = path.join(QR_BASE_DIR, SVG_SUBDIR); // Non più usato
-    const m3mfDir = path.join(QR_BASE_DIR, M3MF_SUBDIR);
-
-    const pngPath = path.join(pngDir, `${filename}.png`);
-    // const svgPath = path.join(svgDir, `${filename}.svg`); // Non più usato
-    const m3mfPath = path.join(m3mfDir, `${filename}.3mf`);
-
-    try {
-        // 3. Verifica e creazione ricorsiva delle sottocartelle
-        await fs.mkdir(pngDir, { recursive: true });
-        // await fs.mkdir(svgDir, { recursive: true }); // Non più usato
-        await fs.mkdir(m3mfDir, { recursive: true });
-
-        // 4. GENERAZIONE PNG (Utile per anteprima web)
-        await QRCode.toFile(pngPath, qrData, {
-            color: {
-                dark: '#000000',
-                light: '#FFFFFF'
-            },
-            errorCorrectionLevel: 'M',
-            width: 1024, 
-            type: 'png'
-        });
-        
-        // 5. GENERAZIONE SVG (RIMOSSA)
-        // Il nuovo script Python ('make_qr_3mf_stl.py') genera il QR internamente
-        // e non ha più bisogno di un file SVG come input.
-        
-        // 6. CHIAMATA A PYTHON PER GENERARE IL 3MF (MODIFICATA)
-        
-        const command = [
-            `"${PYTHON_VENV_PATH}"`,
-            `"${PYTHON_SCRIPT_PATH}"`,
-            `--input-3mf "${BASE_MODEL_PATH}"`,
-            `--output-3mf "${m3mfPath}"`,
-            `--qr-data "${qrData}"`,
-            `--qr-size-mm ${QR_SIZE_MM}`
-            // --qr-margin-mm RIMOSSO DA QUI
-        ].join(' ');
-        
-        await runPythonScript(command);
-        
-        console.log(`[QR Generator] Salvataggio completato: PNG e 3MF per ${keychainId}`);
-
-    } catch (err) {
-        console.error(`[QR Generator] Errore FATALE durante la generazione per ID ${keychainId}:`, err);
-        // Rilancia un errore più specifico al controller
-        throw new Error(`Errore durante la generazione QR/3MF: ${err.message}`);
-    }
-}
-
-module.exports = {
-    generateAndSaveQR,
-    QR_DIR: QR_BASE_DIR 
-};
+if __name__ == "__main__":
+    main()
