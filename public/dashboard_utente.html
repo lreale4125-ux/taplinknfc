@@ -24,6 +24,8 @@
             background-color: #4f46e5;
             color: white;
         }
+        .qr-badge { background-color: #10b981; color: white; }
+        .nfc-badge { background-color: #3b82f6; color: white; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -48,11 +50,12 @@
                 </div>
             </header>
             <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
                     <div class="card"><p class="text-sm font-medium text-gray-500">Link Attivi</p><p class="text-3xl font-bold mt-1" id="activeKeysCount">0</p></div>
                     <div class="card"><p class="text-sm font-medium text-gray-500">Click Totali</p><p class="text-3xl font-bold mt-1" id="totalClicksCount">0</p></div>
+                    <div class="card"><p class="text-sm font-medium text-gray-500">Da QR Code</p><p class="text-3xl font-bold mt-1" id="qrClicksCount">0</p></div>
+                    <div class="card"><p class="text-sm font-medium text-gray-500">Da NFC</p><p class="text-3xl font-bold mt-1" id="nfcClicksCount">0</p></div>
                     <div class="card"><p class="text-sm font-medium text-gray-500">Visitatori Unici</p><p class="text-3xl font-bold mt-1" id="uniqueVisitorsCount">0</p></div>
-                    <div class="card"><p class="text-sm font-medium text-gray-500">Tasso di Click Medio</p><p class="text-3xl font-bold mt-1" id="avgClickRate">0.0</p></div>
                 </div>
             
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -121,7 +124,8 @@
         const activeKeysCountEl = document.getElementById('activeKeysCount');
         const totalClicksCountEl = document.getElementById('totalClicksCount');
         const uniqueVisitorsCountEl = document.getElementById('uniqueVisitorsCount');
-        const avgClickRateEl = document.getElementById('avgClickRate');
+        const qrClicksCountEl = document.getElementById('qrClicksCount');
+        const nfcClicksCountEl = document.getElementById('nfcClicksCount');
         const keychainListEl = document.getElementById('keychainList');
         
         // Selettori per filtri e titoli dei grafici
@@ -194,17 +198,20 @@
         async function loadUserDashboard() {
             try {
                 const { links } = await apiFetch('/api/user/links');
-    
+
                 const totalClicks = links.reduce((sum, link) => sum + link.total_clicks, 0);
                 const uniqueVisitors = links.reduce((sum, link) => sum + link.unique_visitors, 0);
-    
+                const qrClicks = links.reduce((sum, link) => sum + (link.qr_clicks || 0), 0);
+                const nfcClicks = links.reduce((sum, link) => sum + (link.nfc_clicks || 0), 0);
+
                 activeKeysCountEl.textContent = links.length;
                 totalClicksCountEl.textContent = totalClicks.toLocaleString('it-IT');
                 uniqueVisitorsCountEl.textContent = uniqueVisitors.toLocaleString('it-IT');
-                avgClickRateEl.textContent = uniqueVisitors > 0 ? (totalClicks / uniqueVisitors).toFixed(1) : '0.0';
-    
+                qrClicksCountEl.textContent = qrClicks.toLocaleString('it-IT');
+                nfcClicksCountEl.textContent = nfcClicks.toLocaleString('it-IT');
+
                 renderKeychainList(links);
-                
+
                 if (links.length > 0) {
                     await refreshAllAnalytics(links[0].id);
                 } else {
@@ -216,9 +223,9 @@
                     renderHeatmapChart([]);
                     renderInteractiveMap([]);
                 }
-            } catch(e) { 
+            } catch(e) {
                 console.error(e);
-                alert('Impossibile caricare i dati della dashboard.'); 
+                alert('Impossibile caricare i dati della dashboard.');
             }
         }
         
@@ -238,9 +245,19 @@
                         <span class="text-xs font-bold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">Attivo</span>
                     </div>
                     <p class="text-sm text-gray-500 mt-1 truncate">${link.url}</p>
-                    <div class="flex items-baseline mt-2">
-                        <p class="text-2xl font-bold text-gray-900">${link.total_clicks.toLocaleString('it-IT')}</p>
-                        <p class="text-xs text-gray-500 ml-1">click totali</p>
+                    <div class="flex justify-between items-center mt-2">
+                        <div class="text-center">
+                            <p class="text-xl font-bold text-gray-900">${link.total_clicks.toLocaleString('it-IT')}</p>
+                            <p class="text-xs text-gray-500">totali</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-lg font-bold text-green-600">${(link.qr_clicks || 0).toLocaleString('it-IT')}</p>
+                            <p class="text-xs text-gray-500">QR</p>
+                        </div>
+                        <div class="text-center">
+                            <p class="text-lg font-bold text-blue-600">${(link.nfc_clicks || 0).toLocaleString('it-IT')}</p>
+                            <p class="text-xs text-gray-500">NFC</p>
+                        </div>
                     </div>`;
                 item.addEventListener('click', () => refreshAllAnalytics(link.id));
                 keychainListEl.appendChild(item);
@@ -418,17 +435,28 @@
                 listEl.innerHTML = `<p class="text-sm text-gray-500">Nessuna attività recente.</p>`;
                 return;
             }
-    
+
             const deviceIcons = { mobile: '📱', desktop: '💻', tablet: '📲', sconosciuto: '❓' };
+            const sourceBadges = {
+                qr: '<span class="qr-badge text-xs px-2 py-1 rounded-full ml-2">QR</span>',
+                nfc: '<span class="nfc-badge text-xs px-2 py-1 rounded-full ml-2">NFC</span>',
+                direct: '<span class="bg-gray-500 text-white text-xs px-2 py-1 rounded-full ml-2">DIRECT</span>'
+            };
+
             data.slice(0, 5).forEach(activity => {
-                const { os = 'N/A', browser = 'N/A', device = 'Sconosciuto', city = 'Sconosciuto', country = 'N/A', last_seen } = activity;
+                const { os = 'N/A', browser = 'N/A', device = 'Sconosciuto', city = 'Sconosciuto', country = 'N/A', last_seen, source = 'nfc' } = activity;
                 const icon = deviceIcons[String(device).toLowerCase()] || deviceIcons['sconosciuto'];
                 let deviceInfo = os === 'N/A' && browser === 'N/A' ? 'Dettagli non disponibili' : `${browser} su ${os}`;
+                const sourceBadge = sourceBadges[source] || sourceBadges['nfc'];
+
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between border-b border-gray-100 py-3';
                 item.innerHTML = `
                     <div>
-                        <p class="font-medium text-sm">${city}, ${country}</p>
+                        <div class="flex items-center">
+                            <p class="font-medium text-sm">${city}, ${country}</p>
+                            ${sourceBadge}
+                        </div>
                         <p class="text-xs text-gray-500 mt-1">${icon} ${deviceInfo}</p>
                     </div>
                     <p class="text-xs text-gray-400">${new Date(last_seen).toLocaleTimeString('it-IT', {hour: '2-digit', minute:'2-digit'})}</p>`;
