@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_SEPARATO.py - Versione con QR come solido separato
+make_qr_3mf_GRANDE.py - Versione con QR a dimensione completa
 """
 
 import argparse
@@ -41,19 +41,14 @@ class QR3MFGenerator:
         matrix = np.array(qr.get_matrix(), dtype=bool)
         module_size = qr_size_mm / max(matrix.shape)
         self.log(f"QR: {matrix.shape} moduli, size: {module_size:.3f}mm")
-        self.log(f"Dimensione totale QR: {qr_size_mm}mm (25x25mm)")
+        self.log(f"Dimensione totale QR: {qr_size_mm}mm")
         return matrix, module_size
 
-    def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_bounds, depth=0.3):
-        """Crea QR sulla superficie INFERIORE della base"""
-        self.log("CREAZIONE QR SU SUPERFICIE INFERIORE")
+    def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
+        """Crea QR FORZANDO tutti i moduli (nessun controllo bounds)"""
+        self.log("CREAZIONE QR - TUTTI I MODULI FORZATI")
         self.log(f"Centro base: {base_center}")
-        self.log(f"Bounds base: {base_bounds}")
         self.log(f"Profondità incisione: {depth}mm")
-        
-        # Trova la coordinata Z della superficie INFERIORE della base
-        base_bottom_z = base_bounds[0][2]  # Z minimo della base
-        self.log(f"Superficie inferiore base (Z): {base_bottom_z}mm")
         
         boxes = []
         
@@ -66,11 +61,11 @@ class QR3MFGenerator:
                     center_x = rel_x + base_center[0]
                     center_y = rel_y + base_center[1]
                     
-                    # Crea box che si ESTENDE verso l'ALTO dalla superficie inferiore
+                    # Crea box - FORZA TUTTI i moduli senza controlli
                     box = trimesh.creation.box([module_size, module_size, depth])
                     
-                    # Posiziona il QR sulla superficie inferiore
-                    box_z_position = base_bottom_z + (depth / 2)
+                    # Posiziona il QR sulla superficie inferiore (Z=0)
+                    box_z_position = depth / 2  # Centrato su Z=0 con estensione verso l'alto
                     box.apply_translation([center_x, center_y, box_z_position])
                     boxes.append(box)
         
@@ -78,7 +73,13 @@ class QR3MFGenerator:
             raise ValueError("Nessun modulo QR!")
             
         qr_embossed = trimesh.util.concatenate(boxes)
-        self.log(f"QR sulla superficie inferiore creato: {len(boxes)} moduli")
+        
+        # Calcola dimensione reale
+        qr_width = qr_embossed.bounds[1][0] - qr_embossed.bounds[0][0]
+        qr_height = qr_embossed.bounds[1][1] - qr_embossed.bounds[0][1]
+        
+        self.log(f"QR creato: {len(boxes)} moduli")
+        self.log(f"Dimensione QR reale: {qr_width:.1f}x{qr_height:.1f}mm")
         self.log(f"QR bounds: {qr_embossed.bounds}")
         self.log(f"QR Z-range: [{qr_embossed.bounds[0][2]:.3f}, {qr_embossed.bounds[1][2]:.3f}]")
         
@@ -109,10 +110,10 @@ class QR3MFGenerator:
         self.log(f"Centro: {base_center}")
         self.log(f"Z range: [{bounds[0][2]:.3f}, {bounds[1][2]:.3f}]")
         
-        return base_mesh, base_center, bounds
+        return base_mesh, base_center
 
     def save_separate_objects(self, base, qr_embossed, output_path):
-        """Salva base e QR come oggetti SEPARATI nello stesso file 3MF"""
+        """Salva base e QR come oggetti SEPARATI"""
         self.log("SALVATAGGIO OGGETTI SEPARATI")
         
         # Crea una scena con DUE oggetti separati
@@ -125,7 +126,6 @@ class QR3MFGenerator:
         scene.add_geometry(qr_embossed, node_name="qr_code_inciso")
         
         self.log(f"Scena creata con {len(scene.geometry)} oggetti separati")
-        self.log("✅ In Bambu Studio vedrai 2 solidi separati")
         
         # Salva come 3MF
         scene.export(output_path)
@@ -133,32 +133,24 @@ class QR3MFGenerator:
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - SOLIDI SEPARATI")
+            self.log("🚀 INIZIO GENERAZIONE - QR A DIMENSIONE COMPLETA")
             self.log(f"Dimensione QR specificata: {qr_size_mm}mm")
             
             # 1. Carica base
-            base, base_center, base_bounds = self.load_single_base(input_3mf)
+            base, base_center = self.load_single_base(input_3mf)
             
             # 2. Genera QR con la dimensione specificata
             matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
             
-            # 3. Crea QR sulla superficie INFERIORE
-            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, base_bounds, depth=0.3)
+            # 3. Crea QR FORZANDO tutti i moduli (nessun controllo bounds)
+            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
             
             # 4. Salva come OGGETTI SEPARATI
             self.save_separate_objects(base, qr_embossed, output_3mf)
             
             self.log(f"✅ Salvato: {output_3mf}")
             
-            # 5. Salva debug (opzionale)
-            debug_dir = os.path.join(os.path.dirname(output_3mf), "debug")
-            os.makedirs(debug_dir, exist_ok=True)
-            base.export(os.path.join(debug_dir, "base.stl"))
-            qr_embossed.export(os.path.join(debug_dir, "qr_embossed.stl"))
-            with open(os.path.join(debug_dir, "log.txt"), 'w') as f:
-                f.write("\n".join(self.debug_log))
-                
-            self.log("🎉 COMPLETATO - 2 solidi separati nel file 3MF")
+            self.log("🎉 COMPLETATO - QR a dimensione completa")
             return True
             
         except Exception as e:
@@ -175,7 +167,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== VERSIONE CON SOLIDI SEPARATI ===")
+    print("=== VERSIONE CON QR A DIMENSIONE COMPLETA ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
