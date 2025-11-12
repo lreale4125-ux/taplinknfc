@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf.py - Generatore QR code 25mm inciso
-Versione finale funzionante
+make_qr_3mf.py - Generatore QR code 25mm inciso e RUITATO
 """
 
 import argparse
@@ -53,8 +52,8 @@ class QR3MFGenerator:
         return matrix, module_size
 
     def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
-        """Crea QR inciso sulla superficie inferiore"""
-        self.log("CREAZIONE QR INCASTONATO")
+        """Crea QR inciso sulla superficie inferiore e RUITATO 180°"""
+        self.log("CREAZIONE QR INCASTONATO E RUITATO")
         self.log(f"Centro base: {base_center}")
         
         boxes = []
@@ -62,11 +61,17 @@ class QR3MFGenerator:
         for y in range(matrix.shape[0]):
             for x in range(matrix.shape[1]):
                 if matrix[y, x]:
-                    # Coordinate centrate
+                    # Coordinate centrate - RUITATE di 180°
+                    # Per ruotare 180°: invertiamo x e y
                     rel_x = (x - matrix.shape[1]/2 + 0.5) * module_size
                     rel_y = (y - matrix.shape[0]/2 + 0.5) * module_size
-                    center_x = rel_x + base_center[0]
-                    center_y = rel_y + base_center[1]
+                    
+                    # Applica rotazione 180° (inverte entrambi gli assi)
+                    rel_x_rotated = -rel_x
+                    rel_y_rotated = -rel_y
+                    
+                    center_x = rel_x_rotated + base_center[0]
+                    center_y = rel_y_rotated + base_center[1]
                     
                     box = trimesh.creation.box([module_size, module_size, depth])
                     box_z_position = depth / 2  # Z tra 0.0 e 0.3mm
@@ -82,9 +87,10 @@ class QR3MFGenerator:
         qr_width = qr_embossed.bounds[1][0] - qr_embossed.bounds[0][0]
         qr_height = qr_embossed.bounds[1][1] - qr_embossed.bounds[0][1]
         
-        self.log(f"QR creato: {len(boxes)} moduli")
+        self.log(f"QR creato: {len(boxes)} moduli (ruitato 180°)")
         self.log(f"✅ Dimensione QR: {qr_width:.1f}x{qr_height:.1f}mm")
         self.log(f"QR Z-range: [{qr_embossed.bounds[0][2]:.3f}, {qr_embossed.bounds[1][2]:.3f}]")
+        self.log(f"QR bounds: {qr_embossed.bounds}")
         
         return qr_embossed
 
@@ -117,7 +123,7 @@ class QR3MFGenerator:
         
         scene = trimesh.Scene()
         scene.add_geometry(base, node_name="base_portachiavi")
-        scene.add_geometry(qr_embossed, node_name="qr_code_25mm")
+        scene.add_geometry(qr_embossed, node_name="qr_code_25mm_ruitato")
         
         self.log(f"Scena creata con {len(scene.geometry)} oggetti separati")
         scene.export(output_path)
@@ -125,22 +131,22 @@ class QR3MFGenerator:
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR 25mm")
+            self.log("🚀 INIZIO GENERAZIONE - QR 25mm RUITATO")
             
             # 1. Carica base
             base, base_center = self.load_single_base(input_3mf)
             
-            # 2. Genera QR 25mm (ignora qr_size_mm dal parametro)
+            # 2. Genera QR 25mm
             matrix, module_size = self.generate_qr_matrix_25mm(qr_data)
             
-            # 3. Crea QR inciso
+            # 3. Crea QR inciso e RUITATO
             qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
             
             # 4. Salva come oggetti separati
             self.save_separate_objects(base, qr_embossed, output_3mf)
             
             self.log(f"✅ Salvato: {output_3mf}")
-            self.log("🎉 COMPLETATO - QR 25mm incorporato")
+            self.log("🎉 COMPLETATO - QR 25mm ruitato incorporato")
             return True
             
         except Exception as e:
@@ -157,7 +163,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== GENERATORE QR 25mm ===")
+    print("=== GENERATORE QR 25mm RUITATO ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
