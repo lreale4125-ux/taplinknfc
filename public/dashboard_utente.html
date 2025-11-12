@@ -24,8 +24,6 @@
             background-color: #4f46e5;
             color: white;
         }
-        .qr-badge { background-color: #10b981; color: white; }
-        .nfc-badge { background-color: #3b82f6; color: white; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -50,12 +48,11 @@
                 </div>
             </header>
             <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     <div class="card"><p class="text-sm font-medium text-gray-500">Link Attivi</p><p class="text-3xl font-bold mt-1" id="activeKeysCount">0</p></div>
                     <div class="card"><p class="text-sm font-medium text-gray-500">Click Totali</p><p class="text-3xl font-bold mt-1" id="totalClicksCount">0</p></div>
-                    <div class="card"><p class="text-sm font-medium text-gray-500">Da QR Code</p><p class="text-3xl font-bold mt-1" id="qrClicksCount">0</p></div>
-                    <div class="card"><p class="text-sm font-medium text-gray-500">Da NFC</p><p class="text-3xl font-bold mt-1" id="nfcClicksCount">0</p></div>
                     <div class="card"><p class="text-sm font-medium text-gray-500">Visitatori Unici</p><p class="text-3xl font-bold mt-1" id="uniqueVisitorsCount">0</p></div>
+                    <div class="card"><p class="text-sm font-medium text-gray-500">Tasso di Click Medio</p><p class="text-3xl font-bold mt-1" id="avgClickRate">0.0</p></div>
                 </div>
             
                 <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -119,14 +116,13 @@
     </div>
 
     <script>
-                // --- SELETTORI E VARIABILI GLOBALI ---
+        // --- SELETTORI E VARIABILI GLOBALI ---
         const userGreeting = document.getElementById('userGreeting');
         const activeKeysCountEl = document.getElementById('activeKeysCount');
         const totalClicksCountEl = document.getElementById('totalClicksCount');
         const uniqueVisitorsCountEl = document.getElementById('uniqueVisitorsCount');
-        const qrClicksCountEl = document.getElementById('qrClicksCount');
-        const nfcClicksCountEl = document.getElementById('nfcClicksCount');
-        const keychainListEl = document.getElementById('keychainList'); // <-- AGGIUNGI QUESTA RIGA!
+        const avgClickRateEl = document.getElementById('avgClickRate');
+        const keychainListEl = document.getElementById('keychainList');
         
         // Selettori per filtri e titoli dei grafici
         const dateFilters = document.getElementById('dateFilters');
@@ -166,21 +162,25 @@
             const token = localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('userData'));
 
+            // ... (la tua logica di controllo del token e del ruolo rimane qui) ...
             if (!token || !user || user.role === 'admin') {
                 localStorage.clear();
                 window.location.href = './index.html';
                 return;
             }
             
+            // ++ AGGIUNGI QUESTO BLOCCO DI CODICE ++
             // Controlla se l'utente può accedere al wallet e nasconde il pulsante se non può
             const walletButton = document.getElementById('walletButton');
             if (!user.can_access_wallet || user.can_access_wallet == 0) {
                 walletButton.style.display = 'none';
             }
+            // ++ FINE DEL BLOCCO DA AGGIUNGERE ++
 
             document.body.classList.add('auth-checked');
             userGreeting.textContent = `Ciao, ${user.username}!`;
 
+            // Il resto della funzione (initializeFilters, loadUserDashboard, etc.) rimane invariato
             initializeFilters();
             loadUserDashboard();
         });
@@ -197,14 +197,11 @@
     
                 const totalClicks = links.reduce((sum, link) => sum + link.total_clicks, 0);
                 const uniqueVisitors = links.reduce((sum, link) => sum + link.unique_visitors, 0);
-                const qrClicks = links.reduce((sum, link) => sum + (link.qr_clicks || 0), 0);
-                const nfcClicks = links.reduce((sum, link) => sum + (link.nfc_clicks || 0), 0);
-
+    
                 activeKeysCountEl.textContent = links.length;
                 totalClicksCountEl.textContent = totalClicks.toLocaleString('it-IT');
                 uniqueVisitorsCountEl.textContent = uniqueVisitors.toLocaleString('it-IT');
-                qrClicksCountEl.textContent = qrClicks.toLocaleString('it-IT');
-                nfcClicksCountEl.textContent = nfcClicks.toLocaleString('it-IT');
+                avgClickRateEl.textContent = uniqueVisitors > 0 ? (totalClicks / uniqueVisitors).toFixed(1) : '0.0';
     
                 renderKeychainList(links);
                 
@@ -241,19 +238,9 @@
                         <span class="text-xs font-bold px-2 py-1 rounded-full bg-indigo-100 text-indigo-700">Attivo</span>
                     </div>
                     <p class="text-sm text-gray-500 mt-1 truncate">${link.url}</p>
-                    <div class="flex justify-between items-center mt-2">
-                        <div class="text-center">
-                            <p class="text-xl font-bold text-gray-900">${link.total_clicks.toLocaleString('it-IT')}</p>
-                            <p class="text-xs text-gray-500">totali</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-lg font-bold text-green-600">${(link.qr_clicks || 0).toLocaleString('it-IT')}</p>
-                            <p class="text-xs text-gray-500">QR</p>
-                        </div>
-                        <div class="text-center">
-                            <p class="text-lg font-bold text-blue-600">${(link.nfc_clicks || 0).toLocaleString('it-IT')}</p>
-                            <p class="text-xs text-gray-500">NFC</p>
-                        </div>
+                    <div class="flex items-baseline mt-2">
+                        <p class="text-2xl font-bold text-gray-900">${link.total_clicks.toLocaleString('it-IT')}</p>
+                        <p class="text-xs text-gray-500 ml-1">click totali</p>
                     </div>`;
                 item.addEventListener('click', () => refreshAllAnalytics(link.id));
                 keychainListEl.appendChild(item);
@@ -409,21 +396,18 @@
             mapInstance = L.map('interactiveMap').setView([45.0, 9.5], 4);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(mapInstance);
 
-            // Usa Nominatim per geocoding (OpenStreetMap)
+            // ++ MODIFICA CHIAVE: Chiama la TUA API invece di quella esterna ++
             sortedCities.slice(0, 10).forEach(city => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city.location)}`, {
-                    headers: { 'User-Agent': 'TAPLINK Dashboard' }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data && data.length > 0) {
-                            const { lat, lon } = data[0];
-                            L.circle([lat, lon], {
+                // Usa la tua funzione apiFetch per chiamare il tuo nuovo endpoint
+                apiFetch(`/api/geocode?q=${encodeURIComponent(city.location)}`)
+                    .then(geometry => { // La nostra API restituisce direttamente {lat, lng}
+                        if (geometry && geometry.lat && geometry.lng) {
+                            L.circle([geometry.lat, geometry.lng], {
                                 color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.5,
                                 radius: 15000 * Math.sqrt(city.clicks)
                             }).addTo(mapInstance).bindPopup(`<b>${city.location}</b><br>${city.clicks} clicks`);
                         }
-                    }).catch(err => console.warn(`Geocoding fallito per ${city.location}:`, err));
+                    }).catch(err => console.warn(`Geocoding fallito tramite proxy per ${city.location}:`, err));
             });
         }
     
@@ -436,26 +420,15 @@
             }
     
             const deviceIcons = { mobile: '📱', desktop: '💻', tablet: '📲', sconosciuto: '❓' };
-            const sourceBadges = {
-                qr: '<span class="qr-badge text-xs px-2 py-1 rounded-full ml-2">QR</span>',
-                nfc: '<span class="nfc-badge text-xs px-2 py-1 rounded-full ml-2">NFC</span>',
-                direct: '<span class="bg-gray-500 text-white text-xs px-2 py-1 rounded-full ml-2">DIRECT</span>'
-            };
-            
             data.slice(0, 5).forEach(activity => {
-                const { os = 'N/A', browser = 'N/A', device = 'Sconosciuto', city = 'Sconosciuto', country = 'N/A', last_seen, source = 'nfc' } = activity;
+                const { os = 'N/A', browser = 'N/A', device = 'Sconosciuto', city = 'Sconosciuto', country = 'N/A', last_seen } = activity;
                 const icon = deviceIcons[String(device).toLowerCase()] || deviceIcons['sconosciuto'];
                 let deviceInfo = os === 'N/A' && browser === 'N/A' ? 'Dettagli non disponibili' : `${browser} su ${os}`;
-                const sourceBadge = sourceBadges[source] || sourceBadges['nfc'];
-                
                 const item = document.createElement('div');
                 item.className = 'flex items-center justify-between border-b border-gray-100 py-3';
                 item.innerHTML = `
                     <div>
-                        <div class="flex items-center">
-                            <p class="font-medium text-sm">${city}, ${country}</p>
-                            ${sourceBadge}
-                        </div>
+                        <p class="font-medium text-sm">${city}, ${country}</p>
                         <p class="text-xs text-gray-500 mt-1">${icon} ${deviceInfo}</p>
                     </div>
                     <p class="text-xs text-gray-400">${new Date(last_seen).toLocaleTimeString('it-IT', {hour: '2-digit', minute:'2-digit'})}</p>`;
