@@ -50,24 +50,24 @@ router.get('/r/:linkId', async (req, res) => {
     }
 });
 
-// Redirect route for keychains (Supporta keychain_number con prefisso AQ)
+// Redirect route for keychains (Supporta keychain_number con prefisso QA)
 router.get('/k/:keychainIdentifier', async (req, res) => {
     try {
         const keychainIdentifier = req.params.keychainIdentifier;
         let source = 'nfc';
         let lookupValue = keychainIdentifier;
 
-        // Determina la sorgente in base al prefisso
-        if (keychainIdentifier.toUpperCase().startsWith('AQ')) {
+        // Determina la sorgente in base al prefisso QA (non AQ!)
+        if (keychainIdentifier.toUpperCase().startsWith('QA')) {
             source = 'qr';
-            lookupValue = keychainIdentifier.substring(2); // Rimuove "AQ"
+            // Mantieni l'ID completo (QA1, QA2, ecc.) per la ricerca - NON rimuovere il prefisso!
         }
 
-        // Cerca il keychain per keychain_number (supporta sia numerico che stringa)
+        // Cerca il keychain per keychain_number (supporta sia QA1 che 3)
         const keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
         
         if (!keychain) {
-            return res.status(404).send('Keychain non trovato.');
+            return res.status(404).send(`Keychain '${lookupValue}' non trovato.`);
         }
         
         const finalUrl = await getFinalUrl(keychain.link_id);
