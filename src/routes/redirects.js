@@ -57,13 +57,17 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
         let source = 'nfc';
         let lookupValue = keychainIdentifier;
 
-        // Determina la sorgente in base al prefisso QA (non AQ!)
+        // Determina la sorgente in base al prefisso QA
         if (keychainIdentifier.toUpperCase().startsWith('QA')) {
             source = 'qr';
-            // Mantieni l'ID completo (QA1, QA2, ecc.) per la ricerca - NON rimuovere il prefisso!
+            // Mantieni l'ID completo per la ricerca
+        } else {
+            // Se è un numero puro (1, 2, 3), convertilo in QA1, QA2, QA3
+            source = 'nfc';
+            lookupValue = 'QA' + keychainIdentifier;
         }
 
-        // Cerca il keychain per keychain_number (supporta sia QA1 che 3)
+        // Cerca il keychain per keychain_number
         const keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
         
         if (!keychain) {
