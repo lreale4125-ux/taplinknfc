@@ -89,7 +89,7 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
 });
 
 // Geocoding proxy route
-router.get('/geocode', authenticateToken, async (req, res) => {
+router.get('/geocode', async (req, res) => {
     const { q } = req.query;
 
     if (!q) {
