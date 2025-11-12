@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_SIMPLE.py - Versione semplificata con dimensione fissa
+make_qr_3mf_CORRETTO.py - Versione con QR INCISO correttamente
 """
 
 import argparse
@@ -28,7 +28,7 @@ class QR3MFGenerator:
         print(log_entry, flush=True)
         self.debug_log.append(log_entry)
 
-    def generate_qr_matrix(self, data, qr_size_mm=25):  # Default 25mm
+    def generate_qr_matrix(self, data, qr_size_mm=25):
         self.log(f"GENERAZIONE QR: {data}")
         qr = qrcode.QRCode(
             version=4,
@@ -44,11 +44,16 @@ class QR3MFGenerator:
         self.log(f"Dimensione totale QR: {qr_size_mm}mm (25x25mm)")
         return matrix, module_size
 
-    def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
-        """Crea QR incastonato SEMPLICE - usa sempre la dimensione specificata"""
-        self.log("CREAZIONE QR INCASTONATO")
+    def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_bounds, depth=0.3):
+        """Crea QR INCISO all'interno della base"""
+        self.log("CREAZIONE QR INCISO")
         self.log(f"Centro base: {base_center}")
+        self.log(f"Bounds base: {base_bounds}")
         self.log(f"Profondità incisione: {depth}mm")
+        
+        # Trova la coordinata Z della superficie SUPERIORE della base
+        base_top_z = base_bounds[1][2]  # Z massimo della base
+        self.log(f"Superficie superiore base (Z): {base_top_z}mm")
         
         boxes = []
         
@@ -61,17 +66,25 @@ class QR3MFGenerator:
                     center_x = rel_x + base_center[0]
                     center_y = rel_y + base_center[1]
                     
-                    # Crea box che si ESTENDE verso il BASSO
+                    # Crea box che si ESTENDE verso il BASSO dalla superficie superiore
+                    # Posizione: la parte SUPERIORE del QR è alla superficie della base
+                    # Si estende verso il BASSO (dentro la base)
                     box = trimesh.creation.box([module_size, module_size, depth])
-                    box.apply_translation([center_x, center_y, -depth/2])
+                    
+                    # Posiziona il QR: 
+                    # - Centro X,Y come prima
+                    # - Z: la parte superiore del QR è alla superficie della base, si estende verso il basso
+                    box_z_position = base_top_z - (depth / 2)
+                    box.apply_translation([center_x, center_y, box_z_position])
                     boxes.append(box)
         
         if not boxes:
             raise ValueError("Nessun modulo QR!")
             
         qr_embossed = trimesh.util.concatenate(boxes)
-        self.log(f"QR incastonato creato: {len(boxes)} moduli")
+        self.log(f"QR inciso creato: {len(boxes)} moduli")
         self.log(f"QR bounds: {qr_embossed.bounds}")
+        self.log(f"QR Z-range: [{qr_embossed.bounds[0][2]:.3f}, {qr_embossed.bounds[1][2]:.3f}]")
         
         return qr_embossed
 
@@ -91,14 +104,16 @@ class QR3MFGenerator:
             base_mesh = scene
         
         base_center = base_mesh.centroid
+        bounds = base_mesh.bounds
         
         self.log("=== ANALISI BASE ===")
         self.log(f"Vertici: {len(base_mesh.vertices)}")
         self.log(f"Facce: {len(base_mesh.faces)}")
-        self.log(f"Bounds: {base_mesh.bounds}")
+        self.log(f"Bounds: {bounds}")
         self.log(f"Centro: {base_center}")
+        self.log(f"Z range: [{bounds[0][2]:.3f}, {bounds[1][2]:.3f}]")
         
-        return base_mesh, base_center
+        return base_mesh, base_center, bounds
 
     def combine_meshes(self, base, qr_embossed):
         """Combina base e QR in una singola mesh"""
@@ -110,19 +125,19 @@ class QR3MFGenerator:
         self.log(f"Mesh combinata: {len(combined.vertices)} vertici")
         return combined
 
-    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):  # Default a 25mm
+    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - DIMENSIONE FISSA")
+            self.log("🚀 INIZIO GENERAZIONE - QR INCISO CORRETTAMENTE")
             self.log(f"Dimensione QR specificata: {qr_size_mm}mm")
             
             # 1. Carica base
-            base, base_center = self.load_single_base(input_3mf)
+            base, base_center, base_bounds = self.load_single_base(input_3mf)
             
-            # 2. Genera QR con la dimensione specificata (NESSUN CONTROLLO AUTOMATICO)
+            # 2. Genera QR con la dimensione specificata
             matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
             
-            # 3. Crea QR incastonato
-            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
+            # 3. Crea QR INCISO all'interno della base
+            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, base_bounds, depth=0.3)
             
             # 4. Combina in UNA singola mesh
             final_mesh = self.combine_meshes(base, qr_embossed)
@@ -131,7 +146,7 @@ class QR3MFGenerator:
             final_mesh.export(output_3mf)
             self.log(f"✅ Salvato: {output_3mf}")
             
-            self.log("🎉 COMPLETATO - QR a dimensione fissa incorporato")
+            self.log("🎉 COMPLETATO - QR INCISO correttamente")
             return True
             
         except Exception as e:
@@ -144,11 +159,11 @@ def main():
     parser.add_argument('--input-3mf', required=True)
     parser.add_argument('--output-3mf', required=True)
     parser.add_argument('--qr-data', required=True)
-    parser.add_argument('--qr-size-mm', type=float, default=25)  # Default 25mm
+    parser.add_argument('--qr-size-mm', type=float, default=25)
     
     args = parser.parse_args()
     
-    print("=== VERSIONE SEMPLIFICATA - DIMENSIONE FISSA ===")
+    print("=== VERSIONE CORRETTA - QR INCISO ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
