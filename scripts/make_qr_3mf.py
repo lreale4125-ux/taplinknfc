@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_FINAL.py - Versione con QR più grande e senza sborderi
+make_qr_3mf_FINAL.py - Versione con QR massimizzato e margine ridotto
 """
 
 import argparse
@@ -28,7 +28,7 @@ class QR3MFGenerator:
         print(log_entry, flush=True)
         self.debug_log.append(log_entry)
 
-    def generate_qr_matrix(self, data, qr_size_mm=25):  # Aumentato a 25mm
+    def generate_qr_matrix(self, data, qr_size_mm=100): # Aumentato a 100mm per massima dimensione richiesta
         self.log(f"GENERAZIONE QR: {data}")
         qr = qrcode.QRCode(
             version=4,
@@ -44,12 +44,12 @@ class QR3MFGenerator:
         self.log(f"Dimensione totale QR: {qr_size_mm}mm")
         return matrix, module_size
 
-    def calculate_safe_qr_size(self, base_bounds, margin_mm=3):
+    def calculate_safe_qr_size(self, base_bounds, margin_mm=0.5): # RIDOTTO IL MARGINE a 0.5mm
         """Calcola la dimensione massima del QR che non sborda"""
         base_width = base_bounds[1][0] - base_bounds[0][0]  # larghezza base
         base_height = base_bounds[1][1] - base_bounds[0][1] # altezza base
         
-        # Usa la dimensione minore tra larghezza e altezza, con margine
+        # Usa la dimensione minore tra larghezza e altezza, con margine minimo
         safe_size = min(base_width, base_height) - (2 * margin_mm)
         
         self.log(f"Base size: {base_width:.1f}x{base_height:.1f}mm")
@@ -59,7 +59,7 @@ class QR3MFGenerator:
 
     def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_bounds, depth=0.3):
         """Crea QR incastonato che non sborda"""
-        self.log("CREAZIONE QR INCASTONATO SENZA SBORDI")
+        self.log("CREAZIONE QR INCASTONATO SENZA SBORDI (Massimizzato)")
         self.log(f"Centro base: {base_center}")
         self.log(f"Profondità incisione: {depth}mm")
         
@@ -89,7 +89,7 @@ class QR3MFGenerator:
                     
                     # Controlla se il modulo è dentro la base
                     inside_base = (mod_min_x >= base_min_x and mod_max_x <= base_max_x and
-                                  mod_min_y >= base_min_y and mod_max_y <= base_max_y)
+                                    mod_min_y >= base_min_y and mod_max_y <= base_max_y)
                     
                     if inside_base:
                         modules_inside += 1
@@ -115,7 +115,7 @@ class QR3MFGenerator:
                      qr_bounds[0][1] >= base_min_y and qr_bounds[1][1] <= base_max_y)
         
         if not qr_inside:
-            self.log("⚠️  WARNING: Il QR potrebbe sborare leggermente")
+            self.log("⚠️ WARNING: Il QR potrebbe sborare leggermente (margine ridotto)")
         else:
             self.log("✅ QR completamente dentro la base")
             
@@ -158,20 +158,20 @@ class QR3MFGenerator:
         self.log(f"Mesh combinata: {len(combined.vertices)} vertici")
         return combined
 
-    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):  # Default a 25mm
+    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=100): # Default alto per massimizzare
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR OTTIMIZZATO")
+            self.log("🚀 INIZIO GENERAZIONE - QR MASSIMIZZATO")
             
             # 1. Carica SOLO la mesh principale
             base, base_center, base_bounds = self.load_single_base(input_3mf)
             
-            # 2. Calcola dimensione sicura per il QR
-            safe_size = self.calculate_safe_qr_size(base_bounds, margin_mm=3)
+            # 2. Calcola dimensione sicura per il QR (con margine 0.5mm)
+            safe_size = self.calculate_safe_qr_size(base_bounds, margin_mm=0.5)
             
-            # Usa la dimensione minore tra quella richiesta e quella sicura
+            # Usa la dimensione minore tra quella richiesta (alta) e quella sicura (bassa)
             actual_qr_size = min(qr_size_mm, safe_size)
             if actual_qr_size < qr_size_mm:
-                self.log(f"⚠️  QR ridotto a {actual_qr_size}mm per evitare sborderi")
+                self.log(f"✅ QR massimizzato a {actual_qr_size:.2f}mm (limitato dalla base)")
             
             # 3. Genera QR
             matrix, module_size = self.generate_qr_matrix(qr_data, actual_qr_size)
@@ -195,7 +195,7 @@ class QR3MFGenerator:
             with open(os.path.join(debug_dir, "log.txt"), 'w') as f:
                 f.write("\n".join(self.debug_log))
                 
-            self.log("🎉 COMPLETATO - QR ottimizzato incorporato")
+            self.log("🎉 COMPLETATO - QR massimizzato incorporato")
             return True
             
         except Exception as e:
@@ -208,11 +208,11 @@ def main():
     parser.add_argument('--input-3mf', required=True)
     parser.add_argument('--output-3mf', required=True)
     parser.add_argument('--qr-data', required=True)
-    parser.add_argument('--qr-size-mm', type=float, default=25)  # Default aumentato a 25mm
+    parser.add_argument('--qr-size-mm', type=float, default=100) # Default aumentato a 100mm
     
     args = parser.parse_args()
     
-    print("=== VERSIONE OTTIMIZZATA - QR PIÙ GRANDE SENZA SBORDI ===")
+    print("=== VERSIONE OTTIMIZZATA - QR MASSIMIZZATO SENZA SBORDI ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
