@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_FINAL.py - Versione con QR FORZATO più grande
+make_qr_3mf_SIMPLE.py - Versione semplificata con dimensione fissa
 """
 
 import argparse
@@ -28,7 +28,7 @@ class QR3MFGenerator:
         print(log_entry, flush=True)
         self.debug_log.append(log_entry)
 
-    def generate_qr_matrix(self, data, qr_size_mm=35):  # Aumentato a 35mm!
+    def generate_qr_matrix(self, data, qr_size_mm=25):  # Default 25mm
         self.log(f"GENERAZIONE QR: {data}")
         qr = qrcode.QRCode(
             version=4,
@@ -41,47 +41,16 @@ class QR3MFGenerator:
         matrix = np.array(qr.get_matrix(), dtype=bool)
         module_size = qr_size_mm / max(matrix.shape)
         self.log(f"QR: {matrix.shape} moduli, size: {module_size:.3f}mm")
-        self.log(f"Dimensione totale QR: {qr_size_mm}mm")
+        self.log(f"Dimensione totale QR: {qr_size_mm}mm (25x25mm)")
         return matrix, module_size
 
-    def get_base_circular_info(self, base_center, base_vertices):
-        """Ottiene informazioni precise sulla base circolare"""
-        # Calcola il raggio della base circolare
-        distances = np.linalg.norm(base_vertices[:, :2] - base_center[:2], axis=1)
-        base_radius = np.max(distances)
-        diameter = base_radius * 2
-        
-        # Calcola la dimensione MASSIMA possibile per un quadrato nel cerchio
-        # La diagonale del quadrato deve essere <= diametro
-        max_square_size = diameter / np.sqrt(2)
-        
-        self.log(f"=== INFO BASE CIRCOLARE ===")
-        self.log(f"Raggio base: {base_radius:.1f}mm")
-        self.log(f"Diametro base: {diameter:.1f}mm")
-        self.log(f"QR massimo teorico: {max_square_size:.1f}mm")
-        
-        return base_radius, diameter, max_square_size
-
-    def is_point_inside_circle(self, point, center, radius):
-        """Controlla se un punto è dentro il cerchio"""
-        distance = np.sqrt((point[0] - center[0])**2 + (point[1] - center[1])**2)
-        return distance <= radius
-
-    def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_radius, depth=0.3):
-        """Crea QR incastonato - versione AGGRESSIVA"""
-        self.log("CREAZIONE QR - DIMENSIONE MASSIMA")
+    def create_qr_embossed_mesh(self, matrix, module_size, base_center, depth=0.3):
+        """Crea QR incastonato SEMPLICE - usa sempre la dimensione specificata"""
+        self.log("CREAZIONE QR INCASTONATO")
         self.log(f"Centro base: {base_center}")
-        self.log(f"Raggio base: {base_radius:.1f}mm")
         self.log(f"Profondità incisione: {depth}mm")
         
         boxes = []
-        modules_inside = 0
-        modules_outside = 0
-        
-        # Calcola la dimensione totale del QR
-        qr_width = matrix.shape[1] * module_size
-        qr_height = matrix.shape[0] * module_size
-        self.log(f"Dimensione QR: {qr_width:.1f}x{qr_height:.1f}mm")
         
         for y in range(matrix.shape[0]):
             for x in range(matrix.shape[1]):
@@ -92,33 +61,13 @@ class QR3MFGenerator:
                     center_x = rel_x + base_center[0]
                     center_y = rel_y + base_center[1]
                     
-                    # Calcola solo il centro (versione semplificata)
-                    # Invece di controllare tutti gli angoli, controlla solo che il centro sia dentro
-                    # con un margine di sicurezza di metà modulo
-                    safe_radius = base_radius - (module_size / 2)
-                    center_inside = self.is_point_inside_circle(
-                        [center_x, center_y], base_center, safe_radius
-                    )
-                    
-                    if center_inside:
-                        modules_inside += 1
-                        # Crea box che si ESTENDE verso il BASSO
-                        box = trimesh.creation.box([module_size, module_size, depth])
-                        box.apply_translation([center_x, center_y, -depth/2])
-                        boxes.append(box)
-                    else:
-                        modules_outside += 1
+                    # Crea box che si ESTENDE verso il BASSO
+                    box = trimesh.creation.box([module_size, module_size, depth])
+                    box.apply_translation([center_x, center_y, -depth/2])
+                    boxes.append(box)
         
-        self.log(f"Moduli QR: {modules_inside} dentro base, {modules_outside} fuori base")
-        self.log(f"Percentuale moduli dentro: {(modules_inside/(modules_inside+modules_outside))*100:.1f}%")
-        
-        if modules_inside < (matrix.shape[0] * matrix.shape[1]) * 0.7:  # Almeno 70% dei moduli
-            self.log("⚠️  WARNING: Meno del 70% dei moduli è dentro la base")
-        else:
-            self.log("✅ Buona copertura QR")
-            
         if not boxes:
-            raise ValueError("Nessun modulo QR dentro la base circolare!")
+            raise ValueError("Nessun modulo QR!")
             
         qr_embossed = trimesh.util.concatenate(boxes)
         self.log(f"QR incastonato creato: {len(boxes)} moduli")
@@ -127,7 +76,7 @@ class QR3MFGenerator:
         return qr_embossed
 
     def load_single_base(self, path):
-        """Carica SOLO la mesh principale della base CIRCOLARE"""
+        """Carica SOLO la mesh principale della base"""
         self.log(f"CARICAMENTO BASE: {path}")
         if not os.path.exists(path):
             raise FileNotFoundError(f"Base non trovata: {path}")
@@ -142,24 +91,14 @@ class QR3MFGenerator:
             base_mesh = scene
         
         base_center = base_mesh.centroid
-        bounds = base_mesh.bounds
         
-        # Calcola informazioni base circolare
-        base_radius, diameter, max_square_size = self.get_base_circular_info(
-            base_center, base_mesh.vertices
-        )
-        
-        self.log("=== ANALISI BASE CIRCOLARE ===")
+        self.log("=== ANALISI BASE ===")
         self.log(f"Vertici: {len(base_mesh.vertices)}")
         self.log(f"Facce: {len(base_mesh.faces)}")
-        self.log(f"Bounds: {bounds}")
+        self.log(f"Bounds: {base_mesh.bounds}")
         self.log(f"Centro: {base_center}")
-        self.log(f"Raggio: {base_radius:.1f}mm")
-        self.log(f"Diametro: {diameter:.1f}mm")
-        self.log(f"QR massimo possibile: {max_square_size:.1f}mm")
-        self.log(f"Watertight: {base_mesh.is_watertight}")
         
-        return base_mesh, base_center, base_radius, base_mesh.vertices
+        return base_mesh, base_center
 
     def combine_meshes(self, base, qr_embossed):
         """Combina base e QR in una singola mesh"""
@@ -171,46 +110,28 @@ class QR3MFGenerator:
         self.log(f"Mesh combinata: {len(combined.vertices)} vertici")
         return combined
 
-    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=35):  # Default a 35mm!
+    def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):  # Default a 25mm
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR GRANDE FORZATO")
+            self.log("🚀 INIZIO GENERAZIONE - DIMENSIONE FISSA")
+            self.log(f"Dimensione QR specificata: {qr_size_mm}mm")
             
-            # 1. Carica base CIRCOLARE
-            base, base_center, base_radius, base_vertices = self.load_single_base(input_3mf)
+            # 1. Carica base
+            base, base_center = self.load_single_base(input_3mf)
             
-            # 2. Calcola dimensione MASSIMA teorica
-            _, _, max_theoretical = self.get_base_circular_info(base_center, base_vertices)
+            # 2. Genera QR con la dimensione specificata (NESSUN CONTROLLO AUTOMATICO)
+            matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
             
-            # 3. FORZIAMO una dimensione grande ma ragionevole
-            # Usa il 90% della dimensione massima teorica, o quella richiesta se più piccola
-            forced_size = min(qr_size_mm, max_theoretical * 0.9)
+            # 3. Crea QR incastonato
+            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, depth=0.3)
             
-            self.log(f"💪 DIMENSIONE FORZATA: {forced_size}mm")
-            self.log(f"   (Massimo teorico: {max_theoretical:.1f}mm, Richiesto: {qr_size_mm}mm)")
-            
-            # 4. Genera QR
-            matrix, module_size = self.generate_qr_matrix(qr_data, forced_size)
-            
-            # 5. Crea QR incastonato (versione aggressiva)
-            qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, base_radius, depth=0.3)
-            
-            # 6. Combina in UNA singola mesh
+            # 4. Combina in UNA singola mesh
             final_mesh = self.combine_meshes(base, qr_embossed)
             
-            # 7. Salva come 3MF
+            # 5. Salva come 3MF
             final_mesh.export(output_3mf)
             self.log(f"✅ Salvato: {output_3mf}")
             
-            # 8. Salva debug
-            debug_dir = os.path.join(os.path.dirname(output_3mf), "debug")
-            os.makedirs(debug_dir, exist_ok=True)
-            base.export(os.path.join(debug_dir, "base.stl"))
-            qr_embossed.export(os.path.join(debug_dir, "qr_embossed.stl"))
-            final_mesh.export(os.path.join(debug_dir, "combined.stl"))
-            with open(os.path.join(debug_dir, "log.txt"), 'w') as f:
-                f.write("\n".join(self.debug_log))
-                
-            self.log("🎉 COMPLETATO - QR GRANDE incorporato")
+            self.log("🎉 COMPLETATO - QR a dimensione fissa incorporato")
             return True
             
         except Exception as e:
@@ -223,11 +144,11 @@ def main():
     parser.add_argument('--input-3mf', required=True)
     parser.add_argument('--output-3mf', required=True)
     parser.add_argument('--qr-data', required=True)
-    parser.add_argument('--qr-size-mm', type=float, default=35)  # Default a 35mm!
+    parser.add_argument('--qr-size-mm', type=float, default=25)  # Default 25mm
     
     args = parser.parse_args()
     
-    print("=== VERSIONE FORZATA - QR GRANDE ===")
+    print("=== VERSIONE SEMPLIFICATA - DIMENSIONE FISSA ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
