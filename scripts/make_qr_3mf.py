@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_CORRETTO.py - Versione con QR INCISO correttamente
+make_qr_3mf_CORRETTO.py - Versione con QR sulla superficie INFERIORE
 """
 
 import argparse
@@ -45,15 +45,15 @@ class QR3MFGenerator:
         return matrix, module_size
 
     def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_bounds, depth=0.3):
-        """Crea QR INCISO all'interno della base"""
-        self.log("CREAZIONE QR INCISO")
+        """Crea QR sulla superficie INFERIORE della base (Z: -0.001 a 0.3)"""
+        self.log("CREAZIONE QR SU SUPERFICIE INFERIORE")
         self.log(f"Centro base: {base_center}")
         self.log(f"Bounds base: {base_bounds}")
         self.log(f"Profondità incisione: {depth}mm")
         
-        # Trova la coordinata Z della superficie SUPERIORE della base
-        base_top_z = base_bounds[1][2]  # Z massimo della base
-        self.log(f"Superficie superiore base (Z): {base_top_z}mm")
+        # Trova la coordinata Z della superficie INFERIORE della base
+        base_bottom_z = base_bounds[0][2]  # Z minimo della base
+        self.log(f"Superficie inferiore base (Z): {base_bottom_z}mm")
         
         boxes = []
         
@@ -66,15 +66,17 @@ class QR3MFGenerator:
                     center_x = rel_x + base_center[0]
                     center_y = rel_y + base_center[1]
                     
-                    # Crea box che si ESTENDE verso il BASSO dalla superficie superiore
-                    # Posizione: la parte SUPERIORE del QR è alla superficie della base
-                    # Si estende verso il BASSO (dentro la base)
+                    # Crea box che si ESTENDE verso l'ALTO dalla superficie inferiore
+                    # Posizione: la parte INFERIORE del QR è alla superficie inferiore della base
+                    # Si estende verso l'ALTO (dentro la base)
                     box = trimesh.creation.box([module_size, module_size, depth])
                     
                     # Posiziona il QR: 
                     # - Centro X,Y come prima
-                    # - Z: la parte superiore del QR è alla superficie della base, si estende verso il basso
-                    box_z_position = base_top_z - (depth / 2)
+                    # - Z: la parte inferiore del QR è alla superficie inferiore della base
+                    # - Si estende verso Z positivo (dentro la base)
+                    # Vogliamo Z-range: [-0.001, 0.3]
+                    box_z_position = base_bottom_z + (depth / 2)
                     box.apply_translation([center_x, center_y, box_z_position])
                     boxes.append(box)
         
@@ -82,7 +84,7 @@ class QR3MFGenerator:
             raise ValueError("Nessun modulo QR!")
             
         qr_embossed = trimesh.util.concatenate(boxes)
-        self.log(f"QR inciso creato: {len(boxes)} moduli")
+        self.log(f"QR sulla superficie inferiore creato: {len(boxes)} moduli")
         self.log(f"QR bounds: {qr_embossed.bounds}")
         self.log(f"QR Z-range: [{qr_embossed.bounds[0][2]:.3f}, {qr_embossed.bounds[1][2]:.3f}]")
         
@@ -127,7 +129,7 @@ class QR3MFGenerator:
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR INCISO CORRETTAMENTE")
+            self.log("🚀 INIZIO GENERAZIONE - QR SU SUPERFICIE INFERIORE")
             self.log(f"Dimensione QR specificata: {qr_size_mm}mm")
             
             # 1. Carica base
@@ -136,7 +138,7 @@ class QR3MFGenerator:
             # 2. Genera QR con la dimensione specificata
             matrix, module_size = self.generate_qr_matrix(qr_data, qr_size_mm)
             
-            # 3. Crea QR INCISO all'interno della base
+            # 3. Crea QR sulla superficie INFERIORE
             qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, base_bounds, depth=0.3)
             
             # 4. Combina in UNA singola mesh
@@ -146,7 +148,7 @@ class QR3MFGenerator:
             final_mesh.export(output_3mf)
             self.log(f"✅ Salvato: {output_3mf}")
             
-            self.log("🎉 COMPLETATO - QR INCISO correttamente")
+            self.log("🎉 COMPLETATO - QR sulla superficie inferiore")
             return True
             
         except Exception as e:
@@ -163,7 +165,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== VERSIONE CORRETTA - QR INCISO ===")
+    print("=== VERSIONE CORRETTA - QR SU SUPERFICIE INFERIORE ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
