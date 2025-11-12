@@ -20,14 +20,28 @@ function getWallet(req, res) {
 }
 
 /**
- * Get user links with analytics
+ * Get user links with analytics (INCLUSI QR vs NFC)
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
 function getLinks(req, res) {
     if (!req.user.company_id) return res.status(403).json({ error: 'Utente non associato a un\'azienda.' });
     try {
-        const links = db.prepare(`SELECT l.id, l.name, l.url, SUM(COALESCE(a.click_count, 0)) as total_clicks, COUNT(DISTINCT a.ip_address) as unique_visitors FROM links l LEFT JOIN analytics a ON l.id = a.link_id WHERE l.company_id = ? GROUP BY l.id, l.name, l.url ORDER BY total_clicks DESC`).all(req.user.company_id);
+        const links = db.prepare(`
+            SELECT 
+                l.id, 
+                l.name, 
+                l.url, 
+                SUM(COALESCE(a.click_count, 0)) as total_clicks,
+                COUNT(DISTINCT a.ip_address) as unique_visitors,
+                SUM(CASE WHEN a.source = 'qr' THEN COALESCE(a.click_count, 0) ELSE 0 END) as qr_clicks,
+                SUM(CASE WHEN a.source = 'nfc' THEN COALESCE(a.click_count, 0) ELSE 0 END) as nfc_clicks
+            FROM links l 
+            LEFT JOIN analytics a ON l.id = a.link_id 
+            WHERE l.company_id = ? 
+            GROUP BY l.id, l.name, l.url 
+            ORDER BY total_clicks DESC
+        `).all(req.user.company_id);
         res.json({ links });
     } catch(e) {
         console.error("Error fetching user links:", e);
@@ -36,7 +50,7 @@ function getLinks(req, res) {
 }
 
 /**
- * Get analytics for a specific link
+ * Get analytics for a specific link (INCLUSO source nelle attività)
  * @param {object} req - Express request object
  * @param {object} res - Express response object
  */
@@ -61,7 +75,14 @@ function getAnalytics(req, res) {
         if (!link) return res.status(404).json({ error: 'Link non trovato o non autorizzato.' });
 
         const geo_dist = db.prepare(`SELECT country, SUM(click_count) as clicks FROM analytics WHERE link_id = ? AND country IS NOT NULL GROUP BY country ORDER BY clicks DESC LIMIT 5`).all(linkId);
-        const recent_activity = db.prepare(`SELECT city, country, last_seen, os_name, browser_name, device_type FROM analytics WHERE link_id = ? AND date(last_seen) BETWEEN ? AND ? ORDER BY last_seen DESC LIMIT 10`).all(linkId, startDate, endDate);
+        
+        // ATTIVITÀ RECENTI CON INFO SORGENTE
+        const recent_activity = db.prepare(`
+            SELECT city, country, last_seen, os_name, browser_name, device_type, source 
+            FROM analytics 
+            WHERE link_id = ? AND date(last_seen) BETWEEN ? AND ? 
+            ORDER BY last_seen DESC LIMIT 10
+        `).all(linkId, startDate, endDate);
 
         let groupByFormat;
         switch (groupBy) {
