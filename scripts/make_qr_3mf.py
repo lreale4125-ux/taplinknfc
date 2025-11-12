@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_qr_3mf_CORRETTO.py - Versione con QR sulla superficie INFERIORE
+make_qr_3mf_SEPARATO.py - Versione con QR come solido separato
 """
 
 import argparse
@@ -45,7 +45,7 @@ class QR3MFGenerator:
         return matrix, module_size
 
     def create_qr_embossed_mesh(self, matrix, module_size, base_center, base_bounds, depth=0.3):
-        """Crea QR sulla superficie INFERIORE della base (Z: -0.001 a 0.3)"""
+        """Crea QR sulla superficie INFERIORE della base"""
         self.log("CREAZIONE QR SU SUPERFICIE INFERIORE")
         self.log(f"Centro base: {base_center}")
         self.log(f"Bounds base: {base_bounds}")
@@ -67,15 +67,9 @@ class QR3MFGenerator:
                     center_y = rel_y + base_center[1]
                     
                     # Crea box che si ESTENDE verso l'ALTO dalla superficie inferiore
-                    # Posizione: la parte INFERIORE del QR è alla superficie inferiore della base
-                    # Si estende verso l'ALTO (dentro la base)
                     box = trimesh.creation.box([module_size, module_size, depth])
                     
-                    # Posiziona il QR: 
-                    # - Centro X,Y come prima
-                    # - Z: la parte inferiore del QR è alla superficie inferiore della base
-                    # - Si estende verso Z positivo (dentro la base)
-                    # Vogliamo Z-range: [-0.001, 0.3]
+                    # Posiziona il QR sulla superficie inferiore
                     box_z_position = base_bottom_z + (depth / 2)
                     box.apply_translation([center_x, center_y, box_z_position])
                     boxes.append(box)
@@ -117,19 +111,29 @@ class QR3MFGenerator:
         
         return base_mesh, base_center, bounds
 
-    def combine_meshes(self, base, qr_embossed):
-        """Combina base e QR in una singola mesh"""
-        self.log("COMBINAZIONE BASE + QR IN SINGOLA MESH")
+    def save_separate_objects(self, base, qr_embossed, output_path):
+        """Salva base e QR come oggetti SEPARATI nello stesso file 3MF"""
+        self.log("SALVATAGGIO OGGETTI SEPARATI")
         
-        # Unisci le due mesh in una singola
-        combined = trimesh.util.concatenate([base, qr_embossed])
+        # Crea una scena con DUE oggetti separati
+        scene = trimesh.Scene()
         
-        self.log(f"Mesh combinata: {len(combined.vertices)} vertici")
-        return combined
+        # Aggiungi la base come primo oggetto
+        scene.add_geometry(base, node_name="base_portachiavi")
+        
+        # Aggiungi il QR come secondo oggetto SEPARATO
+        scene.add_geometry(qr_embossed, node_name="qr_code_inciso")
+        
+        self.log(f"Scena creata con {len(scene.geometry)} oggetti separati")
+        self.log("✅ In Bambu Studio vedrai 2 solidi separati")
+        
+        # Salva come 3MF
+        scene.export(output_path)
+        return output_path
 
     def generate(self, input_3mf, output_3mf, qr_data, qr_size_mm=25):
         try:
-            self.log("🚀 INIZIO GENERAZIONE - QR SU SUPERFICIE INFERIORE")
+            self.log("🚀 INIZIO GENERAZIONE - SOLIDI SEPARATI")
             self.log(f"Dimensione QR specificata: {qr_size_mm}mm")
             
             # 1. Carica base
@@ -141,14 +145,20 @@ class QR3MFGenerator:
             # 3. Crea QR sulla superficie INFERIORE
             qr_embossed = self.create_qr_embossed_mesh(matrix, module_size, base_center, base_bounds, depth=0.3)
             
-            # 4. Combina in UNA singola mesh
-            final_mesh = self.combine_meshes(base, qr_embossed)
+            # 4. Salva come OGGETTI SEPARATI
+            self.save_separate_objects(base, qr_embossed, output_3mf)
             
-            # 5. Salva come 3MF
-            final_mesh.export(output_3mf)
             self.log(f"✅ Salvato: {output_3mf}")
             
-            self.log("🎉 COMPLETATO - QR sulla superficie inferiore")
+            # 5. Salva debug (opzionale)
+            debug_dir = os.path.join(os.path.dirname(output_3mf), "debug")
+            os.makedirs(debug_dir, exist_ok=True)
+            base.export(os.path.join(debug_dir, "base.stl"))
+            qr_embossed.export(os.path.join(debug_dir, "qr_embossed.stl"))
+            with open(os.path.join(debug_dir, "log.txt"), 'w') as f:
+                f.write("\n".join(self.debug_log))
+                
+            self.log("🎉 COMPLETATO - 2 solidi separati nel file 3MF")
             return True
             
         except Exception as e:
@@ -165,7 +175,7 @@ def main():
     
     args = parser.parse_args()
     
-    print("=== VERSIONE CORRETTA - QR SU SUPERFICIE INFERIORE ===")
+    print("=== VERSIONE CON SOLIDI SEPARATI ===")
     generator = QR3MFGenerator()
     success = generator.generate(args.input_3mf, args.output_3mf, args.qr_data, args.qr_size_mm)
     
