@@ -379,17 +379,17 @@
         function renderInteractiveMap(analyticsData) {
             const mapContainer = document.getElementById('interactiveMap');
             const listContainer = document.getElementById('topCitiesList');
-
+        
             if (mapInstance) mapInstance.remove();
             mapInstance = null;
             listContainer.innerHTML = '';
-
+        
             if (!analyticsData || analyticsData.length === 0) {
                 mapContainer.innerHTML = '<div class="flex items-center justify-center h-full text-gray-500">Nessun dato geografico</div>';
                 listContainer.innerHTML = '<p class="text-sm text-gray-500">Nessuna città da mostrare.</p>';
                 return;
             }
-
+        
             const cityClicks = analyticsData.reduce((acc, item) => {
                 const city = item.city;
                 // Ignora le città non identificate per non sprecare chiamate API
@@ -400,31 +400,46 @@
                 acc[key].clicks += 1;
                 return acc;
             }, {});
-
+        
             const sortedCities = Object.entries(cityClicks).map(([location, data]) => ({ location, ...data })).sort((a, b) => b.clicks - a.clicks);
-
+        
             sortedCities.slice(0, 5).forEach(city => {
                 const item = document.createElement('div');
                 item.className = 'flex justify-between items-center text-sm';
                 item.innerHTML = `<p class="text-gray-700 truncate">${city.location}</p><p class="font-bold text-gray-800">${city.clicks}</p>`;
                 listContainer.appendChild(item);
             });
-
+        
             mapInstance = L.map('interactiveMap').setView([45.0, 9.5], 4);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(mapInstance);
-
-            // ++ MODIFICA CHIAVE: Chiama la TUA API invece di quella esterna ++
+        
+            // MODIFICA: Aggiungi un piccolo delay tra le chiamate per evitare rate limiting
+            let delay = 0;
             sortedCities.slice(0, 10).forEach(city => {
-                // Usa la tua funzione apiFetch per chiamare il tuo nuovo endpoint
-                apiFetch(`/geocode?q=${encodeURIComponent(city.location)}`)
-                    .then(geometry => { // La nostra API restituisce direttamente {lat, lng}
-                        if (geometry && geometry.lat && geometry.lng) {
-                            L.circle([geometry.lat, geometry.lng], {
-                                color: '#4f46e5', fillColor: '#4f46e5', fillOpacity: 0.5,
-                                radius: 15000 * Math.sqrt(city.clicks)
-                            }).addTo(mapInstance).bindPopup(`<b>${city.location}</b><br>${city.clicks} clicks`);
-                        }
-                    }).catch(err => console.warn(`Geocoding fallito tramite proxy per ${city.location}:`, err));
+                setTimeout(() => {
+                    fetch(`/geocode?q=${encodeURIComponent(city.location)}`)
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            return response.json();
+                        })
+                        .then(geometry => {
+                            if (geometry && geometry.lat && geometry.lng) {
+                                L.circle([geometry.lat, geometry.lng], {
+                                    color: '#4f46e5',
+                                    fillColor: '#4f46e5',
+                                    fillOpacity: 0.5,
+                                    radius: 15000 * Math.sqrt(city.clicks)
+                                }).addTo(mapInstance).bindPopup(`<b>${city.location}</b><br>${city.clicks} clicks`);
+                            }
+                        })
+                        .catch(err => {
+                            console.warn(`Geocoding fallito per ${city.location}:`, err);
+                            // Non bloccare l'esecuzione per errori di geocoding
+                        });
+                }, delay);
+                delay += 500; // 500ms di delay tra una chiamata e l'altra
             });
         }
     
