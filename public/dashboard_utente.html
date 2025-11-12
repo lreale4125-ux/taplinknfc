@@ -416,7 +416,7 @@
             // ++ MODIFICA CHIAVE: Chiama la TUA API invece di quella esterna ++
             sortedCities.slice(0, 10).forEach(city => {
                 // Usa la tua funzione apiFetch per chiamare il tuo nuovo endpoint
-                apiFetch(`/api/geocode?q=${encodeURIComponent(city.location)}`)
+                apiFetch(`/geocode?q=${encodeURIComponent(city.location)}`)
                     .then(geometry => { // La nostra API restituisce direttamente {lat, lng}
                         if (geometry && geometry.lat && geometry.lng) {
                             L.circle([geometry.lat, geometry.lng], {
