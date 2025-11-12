@@ -31,7 +31,6 @@ async function getFinalUrl(linkId) {
     return linkData.link_url;
 }
 
-
 // Redirect route for links
 router.get('/r/:linkId', async (req, res) => {
     try {
@@ -40,7 +39,7 @@ router.get('/r/:linkId', async (req, res) => {
         if (!finalUrl) return res.status(404).send('Link o Selettore non trovato.');
         
         // Traccia il click (assumendo che recordClick possa essere sincrono o gestito qui)
-        recordClick(req.params.linkId, null, req);
+        recordClick(req.params.linkId, null, req, 'direct');
         
         // Esegue il reindirizzamento
         res.redirect(finalUrl);
@@ -51,21 +50,36 @@ router.get('/r/:linkId', async (req, res) => {
     }
 });
 
-// Redirect route for keychains (Modificato per usare getFinalUrl)
-router.get('/k/:keychainId', async (req, res) => {
+// Redirect route for keychains (Supporta keychain_number con prefisso QA)
+router.get('/k/:keychainIdentifier', async (req, res) => {
     try {
-        const keychain = db.prepare(`SELECT link_id FROM keychains WHERE id = ?`).get(req.params.keychainId);
-        if (!keychain) return res.status(404).send('Keychain non trovato.');
+        const keychainIdentifier = req.params.keychainIdentifier;
+        let source = 'nfc';
+        let lookupValue = keychainIdentifier;
+
+        // Determina la sorgente in base al prefisso QA (non AQ!)
+        if (keychainIdentifier.toUpperCase().startsWith('QA')) {
+            source = 'qr';
+            // Mantieni l'ID completo (QA1, QA2, ecc.) per la ricerca - NON rimuovere il prefisso!
+        }
+
+        // Cerca il keychain per keychain_number (supporta sia QA1 che 3)
+        const keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
+        
+        if (!keychain) {
+            return res.status(404).send(`Keychain '${lookupValue}' non trovato.`);
+        }
         
         const finalUrl = await getFinalUrl(keychain.link_id);
         
         if (!finalUrl) return res.status(404).send('Link associato non trovato.');
         
-        recordClick(keychain.link_id, req.params.keychainId, req);
+        // Traccia il click con la sorgente corretta
+        recordClick(keychain.link_id, keychain.id, req, source);
         res.redirect(finalUrl);
         
     } catch (error) {
-        console.error("Errore nel reindirizzamento /k/:keychainId:", error.message);
+        console.error("Errore nel reindirizzamento /k/:keychainIdentifier:", error.message);
         res.status(500).send('Errore del server.');
     }
 });

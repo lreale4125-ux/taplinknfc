@@ -6,8 +6,9 @@ const UAParser = require('ua-parser-js');
  * @param {number} linkId - The ID of the link being accessed
  * @param {string|number} keychainId - The keychain ID (optional)
  * @param {object} req - Express request object
+ * @param {string} source - Source of the click: 'qr', 'nfc', or 'direct'
  */
-function recordClick(linkId, keychainId, req) {
+function recordClick(linkId, keychainId, req, source = 'nfc') {
     const db = require('../db');
 
     const ip = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress;
@@ -27,21 +28,22 @@ function recordClick(linkId, keychainId, req) {
     const stmt = db.prepare(`
         INSERT INTO analytics (
             link_id, keychain_id, ip_address, user_agent, referrer, country, city, lat, lon,
-            os_name, browser_name, device_type
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            os_name, browser_name, device_type, source
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(link_id, ip_address, keychain_id) DO UPDATE SET
             click_count = click_count + 1,
             last_seen = CURRENT_TIMESTAMP,
             user_agent = excluded.user_agent,
             os_name = excluded.os_name,
             browser_name = excluded.browser_name,
-            device_type = excluded.device_type
+            device_type = excluded.device_type,
+            source = excluded.source
     `);
 
     stmt.run(
         linkId, keychainId, ip, userAgent, req.get('Referrer'),
         geo.country, geo.city, lat, lon,
-        osName, browserName, deviceType
+        osName, browserName, deviceType, source
     );
 }
 
