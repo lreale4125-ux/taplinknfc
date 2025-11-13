@@ -379,8 +379,7 @@ async function handleMotivationalRequest(req, res) {
         };
 
         document.addEventListener('DOMContentLoaded', function() {
-            checkUrlForAuth();
-            updateAuthUI();
+            checkUrlForAuth(); // Questa ora gestisce tutto
             
             document.getElementById('change-topic-btn').addEventListener('click', () => {
                 const topicTextElement = document.getElementById('topic-text');
