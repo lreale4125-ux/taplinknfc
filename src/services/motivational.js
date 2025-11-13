@@ -8,19 +8,20 @@ const jwt = require('jsonwebtoken');
  */
 function mapCategory(n8nCategory) {
     const categoryMap = {
-        'motivazione_personale': 'motivazione',
-        'studio_apprendimento': 'studio', 
-        'successo_resilienza': 'successo'
+        'motivazione_personale': 'motivazione_personale',
+        'studio_apprendimento': 'studio_apprendimento', 
+        'successo_resilienza': 'successo_resilienza'
     };
-    return categoryMap[n8nCategory] || 'motivazione';
+    return categoryMap[n8nCategory] || 'motivazione_personale';
 }
 
 /**
  * Prende una frase motivazionale casuale dal database
  */
-async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') {
+async function getMotivationalQuoteFromDB(topic = 'motivazione_personale', userName = '') {
     try {
-        const mappedTopic = mapCategory(topic);
+        // Usa direttamente le categorie N8N
+        const mappedTopic = topic; // Non mappiamo più, usiamo direttamente
         
         const phrases = db.prepare(`
             SELECT phrase_text, category, author
@@ -87,7 +88,7 @@ async function getQuoteOnly(req, res) {
         res.setHeader('Content-Type', 'application/json');
         
         let keychainId = req.query.id || 'Ospite';
-        let topic = req.query.topic || 'motivazione';
+        let topic = req.query.topic || 'motivazione_personale'; 
         let username = req.query.username || keychainId; 
         
         // Autenticazione
@@ -161,7 +162,7 @@ async function updateUserNickname(req, res) {
  */
 async function handleMotivationalRequest(req, res) {
     try {
-        const initialTopic = req.query.topic || 'motivazione';
+        const initialTopic = req.query.topic || 'motivazione_personale';
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
