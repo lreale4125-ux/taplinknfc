@@ -317,6 +317,7 @@ async function handleMotivationalRequest(req, res) {
             const id = urlParams.get('id');
             const topic = urlParams.get('topic');
         
+            // 🔥 SE C'È UN TOKEN NELL'URL (login appena fatto)
             if (token && id) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -329,20 +330,28 @@ async function handleMotivationalRequest(req, res) {
                     
                     if (isGoogleUser && !localStorage.getItem('nicknameSet')) {
                         showNicknamePopup();
-                        // NON caricare la frase qui - aspetta che l'utente inserisca il nickname
+                        // Aspetta che l'utente inserisca il nickname prima di caricare la frase
                     } else {
                         if (topic) localStorage.setItem('lastTopic', topic);
                         window.history.replaceState({}, document.title, '/motivazionale');
                         updateAuthUI();
-                        loadQuote(); // 🔥 CARICA LA FRASE QUI DOPO AUTH
+                        loadQuote(); // Carica la frase dopo il login
                     }
                 } catch (error) {
                     console.error('Errore durante il login automatico:', error);
-                    loadQuote(); // 🔥 CARICA COMUNQUE LA FRASE ANCHE SE AUTH FALLISCE
+                    loadQuote(); // Carica comunque la frase anche se auth fallisce
                 }
-            } else {
-                // 🔥 SE NON C'È LOGIN, CARICA COMUNQUE LA FRASE
+            } 
+            // 🔥 SE NON C'È TOKEN NELL'URL MA C'È IN LOCALSTORAGE (pagina ricaricata)
+            else if (localStorage.getItem('authToken')) {
+                // L'utente è già loggato, carica semplicemente la frase
+                updateAuthUI();
                 loadQuote();
+            }
+            // 🔥 SE NON C'È ALCUN LOGIN (utente ospite)
+            else {
+                updateAuthUI();
+                loadQuote(); // Carica la frase per ospite
             }
         }
 
