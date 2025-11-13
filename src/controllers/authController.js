@@ -2,64 +2,58 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-// --- GOOGLE OAUTH ---
+// --- GOOGLE OAUTH - AVVIO FLUSSO ---
 async function googleAuth(req, res) {
-    // Questa funzione verrà chiamata dopo che Google ha autenticato l'utente
-    const { token: googleToken, email, name, googleId } = req.body;
-
-    if (!email || !googleId) {
-        return res.status(400).json({ error: 'Dati Google incompleti.' });
-    }
-
     try {
-        // Cerca utente per email o google_id
-        let user = db.prepare("SELECT * FROM users WHERE email = ? OR google_id = ?").get(email, googleId);
+        // 🎯 Costruisci l'URL di autorizzazione Google
+        const clientId = process.env.GOOGLE_CLIENT_ID;
+        const redirectUri = 'https://taplinknfc.it/api/auth/google/callback';
+        const scope = 'email profile';
         
-        if (!user) {
-            // Crea nuovo utente con Google
-            const stmt = db.prepare(`
-                INSERT INTO users (email, username, role, google_id, created_at)
-                VALUES (?, ?, 'motivazional', ?, datetime('now'))
-            `);
-            const info = stmt.run(email, name || email.split('@')[0], googleId);
-            
-            user = {
-                id: info.lastInsertRowid,
-                email: email,
-                username: name || email.split('@')[0],
-                role: 'motivazional',
-                google_id: googleId
-            };
-        } else if (!user.google_id) {
-            // Aggiorna utente esistente con Google ID
-            db.prepare("UPDATE users SET google_id = ? WHERE id = ?").run(googleId, user.id);
-            user.google_id = googleId;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${clientId}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            `&response_type=code` +
+            `&scope=${encodeURIComponent(scope)}` +
+            `&access_type=offline` +
+            `&prompt=consent`;
+        
+        // 🎯 Reindirizza l'utente a Google per l'autorizzazione
+        console.log('Reindirizzamento a Google OAuth:', authUrl);
+        res.redirect(authUrl);
+        
+    } catch (error) {
+        console.error('Errore durante redirect a Google:', error);
+        res.status(500).json({ error: 'Errore durante il login con Google' });
+    }
+}
+
+// --- GOOGLE OAUTH CALLBACK ---
+async function googleAuthCallback(req, res) {
+    try {
+        const { code } = req.query;
+        
+        if (!code) {
+            console.error('Codice di autorizzazione mancante');
+            return res.redirect('https://taplinknfc.it/login?error=google_auth_failed');
         }
 
-        // Prepara payload JWT
-        const payload = {
-            id: user.id,
-            username: user.username,
-            role: user.role,
-            email: user.email
-        };
-
-        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
-
-        // Redirect a motivational
-        const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${user.id}&topic=motivazione`;
+        console.log('Google Auth Code ricevuto:', code);
         
-        return res.json({ 
-            success: true,
-            message: 'Login con Google completato!',
-            token: token, 
-            user: payload, 
-            redirect: redirectUrl 
-        });
-
+        // 🎯 PER ORA - REINDIRIZZA ALLA PAGINA MOTIVAZIONALE
+        // In futuro qui scambierai il code con un access token
+        const tempToken = jwt.sign(
+            { id: 'temp_google_user', username: 'Google User', role: 'motivazional' },
+            process.env.JWT_SECRET,
+            { expiresIn: '1h' }
+        );
+        
+        const redirectUrl = `https://motivazional.taplinknfc.it?token=${tempToken}&id=google_temp&topic=motivazione&message=Google+login+in+sviluppo`;
+        res.redirect(redirectUrl);
+        
     } catch (error) {
-        console.error('Errore durante login Google:', error);
-        res.status(500).json({ error: 'Errore del server durante il login Google.' });
+        console.error('Errore durante callback Google:', error);
+        res.redirect('https://taplinknfc.it/login?error=google_callback_error');
     }
 }
 
@@ -229,5 +223,6 @@ module.exports = {
     login,
     register,
     verifyToken,
-    googleAuth
+    googleAuth,
+    googleAuthCallback
 };
