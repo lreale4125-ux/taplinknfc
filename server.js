@@ -1,14 +1,11 @@
-// --- SERVER.JS PULITO E COMPLETO --- //
+// --- SERVER.JS CORRETTO E COMPLETO --- //
 
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const db = require('./src/db');
-// Nota: 'authenticateToken' non è più necessaria qui se gestiamo il token in motivational.js
-// La riga è stata commentata se non definita da un altro file
-// const { authenticateToken } = require('./src/middleware/auth'); 
-const jwt = require('jsonwebtoken'); // Necessario per la verifica opzionale nel middleware
-const { handleMotivationalRequest, getQuoteOnly } = require('./src/services/motivational');
+const jwt = require('jsonwebtoken');
+const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
 
 // Route modules
 const authRoutes = require('./src/routes/auth');
@@ -29,6 +26,54 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N (DEVE STARE PRIMA del middleware motivazionale)
+app.post('/api/sync-phrases', async (req, res) => {
+    try {
+        const phrases = req.body;
+        
+        if (!Array.isArray(phrases)) {
+            return res.status(400).json({ error: 'Dati non validi' });
+        }
+        
+        // Mappa categorie N8N → SQLite
+        function mapCategory(n8nCategory) {
+            const categoryMap = {
+                'motivazione_personale': 'motivazione',
+                'studio_apprendimento': 'studio', 
+                'successo_resilienza': 'successo'
+            };
+            return categoryMap[n8nCategory] || 'motivazione';
+        }
+        
+        // Pulisci tabella esistente
+        db.prepare('DELETE FROM motivational_phrases').run();
+        
+        // Inserisci nuove frasi
+        const insertStmt = db.prepare(`
+            INSERT INTO motivational_phrases (phrase_text, category, author) 
+            VALUES (?, ?, ?)
+        `);
+        
+        let insertedCount = 0;
+        for (const phrase of phrases) {
+            try {
+                const mappedCategory = mapCategory(phrase.Categoria);
+                insertStmt.run(phrase.Frase, mappedCategory, phrase.Autori);
+                insertedCount++;
+            } catch (error) {
+                console.warn(`Errore inserimento frase: ${phrase.Frase?.substring(0, 50)}`);
+            }
+        }
+        
+        console.log(`✅ Sincronizzate ${insertedCount} frasi nel database`);
+        res.json({ success: true, count: insertedCount });
+        
+    } catch (error) {
+        console.error("❌ Errore sincronizzazione frasi:", error);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
 // --- MIDDLEWARE PER DOMINIO MOTIVAZIONALE ---
 app.use(async (req, res, next) => {
     const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
@@ -37,10 +82,7 @@ app.use(async (req, res, next) => {
         return next(); // Non è dominio motivazionale
     }
 
-    // Nota: La gestione del token JWT è stata spostata interamente in motivational.js
-    // per gestire sia token in query che in header. Qui ci concentriamo sul routing.
-
-    // 1. API Motivazionale
+    // 1. API Motivazionale - Frase casuale
     if (req.path === '/api/quote') {
         try {
             return await getQuoteOnly(req, res);
@@ -50,10 +92,19 @@ app.use(async (req, res, next) => {
         }
     }
 
-    // 2. Root HTML Motivazionale
+    // 2. API Aggiornamento Nickname
+    if (req.path === '/api/update-nickname' && req.method === 'POST') {
+        try {
+            return await updateUserNickname(req, res);
+        } catch (err) {
+            console.error('[MOTIVAZIONAL] Errore update nickname:', err);
+            return res.status(500).json({ error: 'Errore interno aggiornamento nickname' });
+        }
+    }
+
+    // 3. Root HTML Motivazionale
     if (req.path === '/') {
         try {
-            // handleMotivationalRequest ora gestisce l'autenticazione internamente
             return await handleMotivationalRequest(req, res);
         } catch (err) {
             console.error('[MOTIVAZIONAL] Errore generazione pagina:', err);
@@ -61,7 +112,7 @@ app.use(async (req, res, next) => {
         }
     }
 
-    // 3. Altri percorsi: 404
+    // 4. Altri percorsi: 404
     return res.status(404).send('Pagina non trovata sul sito motivazionale');
 });
 
@@ -77,4 +128,5 @@ app.use('/', redirectRoutes);
 // --- AVVIO SERVER ---
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
+    console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
 });
