@@ -181,7 +181,7 @@ async function handleMotivationalRequest(req, res) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
             localStorage.removeItem('lastTopic');
-            window.location.href = '/motivazionale'; // Ricarica la pagina
+            window.location.href = 'https://taplinknfc.it'; // Ricarica la pagina
         }
 
         // 🎯 GESTIONE LOGIN AUTOMATICO DA URL PARAMETERS
