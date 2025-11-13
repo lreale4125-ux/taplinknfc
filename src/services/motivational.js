@@ -1,12 +1,107 @@
 // --- src/services/motivational.js ---
 
-// ... (il resto del codice rimane uguale fino alla funzione handleMotivationalRequest)
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const db = require('../db');
+const jwt = require('jsonwebtoken');
 
+let genAI;
+if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+} else {
+    console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
+}
+
+/**
+ * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
+ * @param {string} userNameOrId - Nome utente o ID (se nome non disponibile) da inserire nel prompt.
+ * @param {string} topic
+ * @returns {Promise<string>}
+ */
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
+    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+
+    try {
+        const timestamp = Date.now();
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        // Usa la variabile userNameOrId (username o ID) nel prompt
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error("Errore durante la chiamata a Gemini:", error.message);
+        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+    }
+}
+
+/**
+ * Endpoint API: restituisce solo la frase motivazionale in formato JSON
+ * Implementazione della verifica del token nell'Header per sicurezza e dati utente.
+ */
+async function getQuoteOnly(req, res) {
+    try {
+        // 🎯 IMPOSTA IL CONTENT-TYPE PRIMA DI TUTTO
+        res.setHeader('Content-Type', 'application/json');
+        
+        // Dati iniziali dalla query (usati come fallback o per Ospite)
+        let keychainId = req.query.id || 'Ospite';
+        let topic = req.query.topic || 'motivazione';
+        let username = req.query.username || keychainId; 
+        let user = null;
+        
+        // 1. Tenta di estrarre e verificare il token dall'Header Authorization
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            const token = req.headers.authorization.split(' ')[1];
+            try {
+                user = jwt.verify(token, process.env.JWT_SECRET);
+                
+                // 2. Se autenticato, SOVRASCRIVI i dati con quelli VERIFICATI nel token (fonte fidata)
+                keychainId = user.id || keychainId;
+                username = user.username || username;
+                
+            } catch (err) {
+                console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
+            }
+        }
+        
+        // Aggiorna analytics (usa la chiave composta definita in db.js)
+        try {
+            db.prepare(`
+                INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+            `).run(keychainId, topic);
+        } catch (dbError) {
+            console.error("Errore DB in getQuoteOnly:", dbError.message);
+        }
+
+        // Passa lo username (verificato o ospite) per la generazione della frase
+        const quote = await getMotivationalQuote(username, topic); 
+        res.json({ quote });
+        
+    } catch (error) {
+        console.error("Errore in getQuoteOnly:", error);
+        // 🎯 ANCHE IN CASO DI ERRORE, RESTITUISCI JSON
+        res.setHeader('Content-Type', 'application/json');
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+}
+
+/**
+ * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client.
+ * La logica di sessione e topic è demandata al frontend (localStorage).
+ */
 async function handleMotivationalRequest(req, res) {
-    const initialTopic = req.query.topic || 'motivazione';
-    
-    // HTML della pagina motivazionale CON HEADER
-    const htmlPage = `<!DOCTYPE html>
+    try {
+        const initialTopic = req.query.topic || 'motivazione';
+        
+        // 🎯 IMPOSTA IL CONTENT-TYPE CORRETTO PER HTML
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        
+        // HTML della pagina motivazionale CON HEADER
+        const htmlPage = `<!DOCTYPE html>
 <html lang="it">
 <head>
     <meta charset="UTF-8">
@@ -181,7 +276,11 @@ async function handleMotivationalRequest(req, res) {
 </body>
 </html>`;
 
-    res.send(htmlPage);
+        res.send(htmlPage);
+    } catch (error) {
+        console.error("Errore in handleMotivationalRequest:", error);
+        res.status(500).send("Errore nel caricamento della pagina");
+    }
 }
 
 module.exports = {
