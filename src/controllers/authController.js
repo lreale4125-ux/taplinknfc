@@ -41,7 +41,7 @@ async function login(req, res) {
         // Crea token JWT
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // 🎯 GESTIONE REDIRECT PER UTENTI MOTIVAZIONAL
+        // 🎯 CORREZIONE: Reindirizza alla ROOT di motivazional.taplinknfc.it (non /motivazionale)
         if (user.role === 'motivazional') {
             const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${payload.id}&topic=motivazione`;
             
@@ -123,7 +123,7 @@ async function register(req, res) {
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // 🎯 REDIRECT AUTOMATICO PER UTENTI MOTIVAZIONAL
+        // 🎯 CORREZIONE: Reindirizza alla ROOT di motivazional.taplinknfc.it (non /motivazionale)
         const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${payload.id}&topic=motivazione`;
         
         return res.json({ 
