@@ -60,6 +60,26 @@ async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') 
 }
 
 /**
+ * 🆕 FUNZIONE AGGIUNTA - Risolve l'errore "getMotivationalQuoteFromN8N is not defined"
+ */
+async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '') {
+    try {
+        console.log(`📝 Richiesta frase da N8N - Topic: ${topic}, User: ${userName}`);
+        
+        // Usa la stessa logica del database per ora
+        // In futuro puoi integrare con chiamate dirette a N8N
+        const quote = await getMotivationalQuoteFromDB(topic, userName);
+        
+        console.log(`✅ Frase da N8N ottenuta: ${quote.substring(0, 50)}...`);
+        return quote;
+        
+    } catch (error) {
+        console.error("❌ Errore in getMotivationalQuoteFromN8N:", error);
+        return "La motivazione viene da dentro di te. Continua a crederci!";
+    }
+}
+
+/**
  * Endpoint API che usa il database
  */
 async function getQuoteOnly(req, res) {
@@ -93,7 +113,7 @@ async function getQuoteOnly(req, res) {
             console.error("Errore DB analytics:", dbError.message);
         }
 
-        const quote = await getMotivationalQuoteFromDB(topic, username); 
+        const quote = await getMotivationalQuoteFromN8N(topic, username); 
         res.json({ quote });
         
     } catch (error) {
@@ -377,15 +397,14 @@ async function handleMotivationalRequest(req, res) {
     }
 }
 
-// 🎯 AGGIUNGI QUESTA FUNZIONE PER MANTENERE COMPATIBILITÀ
-// (anche se ora usa il database, alcuni moduli potrebbero chiamare ancora questa)
+// 🎯 FUNZIONE PER COMPATIBILITÀ
 async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
     return await getMotivationalQuoteFromN8N(topic, userNameOrId);
 }
 
 module.exports = {
     getMotivationalQuote,  // Per compatibilità
-    getMotivationalQuoteFromN8N,  // Nuova funzione
+    getMotivationalQuoteFromN8N,  // 🆕 FUNZIONE AGGIUNTA
     getQuoteOnly,
     handleMotivationalRequest,
     updateUserNickname
