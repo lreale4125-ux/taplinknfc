@@ -1,6 +1,7 @@
 // --- src/services/motivational.js ---
 
 const db = require('../db');
+const jwt = require('jsonwebtoken');
 
 /**
  * Prende una frase motivazionale casuale dal database N8N
