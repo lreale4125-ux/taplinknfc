@@ -173,6 +173,69 @@ async function handleMotivationalRequest(req, res) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Frase Motivazionale</title>
     <style>
+        /* 🔥 POPUP ARGOMENTI */
+        .topic-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .topic-popup-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .topic-popup h3 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.4rem;
+        }
+        
+        .topic-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .topic-option {
+            background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .topic-option:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .close-popup {
+            background: #95a5a6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+        }
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
         
@@ -219,6 +282,19 @@ async function handleMotivationalRequest(req, res) {
         <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
     </main>
+    <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
+    <div class="topic-popup" id="topic-popup" style="display: none;">
+        <div class="topic-popup-content">
+            <h3>Scegli un argomento</h3>
+            <div class="topic-options">
+                <button class="topic-option" data-topic="motivazione">🌟 Motivazione Personale</button>
+                <button class="topic-option" data-topic="studio">📚 Studio & Apprendimento</button>
+                <button class="topic-option" data-topic="successo">💪 Successo & Resilienza</button>
+            </div>
+            <button class="close-popup" id="close-popup">Chiudi</button>
+        </div>
+    </div>
+
     <div class="bottom-bar">
         <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
     </div>
@@ -317,6 +393,7 @@ async function handleMotivationalRequest(req, res) {
             const id = urlParams.get('id');
             const topic = urlParams.get('topic');
         
+            // 🔥 SE C'È UN TOKEN NELL'URL (login appena fatto)
             if (token && id) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -329,20 +406,28 @@ async function handleMotivationalRequest(req, res) {
                     
                     if (isGoogleUser && !localStorage.getItem('nicknameSet')) {
                         showNicknamePopup();
-                        // NON caricare la frase qui - aspetta che l'utente inserisca il nickname
+                        // Aspetta che l'utente inserisca il nickname prima di caricare la frase
                     } else {
                         if (topic) localStorage.setItem('lastTopic', topic);
                         window.history.replaceState({}, document.title, '/motivazionale');
                         updateAuthUI();
-                        loadQuote(); // 🔥 CARICA LA FRASE QUI DOPO AUTH
+                        loadQuote(); // Carica la frase dopo il login
                     }
                 } catch (error) {
                     console.error('Errore durante il login automatico:', error);
-                    loadQuote(); // 🔥 CARICA COMUNQUE LA FRASE ANCHE SE AUTH FALLISCE
+                    loadQuote(); // Carica comunque la frase anche se auth fallisce
                 }
-            } else {
-                // 🔥 SE NON C'È LOGIN, CARICA COMUNQUE LA FRASE
+            } 
+            // 🔥 SE NON C'È TOKEN NELL'URL MA C'È IN LOCALSTORAGE (pagina ricaricata)
+            else if (localStorage.getItem('authToken')) {
+                // L'utente è già loggato, carica semplicemente la frase
+                updateAuthUI();
                 loadQuote();
+            }
+            // 🔥 SE NON C'È ALCUN LOGIN (utente ospite)
+            else {
+                updateAuthUI();
+                loadQuote(); // Carica la frase per ospite
             }
         }
 
@@ -378,19 +463,38 @@ async function handleMotivationalRequest(req, res) {
             }
         };
 
-        document.addEventListener('DOMContentLoaded', function() {
-            checkUrlForAuth(); // Questa ora gestisce tutto
-            
-            document.getElementById('change-topic-btn').addEventListener('click', () => {
-                const topicTextElement = document.getElementById('topic-text');
-                const currentTopic = topicTextElement.innerText;
-                const newTopic = prompt("Inserisci un nuovo argomento:", currentTopic) || currentTopic;
-                if (newTopic && newTopic !== currentTopic) {
-                    localStorage.setItem('lastTopic', newTopic);
-                    window.location.href = '/motivazionale'; 
-                }
+            document.addEventListener('DOMContentLoaded', function() {
+                checkUrlForAuth();
+                
+                // 🔥 BOTTONE PER APRIRE POPUP ARGOMENTI
+                document.getElementById('change-topic-btn').addEventListener('click', () => {
+                    document.getElementById('topic-popup').style.display = 'flex';
+                });
+                
+                // 🔥 CHIUDI POPUP
+                document.getElementById('close-popup').addEventListener('click', () => {
+                    document.getElementById('topic-popup').style.display = 'none';
+                });
+                
+                // 🔥 SELEZIONE ARGOMENTO
+                document.querySelectorAll('.topic-option').forEach(button => {
+                    button.addEventListener('click', function() {
+                        const selectedTopic = this.getAttribute('data-topic');
+                        
+                        // Aggiorna il testo nella pagina
+                        document.getElementById('topic-text').innerText = this.innerText.split(' ')[0]; // Prende solo la prima parola
+                        
+                        // Salva nel localStorage
+                        localStorage.setItem('lastTopic', selectedTopic);
+                        
+                        // Chiudi il popup
+                        document.getElementById('topic-popup').style.display = 'none';
+                        
+                        // Carica una nuova frase per l'argomento selezionato
+                        loadQuote();
+                    });
+                });
             });
-        });
     </script>
 </body>
 </html>`;
