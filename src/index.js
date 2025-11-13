@@ -35,6 +35,55 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// caricare le frasi motivazionali 
+// Aggiungi al file index.js - DOPO le altre route
+app.post('/api/sync-phrases', async (req, res) => {
+    try {
+        const phrases = req.body;
+        
+        if (!Array.isArray(phrases)) {
+            return res.status(400).json({ error: 'Dati non validi' });
+        }
+        
+        // Mappa categorie N8N → SQLite
+        function mapCategory(n8nCategory) {
+            const categoryMap = {
+                'motivazione_personale': 'motivazione',
+                'studio_apprendimento': 'studio', 
+                'successo_resilienza': 'successo'
+            };
+            return categoryMap[n8nCategory] || 'motivazione';
+        }
+        
+        // Pulisci tabella esistente
+        db.prepare('DELETE FROM motivational_phrases').run();
+        
+        // Inserisci nuove frasi
+        const insertStmt = db.prepare(`
+            INSERT INTO motivational_phrases (phrase_text, category, author) 
+            VALUES (?, ?, ?)
+        `);
+        
+        let insertedCount = 0;
+        for (const phrase of phrases) {
+            try {
+                const mappedCategory = mapCategory(phrase.Categoria);
+                insertStmt.run(phrase.Frase, mappedCategory, phrase.Autori);
+                insertedCount++;
+            } catch (error) {
+                console.warn(`Errore inserimento frase: ${phrase.Frase?.substring(0, 50)}`);
+            }
+        }
+        
+        console.log(`✅ Sincronizzate ${insertedCount} frasi nel database`);
+        res.json({ success: true, count: insertedCount });
+        
+    } catch (error) {
+        console.error("❌ Errore sincronizzazione frasi:", error);
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+});
+
 // ===================================================================
 // MIDDLEWARE PER GESTIRE IL SITO MOTIVAZIONALE (LOGICA CORRETTA)
 // ===================================================================
