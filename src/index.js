@@ -72,9 +72,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 🎯 ROUTE GOOGLE OAUTH - CORRETTE (GET per il link, POST per il callback)
-app.get('/api/auth/google', authController.googleAuth);  // 🎯 GET
-app.post('/api/auth/google/callback', authController.googleAuth); // POST
+// 🎯 ROUTE GOOGLE OAUTH - CORRETTE
+app.get('/api/auth/google', authController.googleAuth);  // Avvia il flusso
+app.get('/api/auth/google/callback', authController.googleAuthCallback); // Gestisce il callback
 
 // 🎯 ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
 app.get('/motivazionale', (req, res) => {
