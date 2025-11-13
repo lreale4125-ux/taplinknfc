@@ -24,7 +24,6 @@ async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
         const timestamp = Date.now();
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-        // Usa la variabile userNameOrId (username o ID) nel prompt
         const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
 
         const result = await model.generateContent(prompt);
@@ -38,38 +37,27 @@ async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
 
 /**
  * Endpoint API: restituisce solo la frase motivazionale in formato JSON
- * Implementazione della verifica del token nell'Header per sicurezza e dati utente.
  */
 async function getQuoteOnly(req, res) {
     try {
-        // 🎯 IMPOSTA IL CONTENT-TYPE PRIMA DI TUTTO
         res.setHeader('Content-Type', 'application/json');
         
-        // Dati iniziali dalla query (usati come fallback o per Ospite)
         let keychainId = req.query.id || 'Ospite';
         let topic = req.query.topic || 'motivazione';
         let username = req.query.username || keychainId; 
         let user = null;
         
-        // 1. Tenta di estrarre e verificare il token dall'Header Authorization
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             const token = req.headers.authorization.split(' ')[1];
             try {
                 user = jwt.verify(token, process.env.JWT_SECRET);
-                
-                // 2. Se autenticato, SOVRASCRIVI i dati con quelli VERIFICATI nel token (fonte fidata)
                 keychainId = user.id || keychainId;
-                
-                // 🎯 CORREZIONE: Cerca il nome in più campi possibili
-                // Prima cerca 'username', poi 'name', poi 'email', infine usa l'ID
                 username = user.username || user.name || user.email || user.id || username;
-                
             } catch (err) {
                 console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
             }
         }
         
-        // Aggiorna analytics (usa la chiave composta definita in db.js)
         try {
             db.prepare(`
                 INSERT INTO motivational_analytics (keychain_id, topic, view_count)
@@ -80,13 +68,11 @@ async function getQuoteOnly(req, res) {
             console.error("Errore DB in getQuoteOnly:", dbError.message);
         }
 
-        // Passa lo username (verificato o ospite) per la generazione della frase
         const quote = await getMotivationalQuote(username, topic); 
         res.json({ quote });
         
     } catch (error) {
         console.error("Errore in getQuoteOnly:", error);
-        // 🎯 ANCHE IN CASO DI ERRORE, RESTITUISCI JSON
         res.setHeader('Content-Type', 'application/json');
         res.status(500).json({ error: 'Errore interno del server' });
     }
@@ -109,7 +95,6 @@ async function updateUserNickname(req, res) {
         const user = jwt.verify(token, process.env.JWT_SECRET);
         const userId = user.id;
         
-        // Salva il nickname nel database (se hai una tabella user_profiles)
         try {
             db.prepare(`
                 INSERT OR REPLACE INTO user_profiles (user_id, nickname, updated_at)
@@ -117,7 +102,6 @@ async function updateUserNickname(req, res) {
             `).run(userId, nickname);
         } catch (dbError) {
             console.error("Errore DB nel salvataggio nickname:", dbError.message);
-            // Continua comunque, anche se il DB fallisce
         }
         
         res.json({ success: true, message: 'Nickname salvato' });
@@ -130,16 +114,13 @@ async function updateUserNickname(req, res) {
 
 /**
  * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client.
- * La logica di sessione e topic è demandata al frontend (localStorage).
  */
 async function handleMotivationalRequest(req, res) {
     try {
         const initialTopic = req.query.topic || 'motivazione';
         
-        // 🎯 IMPOSTA IL CONTENT-TYPE CORRETTO PER HTML
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
-        // HTML della pagina motivazionale CON HEADER
         const htmlPage = `<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -150,14 +131,12 @@ async function handleMotivationalRequest(req, res) {
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
         
-        /* HEADER STYLES */
         .auth-header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
         .auth-header .username { font-weight: 600; color: #2c3e50; }
         .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; }
         .auth-header .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         
-        /* POPUP STYLES */
         .nickname-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .nickname-popup-content { background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; }
         .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; }
@@ -179,7 +158,6 @@ async function handleMotivationalRequest(req, res) {
     </style>
 </head>
 <body>
-    <!-- HEADER CON LOGIN/LOGOUT -->
     <header class="auth-header" id="auth-header">
         <div class="logo">Motivazional</div>
         <div class="user-info">
@@ -200,23 +178,19 @@ async function handleMotivationalRequest(req, res) {
         <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
     </div>
     <script>
-        // 🎯 GESTIONE STATO AUTENTICAZIONE
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
             const userData = JSON.parse(localStorage.getItem('userData'));
-            const authHeader = document.getElementById('auth-header');
             const usernameDisplay = document.getElementById('username-display');
             const authButton = document.getElementById('auth-button');
 
             if (token && userData) {
-                // Utente loggato - 🎯 CORREZIONE: Cerca il nome in più campi possibili
                 const displayName = userData.username || userData.name || userData.email || userData.id || 'Utente';
                 usernameDisplay.textContent = displayName;
                 authButton.textContent = 'Logout';
                 authButton.href = '#';
                 authButton.onclick = handleLogout;
             } else {
-                // Utente non loggato
                 usernameDisplay.textContent = 'Ospite';
                 authButton.textContent = 'Login';
                 authButton.href = 'https://taplinknfc.it/login?redirect=motivazional';
@@ -226,65 +200,46 @@ async function handleMotivationalRequest(req, res) {
 
         function handleLogout(e) {
             e.preventDefault();
-            // 🎯 PULIZIA COMPLETA DELLA SESSIONE
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
             localStorage.removeItem('lastTopic');
             localStorage.removeItem('nicknameSet');
             sessionStorage.clear();
-            
-            // 🎯 FORZA IL REINDIRIZZAMENTO COMPLETO A TAPLINKNFC.IT
-            // Usa replace invece di href per evitare che il browser mantenga la pagina in cache
             window.location.replace('https://taplinknfc.it');
         }
 
-        // 🎯 NUOVA FUNZIONE: Popup per nickname
         function showNicknamePopup() {
-            // Crea il popup
             const popup = document.createElement('div');
             popup.className = 'nickname-popup';
-            
             popup.innerHTML = \`
                 <div class="nickname-popup-content">
                     <h2>Benvenuto! 👋</h2>
                     <p>Scegli un nickname per personalizzare la tua esperienza:</p>
-                    <input type="text" id="nickname-input" 
-                           placeholder="Il tuo nickname..." 
-                           class="nickname-input"
-                           maxlength="20">
-                    <button id="save-nickname" class="nickname-btn">
-                        Salva e Continua
-                    </button>
+                    <input type="text" id="nickname-input" placeholder="Il tuo nickname..." class="nickname-input" maxlength="20">
+                    <button id="save-nickname" class="nickname-btn">Salva e Continua</button>
                 </div>
             \`;
-            
             document.body.appendChild(popup);
             
-            // Focus sull'input
             const input = document.getElementById('nickname-input');
             input.focus();
             
-            // Gestione salvataggio
             document.getElementById('save-nickname').addEventListener('click', function() {
                 const nickname = input.value.trim();
-                
                 if (nickname.length < 2) {
                     alert('Inserisci un nickname di almeno 2 caratteri');
                     return;
                 }
-                
                 if (nickname.length > 20) {
                     alert('Il nickname non può superare i 20 caratteri');
                     return;
                 }
                 
-                // Salva il nickname nei dati utente
                 const userData = JSON.parse(localStorage.getItem('userData'));
                 userData.username = nickname;
                 localStorage.setItem('userData', JSON.stringify(userData));
                 localStorage.setItem('nicknameSet', 'true');
                 
-                // Salva anche sul server
                 const token = localStorage.getItem('authToken');
                 if (token) {
                     fetch('/api/update-nickname', {
@@ -297,32 +252,20 @@ async function handleMotivationalRequest(req, res) {
                     }).catch(err => console.error('Errore salvataggio nickname:', err));
                 }
                 
-                // Rimuovi il popup
                 document.body.removeChild(popup);
-                
-                // Pulisci l'URL e carica la pagina
                 const urlParams = new URLSearchParams(window.location.search);
                 const topic = urlParams.get('topic');
-                if (topic) {
-                    localStorage.setItem('lastTopic', topic);
-                }
-                
+                if (topic) localStorage.setItem('lastTopic', topic);
                 window.history.replaceState({}, document.title, '/motivazionale');
-                
-                // Aggiorna UI e carica la frase
                 updateAuthUI();
                 loadQuote();
             });
             
-            // Enter per salvare
             input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    document.getElementById('save-nickname').click();
-                }
+                if (e.key === 'Enter') document.getElementById('save-nickname').click();
             });
         }
 
-        // 🎯 GESTIONE LOGIN AUTOMATICO DA URL PARAMETERS
         function checkUrlForAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -331,12 +274,10 @@ async function handleMotivationalRequest(req, res) {
 
             if (token && id) {
                 try {
-                    // Decodifica il token per ottenere i dati utente
                     const payload = JSON.parse(atob(token.split('.')[1]));
                     localStorage.setItem('authToken', token);
                     localStorage.setItem('userData', JSON.stringify(payload));
                     
-                    // 🎯 NUOVO: Controlla se è un utente Google senza nome
                     const hasRealName = payload.username || payload.name;
                     const displayName = payload.username || payload.name || payload.email || payload.id;
                     const isGoogleUser = payload.provider === 'google' || displayName === 'Google User' || !hasRealName;
@@ -344,15 +285,8 @@ async function handleMotivationalRequest(req, res) {
                     if (isGoogleUser && !localStorage.getItem('nicknameSet')) {
                         showNicknamePopup();
                     } else {
-                        // Salva il topic se fornito
-                        if (topic) {
-                            localStorage.setItem('lastTopic', topic);
-                        }
-                        
-                        // Pulisci l'URL dai parametri di autenticazione
+                        if (topic) localStorage.setItem('lastTopic', topic);
                         window.history.replaceState({}, document.title, '/motivazionale');
-                        
-                        // Aggiorna UI e ricarica la frase
                         updateAuthUI();
                         loadQuote();
                     }
@@ -362,42 +296,28 @@ async function handleMotivationalRequest(req, res) {
             }
         }
 
-        // 🎯 LOGICA CARICAMENTO FRASE (aggiornata)
         const loadQuote = async () => {
             const token = localStorage.getItem('authToken');
             const userData = JSON.parse(localStorage.getItem('userData'));
             const savedTopic = localStorage.getItem('lastTopic');
 
-            // 1. Definisci USERNAME e TOPIC in base alla sessione
-            const isUserLoggedIn = token && userData;
-            
-            // 🎯 CORREZIONE: Usa la stessa logica per trovare il nome utente
             let username = 'Ospite';
             let keychainId = 'Ospite';
             
-            if (isUserLoggedIn) {
+            if (token && userData) {
                 keychainId = userData.id || 'Ospite';
                 username = userData.username || userData.name || userData.email || userData.id || 'Utente';
             }
             
             const topic = savedTopic || '${initialTopic}';
-            
-            // Aggiorna il testo del topic visualizzato
             document.getElementById('topic-text').innerText = topic;
 
             try {
                 const headers = {};
-                if (token) {
-                    headers['Authorization'] = 'Bearer ' + token;
-                }
+                if (token) headers['Authorization'] = 'Bearer ' + token;
                 
-                const url = '/api/quote?' + 
-                    'id=' + encodeURIComponent(keychainId) + 
-                    '&username=' + encodeURIComponent(username) + 
-                    '&topic=' + encodeURIComponent(topic);
-
+                const url = '/api/quote?id=' + encodeURIComponent(keychainId) + '&username=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic);
                 const response = await fetch(url, { headers });
-
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
                 
                 const data = await response.json();
@@ -408,19 +328,14 @@ async function handleMotivationalRequest(req, res) {
             }
         };
 
-        // 🎯 INIZIALIZZAZIONE
         document.addEventListener('DOMContentLoaded', function() {
-            checkUrlForAuth(); // Controlla se siamo stati reindirizzati dal login
-            updateAuthUI();    // Aggiorna l'header
-            // loadQuote() viene chiamato da checkUrlForAuth() se non mostra il popup
-
-            // Gestione cambio topic
+            checkUrlForAuth();
+            updateAuthUI();
+            
             document.getElementById('change-topic-btn').addEventListener('click', () => {
                 const topicTextElement = document.getElementById('topic-text');
                 const currentTopic = topicTextElement.innerText;
-
                 const newTopic = prompt("Inserisci un nuovo argomento:", currentTopic) || currentTopic;
-                
                 if (newTopic && newTopic !== currentTopic) {
                     localStorage.setItem('lastTopic', newTopic);
                     window.location.href = '/motivazionale'; 
@@ -429,7 +344,7 @@ async function handleMotivationalRequest(req, res) {
         });
     </script>
 </body>
-</html>\`;
+</html>`;
 
         res.send(htmlPage);
     } catch (error) {
