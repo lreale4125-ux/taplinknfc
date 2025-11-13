@@ -100,10 +100,9 @@ app.post('/api/sync-phrases', async (req, res) => {
         db.prepare('DELETE FROM motivational_phrases').run();
         
         // Inserisci nuove frasi
-        const insertStmt = db.prepare(`
-            INSERT INTO motivational_phrases (phrase_text, category, author) 
-            VALUES (?, ?, ?)
-        `);
+        const insertStmt = db.prepare(
+            "INSERT INTO motivational_phrases (phrase_text, category, author) VALUES (?, ?, ?)"
+        );
         
         let insertedCount = 0;
         for (const phrase of phrases) {
