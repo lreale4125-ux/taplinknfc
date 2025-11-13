@@ -388,15 +388,17 @@ async function handleMotivationalRequest(req, res) {
         };
 
         document.addEventListener('DOMContentLoaded', function() {
-            checkUrlForAuth(); // Questa ora gestisce tutto
+            // Controlla l'autenticazione e carica la frase
+            checkUrlForAuth();
             
+            // Bottone per cambiare argomento
             document.getElementById('change-topic-btn').addEventListener('click', () => {
                 const topicTextElement = document.getElementById('topic-text');
                 const currentTopic = topicTextElement.innerText;
                 const newTopic = prompt("Inserisci un nuovo argomento:", currentTopic) || currentTopic;
                 if (newTopic && newTopic !== currentTopic) {
                     localStorage.setItem('lastTopic', newTopic);
-                    window.location.href = '/motivazionale'; 
+                    loadQuote(); // 🔥 RICARICA LA FRASE CON IL NUOVO TOPIC SENZA REFRESH
                 }
             });
         });
