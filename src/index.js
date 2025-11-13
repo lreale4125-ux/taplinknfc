@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 // Import custom modules
 const db = require('./db');
 const { authenticateToken } = require('./middleware/auth');
-const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./services/motivational'); // 🎯 AGGIUNGI updateUserNickname
+const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./services/motivational');
 
 // Import route modules
 const authRoutes = require('./routes/auth');
@@ -35,8 +35,49 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// caricare le frasi motivazionali 
-// Aggiungi al file index.js - DOPO le altre route
+// ===================================================================
+// MIDDLEWARE PER GESTIRE IL SITO MOTIVAZIONALE (LOGICA CORRETTA)
+// ===================================================================
+app.use(async (req, res, next) => {
+    // 1. Controlla se la richiesta arriva dal dominio motivazionale
+    if (req.hostname === 'motivazional.taplinknfc.it' || req.hostname === 'www.motivazional.taplinknfc.it') {
+        
+        // 🎯 CORREZIONE: Gestisce sia / che /motivazionale per il sottodominio
+        if (req.path === '/' || req.path === '/motivazionale') {
+            // Chiama il gestore della pagina HTML.
+            return handleMotivationalRequest(req, res);
+        }
+        
+        // 1.1. GESTIONE DELLA RICHIESTA API ASINCRONA
+        if (req.path === '/api/quote') {
+            // Chiama la funzione API che restituisce JSON.
+            return getQuoteOnly(req, res); 
+        }
+        
+        // 🎯 AGGIUNGI QUESTA NUOVA ROUTE PER IL NICKNAME
+        if (req.path === '/api/update-nickname' && req.method === 'POST') {
+            return updateUserNickname(req, res);
+        }
+        
+        // 1.2. Se NON è una rotta gestita, risponde 404 e si ferma.
+        return res.status(404).send('Pagina o risorsa API non trovata sul dominio motivazionale.');
+        
+    } else {
+        // Se NON è il dominio motivazionale, procedi con le altre route
+        next();
+    }
+});
+// ===================================================================
+
+// Serve static files
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
+// --- ROUTE API (Per il dominio principale taplinknfc.it) ---
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/admin', adminRoutes);
+
+// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N (DEVE STARE QUI - accessibile da tutti i domini)
 app.post('/api/sync-phrases', async (req, res) => {
     try {
         const phrases = req.body;
@@ -83,48 +124,6 @@ app.post('/api/sync-phrases', async (req, res) => {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 });
-
-// ===================================================================
-// MIDDLEWARE PER GESTIRE IL SITO MOTIVAZIONALE (LOGICA CORRETTA)
-// ===================================================================
-app.use(async (req, res, next) => {
-    // 1. Controlla se la richiesta arriva dal dominio motivazionale
-    if (req.hostname === 'motivazional.taplinknfc.it' || req.hostname === 'www.motivazional.taplinknfc.it') {
-        
-        // 🎯 CORREZIONE: Gestisce sia / che /motivazionale per il sottodominio
-        if (req.path === '/' || req.path === '/motivazionale') {
-            // Chiama il gestore della pagina HTML.
-            return handleMotivationalRequest(req, res);
-        }
-        
-        // 1.1. GESTIONE DELLA RICHIESTA API ASINCRONA
-        if (req.path === '/api/quote') {
-            // Chiama la funzione API che restituisce JSON.
-            return getQuoteOnly(req, res); 
-        }
-        
-        // 🎯 AGGIUNGI QUESTA NUOVA ROUTE PER IL NICKNAME
-        if (req.path === '/api/update-nickname' && req.method === 'POST') {
-            return updateUserNickname(req, res);
-        }
-        
-        // 1.2. Se NON è una rotta gestita, risponde 404 e si ferma.
-        return res.status(404).send('Pagina o risorsa API non trovata sul dominio motivazionale.');
-        
-    } else {
-        // Se NON è il dominio motivazionale, procedi con le altre route
-        next();
-    }
-});
-// ===================================================================
-
-// Serve static files
-app.use(express.static(path.join(__dirname, '..', 'public')));
-
-// --- ROUTE API (Per il dominio principale taplinknfc.it) ---
-app.use('/api/auth', authRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/admin', adminRoutes);
 
 // 🎯 ROUTE GOOGLE OAUTH - CORRETTE
 app.get('/api/auth/google', authController.googleAuth);  // Avvia il flusso
