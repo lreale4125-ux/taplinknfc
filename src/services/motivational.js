@@ -59,7 +59,10 @@ async function getQuoteOnly(req, res) {
                 
                 // 2. Se autenticato, SOVRASCRIVI i dati con quelli VERIFICATI nel token (fonte fidata)
                 keychainId = user.id || keychainId;
-                username = user.username || username;
+                
+                // 🎯 CORREZIONE: Cerca il nome in più campi possibili
+                // Prima cerca 'username', poi 'name', poi 'email', infine usa l'ID
+                username = user.username || user.name || user.email || user.id || username;
                 
             } catch (err) {
                 console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
@@ -161,9 +164,10 @@ async function handleMotivationalRequest(req, res) {
             const usernameDisplay = document.getElementById('username-display');
             const authButton = document.getElementById('auth-button');
 
-            if (token && userData && userData.username) {
-                // Utente loggato
-                usernameDisplay.textContent = userData.username;
+            if (token && userData) {
+                // Utente loggato - 🎯 CORREZIONE: Cerca il nome in più campi possibili
+                const displayName = userData.username || userData.name || userData.email || userData.id || 'Utente';
+                usernameDisplay.textContent = displayName;
                 authButton.textContent = 'Logout';
                 authButton.href = '#';
                 authButton.onclick = handleLogout;
@@ -227,9 +231,17 @@ async function handleMotivationalRequest(req, res) {
             const savedTopic = localStorage.getItem('lastTopic');
 
             // 1. Definisci USERNAME e TOPIC in base alla sessione
-            const isUserLoggedIn = token && userData && userData.username;
-            const username = isUserLoggedIn ? userData.username : 'Ospite';
-            const keychainId = isUserLoggedIn ? userData.id : 'Ospite';
+            const isUserLoggedIn = token && userData;
+            
+            // 🎯 CORREZIONE: Usa la stessa logica per trovare il nome utente
+            let username = 'Ospite';
+            let keychainId = 'Ospite';
+            
+            if (isUserLoggedIn) {
+                keychainId = userData.id || 'Ospite';
+                username = userData.username || userData.name || userData.email || userData.id || 'Utente';
+            }
+            
             const topic = savedTopic || '${initialTopic}';
             
             // Aggiorna il testo del topic visualizzato
