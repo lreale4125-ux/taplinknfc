@@ -8,11 +8,11 @@ const jwt = require('jsonwebtoken');
  */
 function mapCategory(n8nCategory) {
     const categoryMap = {
-        'motivazione_personale': 'motivazione',
-        'studio_apprendimento': 'studio', 
-        'successo_resilienza': 'successo'
+        'motivazione_personale': 'motivazione_personale',
+        'studio_apprendimento': 'studio_apprendimento', 
+        'successo_resilienza': 'successo_resilienza'
     };
-    return categoryMap[n8nCategory] || 'motivazione';
+    return categoryMap[n8nCategory] || 'motivazione_personale';
 }
 
 /**
