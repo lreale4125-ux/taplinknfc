@@ -181,6 +181,7 @@ async function handleMotivationalRequest(req, res) {
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
             localStorage.removeItem('lastTopic');
+            sessionStorage.clear();
             window.location.href = 'https://taplinknfc.it'; // Ricarica la pagina
         }
 
