@@ -4,26 +4,36 @@ const db = require('../db');
 const jwt = require('jsonwebtoken');
 
 /**
- * Prende una frase motivazionale casuale dal database N8N
- * @param {string} topic - Categoria della frase
- * @param {string} userName - Nome utente per personalizzare
- * @returns {Promise<string>}
+ * Mappa le categorie N8N alle categorie del sito
  */
-async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '') {
+function mapCategory(n8nCategory) {
+    const categoryMap = {
+        'motivazione_personale': 'motivazione',
+        'studio_apprendimento': 'studio', 
+        'successo_resilienza': 'successo'
+    };
+    return categoryMap[n8nCategory] || 'motivazione';
+}
+
+/**
+ * Prende una frase motivazionale casuale dal database
+ */
+async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') {
     try {
-        // Cerca frasi per la categoria specificata
+        const mappedTopic = mapCategory(topic);
+        
         const phrases = db.prepare(`
-            SELECT phrase_text, category 
+            SELECT phrase_text, category, author
             FROM motivational_phrases 
             WHERE category = ? 
             ORDER BY RANDOM() 
             LIMIT 1
-        `).all(topic);
+        `).all(mappedTopic);
 
         if (phrases.length > 0) {
             let phrase = phrases[0].phrase_text;
             
-            // Personalizza la frase con il nome utente se presente
+            // Personalizza la frase con il nome utente
             if (userName && userName !== 'Ospite' && userName !== 'Utente') {
                 phrase = phrase.replace(/\[nome\]/gi, userName);
                 phrase = phrase.replace(/l'utente/gi, userName);
@@ -31,20 +41,17 @@ async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '')
             
             return phrase;
         } else {
-            // Fallback se non trova frasi per la categoria
+            // Fallback
             const fallbackPhrases = db.prepare(`
                 SELECT phrase_text 
                 FROM motivational_phrases 
-                WHERE category = 'generale' 
                 ORDER BY RANDOM() 
                 LIMIT 1
             `).all();
 
-            if (fallbackPhrases.length > 0) {
-                return fallbackPhrases[0].phrase_text;
-            } else {
-                return "La motivazione è dentro di te, non smettere di cercarla.";
-            }
+            return fallbackPhrases.length > 0 
+                ? fallbackPhrases[0].phrase_text 
+                : "La motivazione è dentro di te, non smettere di cercarla.";
         }
     } catch (error) {
         console.error("Errore nel recupero frase da database:", error);
@@ -53,7 +60,7 @@ async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '')
 }
 
 /**
- * Endpoint API aggiornato per usare il database N8N
+ * Endpoint API che usa il database
  */
 async function getQuoteOnly(req, res) {
     try {
@@ -63,11 +70,10 @@ async function getQuoteOnly(req, res) {
         let topic = req.query.topic || 'motivazione';
         let username = req.query.username || keychainId; 
         
-        // Logica autenticazione (mantenuta uguale)
+        // Autenticazione
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             const token = req.headers.authorization.split(' ')[1];
             try {
-                // 🎯 RIMUOVI QUESTO: const jwt = require('jsonwebtoken'); (già importato in alto)
                 const user = jwt.verify(token, process.env.JWT_SECRET);
                 keychainId = user.id || keychainId;
                 username = user.username || user.name || user.email || user.id || username;
@@ -76,7 +82,7 @@ async function getQuoteOnly(req, res) {
             }
         }
         
-        // Aggiorna analytics
+        // Analytics
         try {
             db.prepare(`
                 INSERT INTO motivational_analytics (keychain_id, topic, view_count)
@@ -87,8 +93,7 @@ async function getQuoteOnly(req, res) {
             console.error("Errore DB analytics:", dbError.message);
         }
 
-        // 🎯 USA IL DATABASE N8N invece di Gemini
-        const quote = await getMotivationalQuoteFromN8N(topic, username); 
+        const quote = await getMotivationalQuoteFromDB(topic, username); 
         res.json({ quote });
         
     } catch (error) {
