@@ -67,7 +67,7 @@ async function getQuoteOnly(req, res) {
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             const token = req.headers.authorization.split(' ')[1];
             try {
-                const jwt = require('jsonwebtoken');
+                // 🎯 RIMUOVI QUESTO: const jwt = require('jsonwebtoken'); (già importato in alto)
                 const user = jwt.verify(token, process.env.JWT_SECRET);
                 keychainId = user.id || keychainId;
                 username = user.username || user.name || user.email || user.id || username;
@@ -96,6 +96,7 @@ async function getQuoteOnly(req, res) {
         res.status(500).json({ error: 'Errore interno del server' });
     }
 }
+
 /**
  * Salva/aggiorna il nickname per un utente
  */
@@ -371,8 +372,15 @@ async function handleMotivationalRequest(req, res) {
     }
 }
 
+// 🎯 AGGIUNGI QUESTA FUNZIONE PER MANTENERE COMPATIBILITÀ
+// (anche se ora usa il database, alcuni moduli potrebbero chiamare ancora questa)
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
+    return await getMotivationalQuoteFromN8N(topic, userNameOrId);
+}
+
 module.exports = {
-    getMotivationalQuote,
+    getMotivationalQuote,  // Per compatibilità
+    getMotivationalQuoteFromN8N,  // Nuova funzione
     getQuoteOnly,
     handleMotivationalRequest,
     updateUserNickname
