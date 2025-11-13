@@ -1,15 +1,126 @@
+// --- src/services/motivational.js ---
+
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const db = require('../db');
+const jwt = require('jsonwebtoken');
+
+let genAI;
+if (process.env.GEMINI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+} else {
+    console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
+}
+
+/**
+ * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
+ * @param {string} userNameOrId - Nome utente o ID (se nome non disponibile) da inserire nel prompt.
+ * @param {string} topic
+ * @returns {Promise<string>}
+ */
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
+    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+
+    try {
+        const timestamp = Date.now();
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        return response.text();
+    } catch (error) {
+        console.error("Errore durante la chiamata a Gemini:", error.message);
+        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+    }
+}
+
+/**
+ * Endpoint API: restituisce solo la frase motivazionale in formato JSON
+ */
+async function getQuoteOnly(req, res) {
+    try {
+        res.setHeader('Content-Type', 'application/json');
+        
+        let keychainId = req.query.id || 'Ospite';
+        let topic = req.query.topic || 'motivazione';
+        let username = req.query.username || keychainId; 
+        let user = null;
+        
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            const token = req.headers.authorization.split(' ')[1];
+            try {
+                user = jwt.verify(token, process.env.JWT_SECRET);
+                keychainId = user.id || keychainId;
+                username = user.username || user.name || user.email || user.id || username;
+            } catch (err) {
+                console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
+            }
+        }
+        
+        try {
+            db.prepare(`
+                INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+            `).run(keychainId, topic);
+        } catch (dbError) {
+            console.error("Errore DB in getQuoteOnly:", dbError.message);
+        }
+
+        const quote = await getMotivationalQuote(username, topic); 
+        res.json({ quote });
+        
+    } catch (error) {
+        console.error("Errore in getQuoteOnly:", error);
+        res.setHeader('Content-Type', 'application/json');
+        res.status(500).json({ error: 'Errore interno del server' });
+    }
+}
+
+/**
+ * Salva/aggiorna il nickname per un utente
+ */
+async function updateUserNickname(req, res) {
+    try {
+        res.setHeader('Content-Type', 'application/json');
+        
+        const { nickname } = req.body;
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Token mancante' });
+        }
+        
+        const user = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = user.id;
+        
+        try {
+            db.prepare(`
+                INSERT OR REPLACE INTO user_profiles (user_id, nickname, updated_at)
+                VALUES (?, ?, datetime('now'))
+            `).run(userId, nickname);
+        } catch (dbError) {
+            console.error("Errore DB nel salvataggio nickname:", dbError.message);
+        }
+        
+        res.json({ success: true, message: 'Nickname salvato' });
+        
+    } catch (error) {
+        console.error("Errore salvataggio nickname:", error);
+        res.status(500).json({ error: 'Errore nel salvataggio' });
+    }
+}
+
 /**
  * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client.
- * La logica di sessione e topic è demandata al frontend (localStorage).
  */
 async function handleMotivationalRequest(req, res) {
     try {
         const initialTopic = req.query.topic || 'motivazione';
         
-        // 🎯 IMPOSTA IL CONTENT-TYPE CORRETTO PER HTML
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
-        // HTML semplificato per evitare errori di sintassi
         const htmlPage = `<!DOCTYPE html>
 <html lang="it">
 <head>
@@ -20,14 +131,12 @@ async function handleMotivationalRequest(req, res) {
         * { box-sizing: border-box; }
         body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
         
-        /* HEADER STYLES */
         .auth-header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
         .auth-header .username { font-weight: 600; color: #2c3e50; }
         .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; }
         .auth-header .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         
-        /* POPUP STYLES */
         .nickname-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .nickname-popup-content { background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; }
         .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; }
@@ -49,7 +158,6 @@ async function handleMotivationalRequest(req, res) {
     </style>
 </head>
 <body>
-    <!-- HEADER CON LOGIN/LOGOUT -->
     <header class="auth-header" id="auth-header">
         <div class="logo">Motivazional</div>
         <div class="user-info">
@@ -70,7 +178,6 @@ async function handleMotivationalRequest(req, res) {
         <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
     </div>
     <script>
-        // 🎯 GESTIONE STATO AUTENTICAZIONE
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
             const userData = JSON.parse(localStorage.getItem('userData'));
@@ -101,7 +208,6 @@ async function handleMotivationalRequest(req, res) {
             window.location.replace('https://taplinknfc.it');
         }
 
-        // 🎯 NUOVA FUNZIONE: Popup per nickname
         function showNicknamePopup() {
             const popup = document.createElement('div');
             popup.className = 'nickname-popup';
@@ -160,7 +266,6 @@ async function handleMotivationalRequest(req, res) {
             });
         }
 
-        // 🎯 GESTIONE LOGIN AUTOMATICO DA URL PARAMETERS
         function checkUrlForAuth() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -191,7 +296,6 @@ async function handleMotivationalRequest(req, res) {
             }
         }
 
-        // 🎯 LOGICA CARICAMENTO FRASE
         const loadQuote = async () => {
             const token = localStorage.getItem('authToken');
             const userData = JSON.parse(localStorage.getItem('userData'));
@@ -224,7 +328,6 @@ async function handleMotivationalRequest(req, res) {
             }
         };
 
-        // 🎯 INIZIALIZZAZIONE
         document.addEventListener('DOMContentLoaded', function() {
             checkUrlForAuth();
             updateAuthUI();
@@ -249,3 +352,10 @@ async function handleMotivationalRequest(req, res) {
         res.status(500).send("Errore nel caricamento della pagina");
     }
 }
+
+module.exports = {
+    getMotivationalQuote,
+    getQuoteOnly,
+    handleMotivationalRequest,
+    updateUserNickname
+};
