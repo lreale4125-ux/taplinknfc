@@ -1,156 +1,411 @@
-// --- TAPLINKNFC SERVER ENTRY POINT (CORRETTO) ---
+// --- src/services/motivational.js ---
 
-// Import moduli essenziali
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
+const db = require('../db');
+const jwt = require('jsonwebtoken');
 
-// Import custom modules
-const db = require('./db');
-const { authenticateToken } = require('./middleware/auth');
-const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./services/motivational'); // 🎯 AGGIUNGI updateUserNickname
-
-// Import route modules
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
-const adminRoutes = require('./routes/admin');
-const redirectRoutes = require('./routes/redirects');
-
-// 🎯 IMPORT AUTH CONTROLLER PER GOOGLE OAUTH
-const authController = require('./controllers/authController');
-
-// Environment validation
-if (!process.env.JWT_SECRET) {
-    console.error('FATAL ERROR: JWT_SECRET is not defined in your .env file.');
-    process.exit(1);
+/**
+ * Mappa le categorie N8N alle categorie del sito
+ */
+function mapCategory(n8nCategory) {
+    const categoryMap = {
+        'motivazione_personale': 'motivazione',
+        'studio_apprendimento': 'studio', 
+        'successo_resilienza': 'successo'
+    };
+    return categoryMap[n8nCategory] || 'motivazione';
 }
 
-const PORT = process.env.PORT || 3001;
-
-// Creazione app Express
-const app = express();
-
-// Middleware di base
-app.use(express.json());
-app.use(cors());
-
-// caricare le frasi motivazionali 
-// Aggiungi al file index.js - DOPO le altre route
-app.post('/api/sync-phrases', async (req, res) => {
+/**
+ * Prende una frase motivazionale casuale dal database
+ */
+async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') {
     try {
-        const phrases = req.body;
+        const mappedTopic = mapCategory(topic);
         
-        if (!Array.isArray(phrases)) {
-            return res.status(400).json({ error: 'Dati non validi' });
+        const phrases = db.prepare(`
+            SELECT phrase_text, category, author
+            FROM motivational_phrases 
+            WHERE category = ? 
+            ORDER BY RANDOM() 
+            LIMIT 1
+        `).all(mappedTopic);
+
+        if (phrases.length > 0) {
+            let phrase = phrases[0].phrase_text;
+            
+            // Personalizza la frase con il nome utente
+            if (userName && userName !== 'Ospite' && userName !== 'Utente') {
+                phrase = phrase.replace(/\[nome\]/gi, userName);
+                phrase = phrase.replace(/l'utente/gi, userName);
+            }
+            
+            return phrase;
+        } else {
+            // Fallback
+            const fallbackPhrases = db.prepare(`
+                SELECT phrase_text 
+                FROM motivational_phrases 
+                ORDER BY RANDOM() 
+                LIMIT 1
+            `).all();
+
+            return fallbackPhrases.length > 0 
+                ? fallbackPhrases[0].phrase_text 
+                : "La motivazione è dentro di te, non smettere di cercarla.";
         }
+    } catch (error) {
+        console.error("Errore nel recupero frase da database:", error);
+        return "La motivazione è dentro di te, non smettere di cercarla.";
+    }
+}
+
+/**
+ * 🆕 FUNZIONE AGGIUNTA - Risolve l'errore "getMotivationalQuoteFromN8N is not defined"
+ */
+async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '') {
+    try {
+        console.log(`📝 Richiesta frase da N8N - Topic: ${topic}, User: ${userName}`);
         
-        // Mappa categorie N8N → SQLite
-        function mapCategory(n8nCategory) {
-            const categoryMap = {
-                'motivazione_personale': 'motivazione',
-                'studio_apprendimento': 'studio', 
-                'successo_resilienza': 'successo'
-            };
-            return categoryMap[n8nCategory] || 'motivazione';
-        }
+        // Usa la stessa logica del database per ora
+        // In futuro puoi integrare con chiamate dirette a N8N
+        const quote = await getMotivationalQuoteFromDB(topic, userName);
         
-        // Pulisci tabella esistente
-        db.prepare('DELETE FROM motivational_phrases').run();
+        console.log(`✅ Frase da N8N ottenuta: ${quote.substring(0, 50)}...`);
+        return quote;
         
-        // Inserisci nuove frasi
-        const insertStmt = db.prepare(`
-            INSERT INTO motivational_phrases (phrase_text, category, author) 
-            VALUES (?, ?, ?)
-        `);
+    } catch (error) {
+        console.error("❌ Errore in getMotivationalQuoteFromN8N:", error);
+        return "La motivazione viene da dentro di te. Continua a crederci!";
+    }
+}
+
+/**
+ * Endpoint API che usa il database
+ */
+async function getQuoteOnly(req, res) {
+    try {
+        res.setHeader('Content-Type', 'application/json');
         
-        let insertedCount = 0;
-        for (const phrase of phrases) {
+        let keychainId = req.query.id || 'Ospite';
+        let topic = req.query.topic || 'motivazione';
+        let username = req.query.username || keychainId; 
+        
+        // Autenticazione
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+            const token = req.headers.authorization.split(' ')[1];
             try {
-                const mappedCategory = mapCategory(phrase.Categoria);
-                insertStmt.run(phrase.Frase, mappedCategory, phrase.Autori);
-                insertedCount++;
-            } catch (error) {
-                console.warn(`Errore inserimento frase: ${phrase.Frase?.substring(0, 50)}`);
+                const user = jwt.verify(token, process.env.JWT_SECRET);
+                keychainId = user.id || keychainId;
+                username = user.username || user.name || user.email || user.id || username;
+            } catch (err) {
+                console.warn('Token non valido. Accesso come Ospite.');
             }
         }
         
-        console.log(`✅ Sincronizzate ${insertedCount} frasi nel database`);
-        res.json({ success: true, count: insertedCount });
+        // Analytics
+        try {
+            db.prepare(`
+                INSERT INTO motivational_analytics (keychain_id, topic, view_count)
+                VALUES (?, ?, 1)
+                ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
+            `).run(keychainId, topic);
+        } catch (dbError) {
+            console.error("Errore DB analytics:", dbError.message);
+        }
+
+        const quote = await getMotivationalQuoteFromN8N(topic, username); 
+        res.json({ quote });
         
     } catch (error) {
-        console.error("❌ Errore sincronizzazione frasi:", error);
+        console.error("Errore in getQuoteOnly:", error);
         res.status(500).json({ error: 'Errore interno del server' });
     }
-});
+}
 
-// ===================================================================
-// MIDDLEWARE PER GESTIRE IL SITO MOTIVAZIONALE (LOGICA CORRETTA)
-// ===================================================================
-app.use(async (req, res, next) => {
-    // 1. Controlla se la richiesta arriva dal dominio motivazionale
-    if (req.hostname === 'motivazional.taplinknfc.it' || req.hostname === 'www.motivazional.taplinknfc.it') {
+/**
+ * Salva/aggiorna il nickname per un utente
+ */
+async function updateUserNickname(req, res) {
+    try {
+        res.setHeader('Content-Type', 'application/json');
         
-        // 🎯 CORREZIONE: Gestisce sia / che /motivazionale per il sottodominio
-        if (req.path === '/' || req.path === '/motivazionale') {
-            // Chiama il gestore della pagina HTML.
-            return handleMotivationalRequest(req, res);
+        const { nickname } = req.body;
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Token mancante' });
         }
         
-        // 1.1. GESTIONE DELLA RICHIESTA API ASINCRONA
-        if (req.path === '/api/quote') {
-            // Chiama la funzione API che restituisce JSON.
-            return getQuoteOnly(req, res); 
+        const user = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = user.id;
+        
+        try {
+            db.prepare(`
+                INSERT OR REPLACE INTO user_profiles (user_id, nickname, updated_at)
+                VALUES (?, ?, datetime('now'))
+            `).run(userId, nickname);
+        } catch (dbError) {
+            console.error("Errore DB nel salvataggio nickname:", dbError.message);
         }
         
-        // 🎯 AGGIUNGI QUESTA NUOVA ROUTE PER IL NICKNAME
-        if (req.path === '/api/update-nickname' && req.method === 'POST') {
-            return updateUserNickname(req, res);
-        }
+        res.json({ success: true, message: 'Nickname salvato' });
         
-        // 1.2. Se NON è una rotta gestita, risponde 404 e si ferma.
-        return res.status(404).send('Pagina o risorsa API non trovata sul dominio motivazionale.');
-        
-    } else {
-        // Se NON è il dominio motivazionale, procedi con le altre route
-        next();
+    } catch (error) {
+        console.error("Errore salvataggio nickname:", error);
+        res.status(500).json({ error: 'Errore nel salvataggio' });
     }
-});
-// ===================================================================
+}
 
-// Serve static files
-app.use(express.static(path.join(__dirname, '..', 'public')));
+/**
+ * Gestisce la richiesta della pagina motivazionale con HTML + fetch lato client.
+ */
+async function handleMotivationalRequest(req, res) {
+    try {
+        const initialTopic = req.query.topic || 'motivazione';
+        
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        
+        const htmlPage = `<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Frase Motivazionale</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
+        
+        .auth-header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
+        .auth-header .username { font-weight: 600; color: #2c3e50; }
+        .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; }
+        .auth-header .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        
+        .nickname-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .nickname-popup-content { background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; }
+        .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; }
+        .nickname-popup p { margin-bottom: 20px; color: #555; }
+        .nickname-input { width: 100%; padding: 12px; border: 2px solid #caaeb3; border-radius: 8px; font-size: 16px; margin-bottom: 20px; }
+        .nickname-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; }
+        
+        .header { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; margin: 20px; padding: 30px 20px; max-width: 500px; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        .header h1 { font-weight: 700; font-size: 1.8rem; margin: 0 0 15px 0; line-height: 1.3; color: #fff; }
+        .header p { font-weight: 400; font-size: 1rem; margin: 0; opacity: 0.9; color: #fff; }
+        main { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; max-width: 500px; margin: 0 auto; text-align: center; }
+        main h2 { font-weight: 600; font-size: 1.4rem; margin: 20px 0 15px 0; color: #2c3e50; }
+        main span { font-weight: 700; color: #3498db; }
+        #quote-text { margin-top: 20px; font-size: 1.2rem; font-weight: 400; min-height: 80px; color: #34495e; line-height: 1.5; font-style: italic; background: rgba(255,255,255,0.8); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .bottom-bar { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto 10px auto; max-width: 500px; }
+        button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body>
+    <header class="auth-header" id="auth-header">
+        <div class="logo">Motivazional</div>
+        <div class="user-info">
+            <span class="username" id="username-display">Ospite</span>
+            <a href="https://taplinknfc.it/login?redirect=motivazional" class="auth-btn" id="auth-button">Login</a>
+        </div>
+    </header>
 
-// --- ROUTE API (Per il dominio principale taplinknfc.it) ---
-app.use('/api/auth', authRoutes);
-app.use('/api/user', userRoutes);
-app.use('/api/admin', adminRoutes);
+    <header class="header">
+        <h1>365 giorni per una versione più felice di te</h1>
+        <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
+    </header>
+    <main>
+        <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
+        <div id="quote-text">Caricamento della tua motivazione...</div>
+    </main>
+    <div class="bottom-bar">
+        <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
+    </div>
+    <script>
+        function updateAuthUI() {
+            const token = localStorage.getItem('authToken');
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            const usernameDisplay = document.getElementById('username-display');
+            const authButton = document.getElementById('auth-button');
 
-// 🎯 ROUTE GOOGLE OAUTH - CORRETTE
-app.get('/api/auth/google', authController.googleAuth);  // Avvia il flusso
-app.get('/api/auth/google/callback', authController.googleAuthCallback); // Gestisce il callback
+            if (token && userData) {
+                const displayName = userData.username || userData.name || userData.email || userData.id || 'Utente';
+                usernameDisplay.textContent = displayName;
+                authButton.textContent = 'Logout';
+                authButton.href = '#';
+                authButton.onclick = handleLogout;
+            } else {
+                usernameDisplay.textContent = 'Ospite';
+                authButton.textContent = 'Login';
+                authButton.href = 'https://taplinknfc.it/login?redirect=motivazional';
+                authButton.onclick = null;
+            }
+        }
 
-// 🎯 ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
-app.get('/motivazionale', (req, res) => {
-    // Reindirizza al sottodominio motivazionale
-    res.redirect('https://motivazional.taplinknfc.it');
-});
+        function handleLogout(e) {
+            e.preventDefault();
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('userData');
+            localStorage.removeItem('lastTopic');
+            localStorage.removeItem('nicknameSet');
+            sessionStorage.clear();
+            window.location.replace('https://taplinknfc.it');
+        }
 
-// Redirect routes
-app.use('/', redirectRoutes);
+        function showNicknamePopup() {
+            const popup = document.createElement('div');
+            popup.className = 'nickname-popup';
+            popup.innerHTML = \`
+                <div class="nickname-popup-content">
+                    <h2>Benvenuto! 👋</h2>
+                    <p>Scegli un nickname per personalizzare la tua esperienza:</p>
+                    <input type="text" id="nickname-input" placeholder="Il tuo nickname..." class="nickname-input" maxlength="20">
+                    <button id="save-nickname" class="nickname-btn">Salva e Continua</button>
+                </div>
+            \`;
+            document.body.appendChild(popup);
+            
+            const input = document.getElementById('nickname-input');
+            input.focus();
+            
+            document.getElementById('save-nickname').addEventListener('click', function() {
+                const nickname = input.value.trim();
+                if (nickname.length < 2) {
+                    alert('Inserisci un nickname di almeno 2 caratteri');
+                    return;
+                }
+                if (nickname.length > 20) {
+                    alert('Il nickname non può superare i 20 caratteri');
+                    return;
+                }
+                
+                const userData = JSON.parse(localStorage.getItem('userData'));
+                userData.username = nickname;
+                localStorage.setItem('userData', JSON.stringify(userData));
+                localStorage.setItem('nicknameSet', 'true');
+                
+                const token = localStorage.getItem('authToken');
+                if (token) {
+                    fetch('/api/update-nickname', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        },
+                        body: JSON.stringify({ nickname: nickname })
+                    }).catch(err => console.error('Errore salvataggio nickname:', err));
+                }
+                
+                document.body.removeChild(popup);
+                const urlParams = new URLSearchParams(window.location.search);
+                const topic = urlParams.get('topic');
+                if (topic) localStorage.setItem('lastTopic', topic);
+                window.history.replaceState({}, document.title, '/motivazionale');
+                updateAuthUI();
+                loadQuote();
+            });
+            
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') document.getElementById('save-nickname').click();
+            });
+        }
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Unhandled error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-});
+        function checkUrlForAuth() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const id = urlParams.get('id');
+            const topic = urlParams.get('topic');
 
-// 404 handler
-app.use((req, res) => {
-    res.status(404).json({ error: 'Route not found' });
-});
+            if (token && id) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    localStorage.setItem('authToken', token);
+                    localStorage.setItem('userData', JSON.stringify(payload));
+                    
+                    const hasRealName = payload.username || payload.name;
+                    const displayName = payload.username || payload.name || payload.email || payload.id;
+                    const isGoogleUser = payload.provider === 'google' || displayName === 'Google User' || !hasRealName;
+                    
+                    if (isGoogleUser && !localStorage.getItem('nicknameSet')) {
+                        showNicknamePopup();
+                    } else {
+                        if (topic) localStorage.setItem('lastTopic', topic);
+                        window.history.replaceState({}, document.title, '/motivazionale');
+                        updateAuthUI();
+                        loadQuote();
+                    }
+                } catch (error) {
+                    console.error('Errore durante il login automatico:', error);
+                }
+            }
+        }
 
-// Avvio del server
-app.listen(PORT, () => {
-    console.log(`Server is stable and running on port ${PORT}`);
-});
+        const loadQuote = async () => {
+            const token = localStorage.getItem('authToken');
+            const userData = JSON.parse(localStorage.getItem('userData'));
+            const savedTopic = localStorage.getItem('lastTopic');
+
+            let username = 'Ospite';
+            let keychainId = 'Ospite';
+            
+            if (token && userData) {
+                keychainId = userData.id || 'Ospite';
+                username = userData.username || userData.name || userData.email || userData.id || 'Utente';
+            }
+            
+            const topic = savedTopic || '${initialTopic}';
+            document.getElementById('topic-text').innerText = topic;
+
+            try {
+                const headers = {};
+                if (token) headers['Authorization'] = 'Bearer ' + token;
+                
+                const url = '/api/quote?id=' + encodeURIComponent(keychainId) + '&username=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic);
+                const response = await fetch(url, { headers });
+                if (!response.ok) throw new Error('Server non OK: ' + response.status);
+                
+                const data = await response.json();
+                document.getElementById('quote-text').innerText = '"' + data.quote + '"';
+            } catch (e) {
+                console.error("Errore caricamento frase:", e);
+                document.getElementById('quote-text').innerText = ':( La motivazione è dentro di te, non smettere di cercarla.';
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkUrlForAuth();
+            updateAuthUI();
+            
+            document.getElementById('change-topic-btn').addEventListener('click', () => {
+                const topicTextElement = document.getElementById('topic-text');
+                const currentTopic = topicTextElement.innerText;
+                const newTopic = prompt("Inserisci un nuovo argomento:", currentTopic) || currentTopic;
+                if (newTopic && newTopic !== currentTopic) {
+                    localStorage.setItem('lastTopic', newTopic);
+                    window.location.href = '/motivazionale'; 
+                }
+            });
+        });
+    </script>
+</body>
+</html>`;
+
+        res.send(htmlPage);
+    } catch (error) {
+        console.error("Errore in handleMotivationalRequest:", error);
+        res.status(500).send("Errore nel caricamento della pagina");
+    }
+}
+
+// 🎯 FUNZIONE PER COMPATIBILITÀ
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
+    return await getMotivationalQuoteFromN8N(topic, userNameOrId);
+}
+
+module.exports = {
+    getMotivationalQuote,  // Per compatibilità
+    getMotivationalQuoteFromN8N,  // 🆕 FUNZIONE AGGIUNTA
+    getQuoteOnly,
+    handleMotivationalRequest,
+    updateUserNickname
+};
