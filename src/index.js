@@ -69,6 +69,9 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 
+// google outh se si scrive cosi
+app.post('/api/auth/google', authController.googleAuth);
+
 // 🎯 AGGIUNGI QUESTA ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
 app.get('/motivazionale', (req, res) => {
     // Reindirizza al sottodominio motivazionale
