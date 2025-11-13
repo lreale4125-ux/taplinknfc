@@ -178,11 +178,15 @@ async function handleMotivationalRequest(req, res) {
 
         function handleLogout(e) {
             e.preventDefault();
+            // 🎯 PULIZIA COMPLETA DELLA SESSIONE
             localStorage.removeItem('authToken');
             localStorage.removeItem('userData');
             localStorage.removeItem('lastTopic');
             sessionStorage.clear();
-            window.location.href = 'https://taplinknfc.it'; // Ricarica la pagina
+            
+            // 🎯 FORZA IL REINDIRIZZAMENTO COMPLETO A TAPLINKNFC.IT
+            // Usa replace invece di href per evitare che il browser mantenga la pagina in cache
+            window.location.replace('https://taplinknfc.it');
         }
 
         // 🎯 GESTIONE LOGIN AUTOMATICO DA URL PARAMETERS
