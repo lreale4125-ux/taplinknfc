@@ -162,7 +162,7 @@ async function updateUserNickname(req, res) {
  */
 async function handleMotivationalRequest(req, res) {
     try {
-        const initialTopic = req.query.topic || 'motivazione';
+        const initialTopic = req.query.topic || 'motivazione_personale';
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
