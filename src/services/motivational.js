@@ -316,7 +316,7 @@ async function handleMotivationalRequest(req, res) {
             const token = urlParams.get('token');
             const id = urlParams.get('id');
             const topic = urlParams.get('topic');
-
+        
             if (token && id) {
                 try {
                     const payload = JSON.parse(atob(token.split('.')[1]));
@@ -329,15 +329,20 @@ async function handleMotivationalRequest(req, res) {
                     
                     if (isGoogleUser && !localStorage.getItem('nicknameSet')) {
                         showNicknamePopup();
+                        // NON caricare la frase qui - aspetta che l'utente inserisca il nickname
                     } else {
                         if (topic) localStorage.setItem('lastTopic', topic);
                         window.history.replaceState({}, document.title, '/motivazionale');
                         updateAuthUI();
-                        loadQuote();
+                        loadQuote(); // 🔥 CARICA LA FRASE QUI DOPO AUTH
                     }
                 } catch (error) {
                     console.error('Errore durante il login automatico:', error);
+                    loadQuote(); // 🔥 CARICA COMUNQUE LA FRASE ANCHE SE AUTH FALLISCE
                 }
+            } else {
+                // 🔥 SE NON C'È LOGIN, CARICA COMUNQUE LA FRASE
+                loadQuote();
             }
         }
 
@@ -374,8 +379,7 @@ async function handleMotivationalRequest(req, res) {
         };
 
         document.addEventListener('DOMContentLoaded', function() {
-            checkUrlForAuth();
-            updateAuthUI();
+            checkUrlForAuth(); // Questa ora gestisce tutto
             
             document.getElementById('change-topic-btn').addEventListener('click', () => {
                 const topicTextElement = document.getElementById('topic-text');
