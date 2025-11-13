@@ -1,42 +1,58 @@
 // --- src/services/motivational.js ---
 
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../db');
-const jwt = require('jsonwebtoken');
-
-let genAI;
-if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-} else {
-    console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
-}
 
 /**
- * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
- * @param {string} userNameOrId - Nome utente o ID (se nome non disponibile) da inserire nel prompt.
- * @param {string} topic
+ * Prende una frase motivazionale casuale dal database N8N
+ * @param {string} topic - Categoria della frase
+ * @param {string} userName - Nome utente per personalizzare
  * @returns {Promise<string>}
  */
-async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
-    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
-
+async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '') {
     try {
-        const timestamp = Date.now();
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        // Cerca frasi per la categoria specificata
+        const phrases = db.prepare(`
+            SELECT phrase_text, category 
+            FROM motivational_phrases 
+            WHERE category = ? 
+            ORDER BY RANDOM() 
+            LIMIT 1
+        `).all(topic);
 
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        if (phrases.length > 0) {
+            let phrase = phrases[0].phrase_text;
+            
+            // Personalizza la frase con il nome utente se presente
+            if (userName && userName !== 'Ospite' && userName !== 'Utente') {
+                phrase = phrase.replace(/\[nome\]/gi, userName);
+                phrase = phrase.replace(/l'utente/gi, userName);
+            }
+            
+            return phrase;
+        } else {
+            // Fallback se non trova frasi per la categoria
+            const fallbackPhrases = db.prepare(`
+                SELECT phrase_text 
+                FROM motivational_phrases 
+                WHERE category = 'generale' 
+                ORDER BY RANDOM() 
+                LIMIT 1
+            `).all();
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+            if (fallbackPhrases.length > 0) {
+                return fallbackPhrases[0].phrase_text;
+            } else {
+                return "La motivazione è dentro di te, non smettere di cercarla.";
+            }
+        }
     } catch (error) {
-        console.error("Errore durante la chiamata a Gemini:", error.message);
-        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+        console.error("Errore nel recupero frase da database:", error);
+        return "La motivazione è dentro di te, non smettere di cercarla.";
     }
 }
 
 /**
- * Endpoint API: restituisce solo la frase motivazionale in formato JSON
+ * Endpoint API aggiornato per usare il database N8N
  */
 async function getQuoteOnly(req, res) {
     try {
@@ -45,19 +61,21 @@ async function getQuoteOnly(req, res) {
         let keychainId = req.query.id || 'Ospite';
         let topic = req.query.topic || 'motivazione';
         let username = req.query.username || keychainId; 
-        let user = null;
         
+        // Logica autenticazione (mantenuta uguale)
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             const token = req.headers.authorization.split(' ')[1];
             try {
-                user = jwt.verify(token, process.env.JWT_SECRET);
+                const jwt = require('jsonwebtoken');
+                const user = jwt.verify(token, process.env.JWT_SECRET);
                 keychainId = user.id || keychainId;
                 username = user.username || user.name || user.email || user.id || username;
             } catch (err) {
-                console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
+                console.warn('Token non valido. Accesso come Ospite.');
             }
         }
         
+        // Aggiorna analytics
         try {
             db.prepare(`
                 INSERT INTO motivational_analytics (keychain_id, topic, view_count)
@@ -65,19 +83,18 @@ async function getQuoteOnly(req, res) {
                 ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
             `).run(keychainId, topic);
         } catch (dbError) {
-            console.error("Errore DB in getQuoteOnly:", dbError.message);
+            console.error("Errore DB analytics:", dbError.message);
         }
 
-        const quote = await getMotivationalQuote(username, topic); 
+        // 🎯 USA IL DATABASE N8N invece di Gemini
+        const quote = await getMotivationalQuoteFromN8N(topic, username); 
         res.json({ quote });
         
     } catch (error) {
         console.error("Errore in getQuoteOnly:", error);
-        res.setHeader('Content-Type', 'application/json');
         res.status(500).json({ error: 'Errore interno del server' });
     }
 }
-
 /**
  * Salva/aggiorna il nickname per un utente
  */
