@@ -9,7 +9,7 @@ require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 // Import custom modules
 const db = require('./db');
 const { authenticateToken } = require('./middleware/auth');
-const { handleMotivationalRequest, getQuoteOnly } = require('./services/motivational'); 
+const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./services/motivational'); // 🎯 AGGIUNGI updateUserNickname
 
 // Import route modules
 const authRoutes = require('./routes/auth');
@@ -52,6 +52,11 @@ app.use(async (req, res, next) => {
         if (req.path === '/api/quote') {
             // Chiama la funzione API che restituisce JSON.
             return getQuoteOnly(req, res); 
+        }
+        
+        // 🎯 AGGIUNGI QUESTA NUOVA ROUTE PER IL NICKNAME
+        if (req.path === '/api/update-nickname' && req.method === 'POST') {
+            return updateUserNickname(req, res);
         }
         
         // 1.2. Se NON è una rotta gestita, risponde 404 e si ferma.
