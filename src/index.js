@@ -74,6 +74,7 @@ app.use('/api/admin', adminRoutes);
 
 // 🎯 ROUTE GOOGLE OAUTH - CORRETTA
 app.post('/api/auth/google', authController.googleAuth);
+app.post('/api/auth/google/callback', authController.googleAuth);
 
 // 🎯 ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
 app.get('/motivazionale', (req, res) => {
