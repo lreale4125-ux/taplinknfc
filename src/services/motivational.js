@@ -1,42 +1,66 @@
 // --- src/services/motivational.js ---
 
-const { GoogleGenerativeAI } = require("@google/generative-ai");
 const db = require('../db');
 const jwt = require('jsonwebtoken');
 
-let genAI;
-if (process.env.GEMINI_API_KEY) {
-    genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-} else {
-    console.warn('GEMINI_API_KEY non trovata nel .env. Le funzioni motivazionali non funzioneranno.');
+/**
+ * Mappa le categorie N8N alle categorie del sito
+ */
+function mapCategory(n8nCategory) {
+    const categoryMap = {
+        'motivazione_personale': 'motivazione',
+        'studio_apprendimento': 'studio', 
+        'successo_resilienza': 'successo'
+    };
+    return categoryMap[n8nCategory] || 'motivazione';
 }
 
 /**
- * Genera una frase motivazionale unica per un utente, includendo l'argomento (topic).
- * @param {string} userNameOrId - Nome utente o ID (se nome non disponibile) da inserire nel prompt.
- * @param {string} topic
- * @returns {Promise<string>}
+ * Prende una frase motivazionale casuale dal database
  */
-async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
-    if (!genAI) return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
-
+async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') {
     try {
-        const timestamp = Date.now();
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const mappedTopic = mapCategory(topic);
+        
+        const phrases = db.prepare(`
+            SELECT phrase_text, category, author
+            FROM motivational_phrases 
+            WHERE category = ? 
+            ORDER BY RANDOM() 
+            LIMIT 1
+        `).all(mappedTopic);
 
-        const prompt = `Sei un coach motivazionale. Genera una frase motivazionale breve (massimo 2 frasi) e di grande impatto per l'utente "${userNameOrId}". La frase DEVE essere strettamente inerente all'argomento: "${topic}". Assicurati che sia una frase unica. Timestamp:${timestamp}. Non includere saluti o convenevoli, solo la frase.`;
+        if (phrases.length > 0) {
+            let phrase = phrases[0].phrase_text;
+            
+            // Personalizza la frase con il nome utente
+            if (userName && userName !== 'Ospite' && userName !== 'Utente') {
+                phrase = phrase.replace(/\[nome\]/gi, userName);
+                phrase = phrase.replace(/l'utente/gi, userName);
+            }
+            
+            return phrase;
+        } else {
+            // Fallback
+            const fallbackPhrases = db.prepare(`
+                SELECT phrase_text 
+                FROM motivational_phrases 
+                ORDER BY RANDOM() 
+                LIMIT 1
+            `).all();
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        return response.text();
+            return fallbackPhrases.length > 0 
+                ? fallbackPhrases[0].phrase_text 
+                : "La motivazione è dentro di te, non smettere di cercarla.";
+        }
     } catch (error) {
-        console.error("Errore durante la chiamata a Gemini:", error.message);
-        return "La motivazione è dentro di te, non smettere di cercarla."; // fallback
+        console.error("Errore nel recupero frase da database:", error);
+        return "La motivazione è dentro di te, non smettere di cercarla.";
     }
 }
 
 /**
- * Endpoint API: restituisce solo la frase motivazionale in formato JSON
+ * Endpoint API che usa il database
  */
 async function getQuoteOnly(req, res) {
     try {
@@ -45,19 +69,20 @@ async function getQuoteOnly(req, res) {
         let keychainId = req.query.id || 'Ospite';
         let topic = req.query.topic || 'motivazione';
         let username = req.query.username || keychainId; 
-        let user = null;
         
+        // Autenticazione
         if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
             const token = req.headers.authorization.split(' ')[1];
             try {
-                user = jwt.verify(token, process.env.JWT_SECRET);
+                const user = jwt.verify(token, process.env.JWT_SECRET);
                 keychainId = user.id || keychainId;
                 username = user.username || user.name || user.email || user.id || username;
             } catch (err) {
-                console.warn('Token non valido in getQuoteOnly. Accesso trattato come Ospite.');
+                console.warn('Token non valido. Accesso come Ospite.');
             }
         }
         
+        // Analytics
         try {
             db.prepare(`
                 INSERT INTO motivational_analytics (keychain_id, topic, view_count)
@@ -65,15 +90,14 @@ async function getQuoteOnly(req, res) {
                 ON CONFLICT(keychain_id, topic) DO UPDATE SET view_count = view_count + 1
             `).run(keychainId, topic);
         } catch (dbError) {
-            console.error("Errore DB in getQuoteOnly:", dbError.message);
+            console.error("Errore DB analytics:", dbError.message);
         }
 
-        const quote = await getMotivationalQuote(username, topic); 
+        const quote = await getMotivationalQuoteFromDB(topic, username); 
         res.json({ quote });
         
     } catch (error) {
         console.error("Errore in getQuoteOnly:", error);
-        res.setHeader('Content-Type', 'application/json');
         res.status(500).json({ error: 'Errore interno del server' });
     }
 }
@@ -353,8 +377,15 @@ async function handleMotivationalRequest(req, res) {
     }
 }
 
+// 🎯 AGGIUNGI QUESTA FUNZIONE PER MANTENERE COMPATIBILITÀ
+// (anche se ora usa il database, alcuni moduli potrebbero chiamare ancora questa)
+async function getMotivationalQuote(userNameOrId, topic = 'motivazione') {
+    return await getMotivationalQuoteFromN8N(topic, userNameOrId);
+}
+
 module.exports = {
-    getMotivationalQuote,
+    getMotivationalQuote,  // Per compatibilità
+    getMotivationalQuoteFromN8N,  // Nuova funzione
     getQuoteOnly,
     handleMotivationalRequest,
     updateUserNickname
