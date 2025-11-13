@@ -87,7 +87,7 @@ async function getQuoteOnly(req, res) {
         res.setHeader('Content-Type', 'application/json');
         
         let keychainId = req.query.id || 'Ospite';
-        let topic = req.query.topic || 'motivazione';
+        let topic = req.query.topic || 'motivazione_personale'; 
         let username = req.query.username || keychainId; 
         
         // Autenticazione
