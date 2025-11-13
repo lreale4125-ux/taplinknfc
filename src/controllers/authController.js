@@ -2,8 +2,68 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 
-// --- LOGIN ---
-// Gestisce login per tutti gli utenti (wallet, analytics, POS, motivazional)
+// --- GOOGLE OAUTH ---
+async function googleAuth(req, res) {
+    // Questa funzione verrà chiamata dopo che Google ha autenticato l'utente
+    const { token: googleToken, email, name, googleId } = req.body;
+
+    if (!email || !googleId) {
+        return res.status(400).json({ error: 'Dati Google incompleti.' });
+    }
+
+    try {
+        // Cerca utente per email o google_id
+        let user = db.prepare("SELECT * FROM users WHERE email = ? OR google_id = ?").get(email, googleId);
+        
+        if (!user) {
+            // Crea nuovo utente con Google
+            const stmt = db.prepare(`
+                INSERT INTO users (email, username, role, google_id, created_at)
+                VALUES (?, ?, 'motivazional', ?, datetime('now'))
+            `);
+            const info = stmt.run(email, name || email.split('@')[0], googleId);
+            
+            user = {
+                id: info.lastInsertRowid,
+                email: email,
+                username: name || email.split('@')[0],
+                role: 'motivazional',
+                google_id: googleId
+            };
+        } else if (!user.google_id) {
+            // Aggiorna utente esistente con Google ID
+            db.prepare("UPDATE users SET google_id = ? WHERE id = ?").run(googleId, user.id);
+            user.google_id = googleId;
+        }
+
+        // Prepara payload JWT
+        const payload = {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            email: user.email
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        // Redirect a motivational
+        const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${user.id}&topic=motivazione`;
+        
+        return res.json({ 
+            success: true,
+            message: 'Login con Google completato!',
+            token: token, 
+            user: payload, 
+            redirect: redirectUrl 
+        });
+
+    } catch (error) {
+        console.error('Errore durante login Google:', error);
+        res.status(500).json({ error: 'Errore del server durante il login Google.' });
+    }
+}
+
+// --- LOGIN TRADIZIONALE ---
 async function login(req, res) {
     const { email, password } = req.body;
     
@@ -18,8 +78,7 @@ async function login(req, res) {
             return res.status(400).json({ error: 'Credenziali non valide.' });
         }
 
-        // 🎯 CORREZIONE CRITICA: Verifica password corretta
-        // Usa 'password_hash' se esiste nel DB, altrimenti 'password'
+        // Verifica password
         const passwordField = user.password_hash || user.password;
         const validPassword = await bcrypt.compare(password, passwordField);
         
@@ -41,7 +100,7 @@ async function login(req, res) {
         // Crea token JWT
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // 🎯 CORREZIONE: Reindirizza alla ROOT di motivazional.taplinknfc.it (non /motivazionale)
+        // Redirect per utenti motivazionali
         if (user.role === 'motivazional') {
             const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${payload.id}&topic=motivazione`;
             
@@ -53,7 +112,7 @@ async function login(req, res) {
             });
         }
 
-        // Per tutti gli altri utenti (admin, analytics, POS, wallet)
+        // Per tutti gli altri utenti
         res.json({ 
             success: true,
             token: token, 
@@ -66,8 +125,7 @@ async function login(req, res) {
     }
 }
 
-// --- REGISTER ---
-// Nuovi utenti registrati qui vengono automaticamente assegnati al ruolo 'motivazional'
+// --- REGISTER TRADIZIONALE ---
 async function register(req, res) {
     const { email, password, username } = req.body;
 
@@ -102,7 +160,7 @@ async function register(req, res) {
         // Hash della password
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // 🎯 INSERISCE NUOVO UTENTE CON RUOLO 'motivazional'
+        // Inserisce nuovo utente
         const stmt = db.prepare(`
             INSERT INTO users (email, password, username, role, can_access_wallet, can_access_analytics, can_access_pos, created_at)
             VALUES (?, ?, ?, 'motivazional', 0, 0, 0, datetime('now'))
@@ -123,7 +181,7 @@ async function register(req, res) {
 
         const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-        // 🎯 CORREZIONE: Reindirizza alla ROOT di motivazional.taplinknfc.it (non /motivazionale)
+        // Redirect a motivational
         const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${payload.id}&topic=motivazione`;
         
         return res.json({ 
@@ -145,7 +203,7 @@ async function register(req, res) {
     }
 }
 
-// --- FUNZIONE AGGIUNTIVA: Verifica Token (opzionale) ---
+// --- VERIFY TOKEN ---
 async function verifyToken(req, res) {
     const token = req.headers.authorization?.replace('Bearer ', '');
     
@@ -170,5 +228,6 @@ async function verifyToken(req, res) {
 module.exports = {
     login,
     register,
-    verifyToken
+    verifyToken,
+    googleAuth
 };

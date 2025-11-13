@@ -17,6 +17,9 @@ const userRoutes = require('./routes/user');
 const adminRoutes = require('./routes/admin');
 const redirectRoutes = require('./routes/redirects');
 
+// 🎯 IMPORT AUTH CONTROLLER PER GOOGLE OAUTH
+const authController = require('./controllers/authController');
+
 // Environment validation
 if (!process.env.JWT_SECRET) {
     console.error('FATAL ERROR: JWT_SECRET is not defined in your .env file.');
@@ -69,7 +72,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
 
-// 🎯 AGGIUNGI QUESTA ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
+// 🎯 ROUTE GOOGLE OAUTH - CORRETTA
+app.post('/api/auth/google', authController.googleAuth);
+app.post('/api/auth/google/callback', authController.googleAuth);
+
+// 🎯 ROUTE PER LA PAGINA MOTIVAZIONALE SUL DOMINIO PRINCIPALE
 app.get('/motivazionale', (req, res) => {
     // Reindirizza al sottodominio motivazionale
     res.redirect('https://motivazional.taplinknfc.it');
