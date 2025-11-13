@@ -8,11 +8,11 @@ const jwt = require('jsonwebtoken');
  */
 function mapCategory(n8nCategory) {
     const categoryMap = {
-        'motivazione_personale': 'motivazione_personale',
-        'studio_apprendimento': 'studio_apprendimento', 
-        'successo_resilienza': 'successo_resilienza'
+        'motivazione_personale': 'motivazione',
+        'studio_apprendimento': 'studio', 
+        'successo_resilienza': 'successo'
     };
-    return categoryMap[n8nCategory] || 'motivazione_personale';
+    return categoryMap[n8nCategory] || 'motivazione';
 }
 
 /**
@@ -162,7 +162,7 @@ async function updateUserNickname(req, res) {
  */
 async function handleMotivationalRequest(req, res) {
     try {
-        const initialTopic = req.query.topic || 'motivazione_personale';
+        const initialTopic = req.query.topic || 'motivazione';
         
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         
