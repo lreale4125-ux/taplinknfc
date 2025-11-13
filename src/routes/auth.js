@@ -1,5 +1,5 @@
 const express = require('express');
-const { login, register } = require('../controllers/authController');
+const { login, register, googleAuth } = require('../controllers/authController'); // 🎯 Aggiungi googleAuth
 
 const router = express.Router();
 
@@ -7,8 +7,10 @@ const router = express.Router();
 // Login per tutti gli utenti (wallet, analytics, POS ecc.)
 router.post('/login', login);
 
-// Registrazione "motivazionale": gli utenti registrati qui
-// vengono automaticamente reindirizzati alla loro pagina motivazionale
+// Registrazione "motivazionale"
 router.post('/register', register);
+
+// 🎯 Aggiungi route Google OAuth
+router.post('/google', googleAuth);
 
 module.exports = router;
