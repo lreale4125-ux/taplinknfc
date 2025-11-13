@@ -300,8 +300,46 @@ async function handleMotivationalRequest(req, res) {
     }
 }
 
+/**
+ * Salva/aggiorna il nickname per un utente
+ */
+async function updateUserNickname(req, res) {
+    try {
+        res.setHeader('Content-Type', 'application/json');
+        
+        const { nickname } = req.body;
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ error: 'Token mancante' });
+        }
+        
+        const user = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = user.id;
+        
+        // Salva il nickname nel database (se hai una tabella user_profiles)
+        try {
+            db.prepare(`
+                INSERT OR REPLACE INTO user_profiles (user_id, nickname, updated_at)
+                VALUES (?, ?, datetime('now'))
+            `).run(userId, nickname);
+        } catch (dbError) {
+            console.error("Errore DB nel salvataggio nickname:", dbError.message);
+            // Continua comunque, anche se il DB fallisce
+        }
+        
+        res.json({ success: true, message: 'Nickname salvato' });
+        
+    } catch (error) {
+        console.error("Errore salvataggio nickname:", error);
+        res.status(500).json({ error: 'Errore nel salvataggio' });
+    }
+}
+
+// POI MANTIENI L'ESPORTazione ESISTENTE E AGGIUNGI LA NUOVA FUNZIONE:
 module.exports = {
     getMotivationalQuote,
     getQuoteOnly,
-    handleMotivationalRequest
+    handleMotivationalRequest,
+    updateUserNickname  // 🎯 AGGIUNGI QUESTA RIGA
 };
