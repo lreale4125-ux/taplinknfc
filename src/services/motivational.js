@@ -18,9 +18,10 @@ function mapCategory(n8nCategory) {
 /**
  * Prende una frase motivazionale casuale dal database
  */
-async function getMotivationalQuoteFromDB(topic = 'motivazione', userName = '') {
+async function getMotivationalQuoteFromDB(topic = 'motivazione_personale', userName = '') {
     try {
-        const mappedTopic = mapCategory(topic);
+        // Usa direttamente le categorie N8N
+        const mappedTopic = topic; // Non mappiamo più, usiamo direttamente
         
         const phrases = db.prepare(`
             SELECT phrase_text, category, author
