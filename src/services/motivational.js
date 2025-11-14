@@ -307,6 +307,22 @@ async function handleMotivationalRequest(req, res) {
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid rgba(252,182,159,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(252,182,159,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
         }
         .auth-header .logo {
             font-weight: 700;
@@ -398,12 +414,12 @@ async function handleMotivationalRequest(req, res) {
 
         .header {
             background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 50%, #ffecd2 100%);
-            border-radius: 20px;
-            margin: 10px 20px;
-            padding: 20px 15px;
-            max-width: 400px;
+            border-radius: 30px;
+            margin: 20px;
+            padding: 30px 20px;
+            max-width: 500px;
             align-self: center;
-            box-shadow: 0 6px 20px rgba(252,182,159,0.3);
+            box-shadow: 0 8px 30px rgba(252,182,159,0.3);
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -420,8 +436,8 @@ async function handleMotivationalRequest(req, res) {
         }
         .header h1 {
             font-weight: 700;
-            font-size: 1.4rem;
-            margin: 0 0 10px 0;
+            font-size: 1.8rem;
+            margin: 0 0 15px 0;
             line-height: 1.3;
             color: #fff;
             position: relative;
@@ -462,17 +478,17 @@ async function handleMotivationalRequest(req, res) {
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
         #quote-text {
-            margin-top: 40px;
-            font-size: 1.5rem;
+            margin-top: 20px;
+            font-size: 1.2rem;
             font-weight: 400;
-            min-height: 100px;
+            min-height: 80px;
             color: #34495e;
-            line-height: 1.6;
+            line-height: 1.5;
             font-style: italic;
             background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
-            padding: 35px 25px;
-            border-radius: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 25px 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
             position: relative;
             animation: fadeIn 0.8s ease-out 0.3s both;
         }
@@ -537,15 +553,14 @@ async function handleMotivationalRequest(req, res) {
         /* --- TABLET --- */
         @media (min-width: 769px) and (max-width: 1024px) {
             .header {
-                max-width: 500px;
-                padding: 25px 20px;
-                margin: 15px 20px;
+                max-width: 600px;
+                padding: 40px 25px;
             }
             .header h1 {
-                font-size: 1.6rem;
+                font-size: 2rem;
             }
             .header p {
-                font-size: 1rem;
+                font-size: 1.1rem;
             }
             main {
                 max-width: 600px;
@@ -555,8 +570,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.5rem;
             }
             #quote-text {
-                font-size: 1.7rem;
-                padding: 40px 30px;
+                font-size: 1.3rem;
+                padding: 30px 25px;
             }
             .bottom-bar button {
                 font-size: 1.1rem;
@@ -574,15 +589,14 @@ async function handleMotivationalRequest(req, res) {
         /* --- DESKTOP --- */
         @media (min-width: 1025px) {
             .header {
-                max-width: 600px;
-                padding: 30px 25px;
-                margin: 20px auto;
+                max-width: 700px;
+                padding: 50px 30px;
             }
             .header h1 {
-                font-size: 1.8rem;
+                font-size: 2.2rem;
             }
             .header p {
-                font-size: 1.1rem;
+                font-size: 1.2rem;
             }
             main {
                 max-width: 700px;
@@ -592,8 +606,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.6rem;
             }
             #quote-text {
-                font-size: 2rem;
-                padding: 50px 40px;
+                font-size: 1.4rem;
+                padding: 35px 30px;
             }
             .bottom-bar button {
                 font-size: 1.2rem;
@@ -678,9 +692,7 @@ async function handleMotivationalRequest(req, res) {
 
             #change-topic-btn {
                 bottom: 15px;
-                left: 50%;
-                transform: translateX(-50%);
-                right: auto;
+                right: 15px;
                 padding: 10px 15px;
                 font-size: 0.8rem;
             }
@@ -700,8 +712,8 @@ async function handleMotivationalRequest(req, res) {
         <h1>365 giorni per una versione più felice di te</h1>
         <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
     </header>
-
     <main>
+        <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
@@ -712,8 +724,6 @@ async function handleMotivationalRequest(req, res) {
             <button id="check-guess" style="background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(252,182,159,0.3);">Verifica Risposta</button>
             <div id="game-feedback" style="margin-top: 20px; font-size: 1.1rem; font-weight: 600; min-height: 30px;"></div>
         </div>
-
-        <h2 style="margin-top: 40px; text-align: center;">Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
     </main>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
@@ -729,7 +739,7 @@ async function handleMotivationalRequest(req, res) {
     </div>
 
     <!-- Pulsante fluttuante per cambiare argomento -->
-    <button id="change-topic-btn" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #f5f5f5; color: black; border: 2px solid #fcb69f; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.1); transition: all 0.3s ease;">🔄 CAMBIA ARGOMENTO</button>
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 6px 20px rgba(252,182,159,0.4); transition: all 0.3s ease; animation: pulse 2s infinite;">🔄 CAMBIA ARGOMENTO</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
