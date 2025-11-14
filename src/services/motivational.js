@@ -628,14 +628,8 @@ async function handleMotivationalRequest(req, res) {
         <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
-        <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
-        <div id="author-game" style="display: none; margin-top: 10px; text-align: center;">
-            <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 20px; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">🎯 Indovina l'autore della frase!</h3>
-            <input type="text" id="author-guess" placeholder="Chi ha detto questa frase?" style="width: 80%; max-width: 300px; padding: 12px; border: 2px solid #fcb69f; border-radius: 10px; font-size: 16px; margin-bottom: 15px; transition: border-color 0.3s ease;" maxlength="50">
-            <br>
-            <button id="check-guess" style="background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(252,182,159,0.3);">Verifica Risposta</button>
-            <div id="game-feedback" style="margin-top: 20px; font-size: 1.1rem; font-weight: 600; min-height: 30px;"></div>
-        </div>
+        <!-- 🎮 PULSANTE PER INDOVINARE L'AUTORE -->
+        <button id="guess-author-btn" style="background: #007bff; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">🎯 Indovina l'autore!</button>
     </main>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
@@ -647,6 +641,17 @@ async function handleMotivationalRequest(req, res) {
                 <button class="topic-option" data-topic="successo">💪 Successo & Resilienza</button>
             </div>
             <button class="close-popup" id="close-popup">Chiudi</button>
+        </div>
+    </div>
+
+    <!-- 🎮 POPUP PER INDOVINARE L'AUTORE -->
+    <div class="topic-popup" id="author-popup" style="display: none;">
+        <div class="topic-popup-content">
+            <h3>🎯 Indovina l'autore della frase!</h3>
+            <input type="text" id="author-guess" placeholder="Chi ha detto questa frase?" class="nickname-input" maxlength="50">
+            <button id="check-guess" class="nickname-btn">Verifica Risposta</button>
+            <div id="game-feedback" style="margin-top: 20px; font-size: 1.1rem; font-weight: 600; min-height: 30px;"></div>
+            <button class="close-popup" id="close-author-popup">Chiudi</button>
         </div>
     </div>
 
@@ -815,18 +820,11 @@ async function handleMotivationalRequest(req, res) {
                 document.getElementById('quote-text').innerText = '"' + data.quote + '"';
                 correctAuthor = data.author || 'Anonimo';
 
-                // Mostra il gioco dopo aver caricato la frase
-                document.getElementById('author-game').style.display = 'block';
-                document.getElementById('author-guess').value = '';
-                document.getElementById('game-feedback').innerHTML = '';
-                document.getElementById('author-guess').focus();
+                // Il gioco è ora in popup, attivato dal pulsante
             } catch (e) {
                 console.error("Errore caricamento frase:", e);
                 document.getElementById('quote-text').innerText = ':( La motivazione è dentro di te, non smettere di cercarla.';
                 correctAuthor = 'Anonimo';
-                document.getElementById('author-game').style.display = 'block';
-                document.getElementById('author-guess').value = '';
-                document.getElementById('game-feedback').innerHTML = '';
             }
         };
 
@@ -885,6 +883,19 @@ async function handleMotivationalRequest(req, res) {
                     if (e.key === 'Enter') {
                         document.getElementById('check-guess').click();
                     }
+                });
+
+                // 🔥 PULSANTE PER APRIRE POPUP AUTORE
+                document.getElementById('guess-author-btn').addEventListener('click', () => {
+                    document.getElementById('author-popup').style.display = 'flex';
+                    document.getElementById('author-guess').value = '';
+                    document.getElementById('game-feedback').innerHTML = '';
+                    document.getElementById('author-guess').focus();
+                });
+
+                // 🔥 CHIUDI POPUP AUTORE
+                document.getElementById('close-author-popup').addEventListener('click', () => {
+                    document.getElementById('author-popup').style.display = 'none';
                 });
             });
     </script>
