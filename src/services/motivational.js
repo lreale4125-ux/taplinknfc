@@ -596,7 +596,8 @@ async function handleMotivationalRequest(req, res) {
 
             #change-topic-btn {
                 bottom: 15px;
-                right: 15px;
+                left: 50%;
+                transform: translateX(-50%);
                 padding: 10px 15px;
                 font-size: 0.8rem;
             }
@@ -621,7 +622,7 @@ async function handleMotivationalRequest(req, res) {
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
-        <div id="author-game" style="display: none; margin-top: 30px; text-align: center;">
+        <div id="author-game" style="display: none; margin-top: 15px; text-align: center;">
             <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 20px; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">🎯 Indovina l'autore della frase!</h3>
             <input type="text" id="author-guess" placeholder="Chi ha detto questa frase?" style="width: 80%; max-width: 300px; padding: 12px; border: 2px solid #fcb69f; border-radius: 10px; font-size: 16px; margin-bottom: 15px; transition: border-color 0.3s ease;" maxlength="50">
             <br>
@@ -643,7 +644,7 @@ async function handleMotivationalRequest(req, res) {
     </div>
 
     <!-- Pulsante fluttuante per cambiare argomento -->
-    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: white; color: black; font-weight: bold; border: none; padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">Cambia argomento</button>
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; color: black; font-weight: bold; border: none; padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">Cambia argomento</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
