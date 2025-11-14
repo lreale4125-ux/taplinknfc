@@ -173,6 +173,33 @@ async function handleMotivationalRequest(req, res) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Frase Motivazionale</title>
     <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding-bottom: 80px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            background-attachment: fixed;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            justify-content: space-between;
+            line-height: 1.6;
+            animation: fadeIn 1s ease-out;
+        }
+
         /* 🔥 POPUP ARGOMENTI */
         .topic-popup {
             position: fixed;
@@ -180,27 +207,31 @@ async function handleMotivationalRequest(req, res) {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
         }
 
         .topic-popup-content {
-            background: white;
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
             padding: 30px;
-            border-radius: 20px;
+            border-radius: 25px;
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.2);
         }
 
         .topic-popup h3 {
             color: #2c3e50;
             margin-bottom: 25px;
             font-size: 1.4rem;
+            font-weight: 700;
         }
 
         .topic-options {
@@ -211,60 +242,293 @@ async function handleMotivationalRequest(req, res) {
         }
 
         .topic-option {
-            background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
             color: white;
             border: none;
             padding: 15px;
-            border-radius: 12px;
+            border-radius: 15px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             touch-action: manipulation;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .topic-option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .topic-option:hover::before {
+            left: 100%;
         }
 
         .topic-option:hover {
             transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 25px rgba(255,154,158,0.4);
         }
 
         .close-popup {
-            background: #95a5a6;
-            color: white;
+            background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+            color: #2c3e50;
             border: none;
             padding: 10px 20px;
             border-radius: 20px;
             cursor: pointer;
             font-weight: 600;
             touch-action: manipulation;
+            transition: all 0.3s ease;
         }
-        * { box-sizing: border-box; }
-        body { margin: 0; padding-bottom: 80px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
 
-        .auth-header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
+        .close-popup:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(168,237,234,0.4);
+        }
+
+        .auth-header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
         .auth-header .username { font-weight: 600; color: #2c3e50; }
-        .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; touch-action: manipulation; }
-        .auth-header .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .auth-header .auth-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            font-size: 0.9rem;
+            touch-action: manipulation;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+        }
+        .auth-header .auth-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+        }
 
-        .nickname-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .nickname-popup-content { background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; }
-        .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; }
+        .nickname-popup {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            animation: fadeIn 0.3s ease-out;
+        }
+        .nickname-popup-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            padding: 30px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; font-weight: 700; }
         .nickname-popup p { margin-bottom: 20px; color: #555; }
-        .nickname-input { width: 100%; padding: 12px; border: 2px solid #caaeb3; border-radius: 8px; font-size: 16px; margin-bottom: 20px; }
-        .nickname-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; touch-action: manipulation; }
+        .nickname-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+        }
+        .nickname-input:focus { border-color: #764ba2; outline: none; }
+        .nickname-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+        }
+        .nickname-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+        }
 
-        .header { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; margin: 20px; padding: 30px 20px; max-width: 500px; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
-        .header h1 { font-weight: 700; font-size: 1.8rem; margin: 0 0 15px 0; line-height: 1.3; color: #fff; }
-        .header p { font-weight: 400; font-size: 1rem; margin: 0; opacity: 0.9; color: #fff; }
-        main { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; max-width: 500px; margin: 0 auto; text-align: center; }
-        main h2 { font-weight: 600; font-size: 1.4rem; margin: 20px 0 15px 0; color: #2c3e50; }
-        main span { font-weight: 700; color: #3498db; }
-        #quote-text { margin-top: 20px; font-size: 1.2rem; font-weight: 400; min-height: 80px; color: #34495e; line-height: 1.5; font-style: italic; background: rgba(255,255,255,0.8); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.95); padding: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 999; display: flex; justify-content: center; align-items: center; gap: 20px; }
-        button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); min-height: 44px; touch-action: manipulation; }
-        button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
-        button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            border-radius: 30px;
+            margin: 20px;
+            padding: 30px 20px;
+            max-width: 500px;
+            align-self: center;
+            box-shadow: 0 8px 30px rgba(102,126,234,0.3);
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s infinite;
+        }
+        .header h1 {
+            font-weight: 700;
+            font-size: 1.8rem;
+            margin: 0 0 15px 0;
+            line-height: 1.3;
+            color: #fff;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .header p {
+            font-weight: 400;
+            font-size: 1rem;
+            margin: 0;
+            opacity: 0.9;
+            color: #fff;
+            position: relative;
+            z-index: 1;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+
+        main {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            max-width: 500px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        main h2 {
+            font-weight: 600;
+            font-size: 1.4rem;
+            margin: 20px 0 15px 0;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        main span {
+            font-weight: 700;
+            color: #ffd700;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+        }
+        #quote-text {
+            margin-top: 20px;
+            font-size: 1.2rem;
+            font-weight: 400;
+            min-height: 80px;
+            color: #34495e;
+            line-height: 1.5;
+            font-style: italic;
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
+            padding: 25px 20px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            position: relative;
+            animation: fadeIn 0.8s ease-out 0.3s both;
+        }
+        #quote-text::before {
+            content: '"';
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            font-size: 3rem;
+            color: #667eea;
+            font-family: serif;
+            opacity: 0.3;
+        }
+        #quote-text::after {
+            content: '"';
+            position: absolute;
+            bottom: -30px;
+            right: 15px;
+            font-size: 3rem;
+            color: #667eea;
+            font-family: serif;
+            opacity: 0.3;
+        }
+
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 10px;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
+            z-index: 999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        button, .icon-button {
+            cursor: pointer;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            font-weight: 600;
+            font-size: 1rem;
+            user-select: none;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102,126,234,0.3);
+            min-height: 44px;
+            touch-action: manipulation;
+            position: relative;
+            overflow: hidden;
+        }
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        button:hover::before {
+            left: 100%;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102,126,234,0.4);
+        }
 
         /* --- TABLET --- */
         @media (min-width: 769px) and (max-width: 1024px) {
@@ -287,7 +551,7 @@ async function handleMotivationalRequest(req, res) {
             }
             #quote-text {
                 font-size: 1.3rem;
-                padding: 25px;
+                padding: 30px 25px;
             }
             .bottom-bar button {
                 font-size: 1.1rem;
@@ -323,7 +587,7 @@ async function handleMotivationalRequest(req, res) {
             }
             #quote-text {
                 font-size: 1.4rem;
-                padding: 30px;
+                padding: 35px 30px;
             }
             .bottom-bar button {
                 font-size: 1.2rem;
@@ -340,17 +604,16 @@ async function handleMotivationalRequest(req, res) {
 
         /* --- VERSIONE COMPATTA MOBILE --- */
         @media (max-width: 768px) {
-            /* Riduce padding globale */
             body {
                 padding: 0;
                 padding-bottom: 80px;
                 margin: 0;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             }
 
             .auth-header { padding: 10px 15px; }
             .auth-header .auth-btn { font-size: 0.8rem; padding: 6px 12px; }
 
-            /* Header morbido ma compatto */
             .header {
                 margin: 10px;
                 padding: 20px 15px;
@@ -364,7 +627,6 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 0.9rem;
             }
 
-            /* Riduce la zona del main */
             main {
                 padding: 10px;
                 max-width: 100%;
@@ -379,12 +641,11 @@ async function handleMotivationalRequest(req, res) {
 
             #quote-text {
                 font-size: 1rem;
-                padding: 15px;
+                padding: 20px 15px;
                 min-height: auto;
                 margin-top: 10px;
             }
 
-            /* Barra dei bottoni subito visibile */
             .bottom-bar {
                 display: flex;
                 justify-content: center;
@@ -399,7 +660,6 @@ async function handleMotivationalRequest(req, res) {
                 border-radius: 20px;
             }
 
-            /* Popup adattato al mobile */
             .topic-popup-content {
                 padding: 20px;
                 max-width: 85%;
