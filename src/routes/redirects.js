@@ -8,7 +8,6 @@ const router = express.Router();
 
 // Funzione di utilità per recuperare l'URL finale (per i reindirizzamenti)
 async function getFinalUrl(linkId) {
-    // Query che recupera il link e, se presente, l'URL dal selettore
     const linkQuery = `
         SELECT 
             l.url AS link_url,
@@ -22,13 +21,47 @@ async function getFinalUrl(linkId) {
 
     if (!linkData) return null;
 
-    // Se esiste un selector_id E il selector_url è definito, usa il selector_url (il punto di forza!)
     if (linkData.selector_id && linkData.selector_url) {
         return linkData.selector_url;
     }
     
-    // Altrimenti, usa l'url diretto del link
     return linkData.link_url;
+}
+
+// NUOVA FUNZIONE PER GESTIRE ANALYTICS SENZA ERRORI
+async function safeRecordClick(linkId, keychainId, req, source) {
+    try {
+        const ipAddress = req.ip || req.connection.remoteAddress;
+        const userAgent = req.get('User-Agent') || 'Unknown';
+
+        console.log(`📊 Analytics: link=${linkId}, keychain=${keychainId}, source=${source}, ip=${ipAddress}`);
+
+        // PRIMA prova UPDATE
+        const updateResult = db.prepare(`
+            UPDATE analytics 
+            SET click_count = click_count + 1, 
+                last_seen = CURRENT_TIMESTAMP,
+                user_agent = ?
+            WHERE link_id = ? AND ip_address = ? AND keychain_id = ? AND source = ?
+        `).run(userAgent, linkId, ipAddress, keychainId, source);
+
+        // Se UPDATE non ha modificato righe, fai INSERT
+        if (updateResult.changes === 0) {
+            db.prepare(`
+                INSERT INTO analytics (
+                    link_id, keychain_id, ip_address, user_agent, source
+                ) VALUES (?, ?, ?, ?, ?)
+            `).run(linkId, keychainId, ipAddress, userAgent, source);
+            
+            console.log('✅ Nuovo record analytics inserito');
+        } else {
+            console.log('✅ Record analytics aggiornato');
+        }
+
+    } catch (error) {
+        console.error('❌ Errore in analytics (non blocca redirect):', error.message);
+        // NON bloccare il redirect per errori analytics
+    }
 }
 
 // Redirect route for links
@@ -38,10 +71,9 @@ router.get('/r/:linkId', async (req, res) => {
         
         if (!finalUrl) return res.status(404).send('Link o Selettore non trovato.');
         
-        // Traccia il click (assumendo che recordClick possa essere sincrono o gestito qui)
-        recordClick(req.params.linkId, null, req, 'direct');
+        // Usa la nuova funzione safe
+        await safeRecordClick(req.params.linkId, null, req, 'direct');
         
-        // Esegue il reindirizzamento
         res.redirect(finalUrl);
         
     } catch (error) {
@@ -60,26 +92,34 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
         // Determina la sorgente in base al prefisso QA
         if (keychainIdentifier.toUpperCase().startsWith('QA')) {
             source = 'qr';
-            // Mantieni l'ID completo per la ricerca
         } else {
             // Se è un numero puro (1, 2, 3), convertilo in QA1, QA2, QA3
             source = 'nfc';
             lookupValue = 'QA' + keychainIdentifier;
         }
 
+        console.log(`🔍 Ricerca keychain: ${lookupValue}, source: ${source}`);
+
         // Cerca il keychain per keychain_number
         const keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
         
         if (!keychain) {
+            console.log(`❌ Keychain '${lookupValue}' non trovato`);
             return res.status(404).send(`Keychain '${lookupValue}' non trovato.`);
         }
         
         const finalUrl = await getFinalUrl(keychain.link_id);
         
-        if (!finalUrl) return res.status(404).send('Link associato non trovato.');
+        if (!finalUrl) {
+            console.log(`❌ Link associato non trovato per keychain ${keychain.id}`);
+            return res.status(404).send('Link associato non trovato.');
+        }
         
-        // Traccia il click con la sorgente corretta
-        recordClick(keychain.link_id, keychain.id, req, source);
+        console.log(`✅ Keychain trovato: ${keychain.id}, link: ${keychain.link_id}, redirect: ${finalUrl}`);
+        
+        // Usa la nuova funzione safe
+        await safeRecordClick(keychain.link_id, keychain.id, req, source);
+        
         res.redirect(finalUrl);
         
     } catch (error) {
