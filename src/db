@@ -111,7 +111,7 @@ function createTables() {
             last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE SET NULL,
             FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE,
-            UNIQUE(link_id, ip_address, keychain_id)
+            UNIQUE(link_id, ip_address, keychain_id, source)
         );
     `);
 
@@ -160,6 +160,12 @@ function handleMigrations() {
 
     try { db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`); } catch(e) { }
     try { db.exec(`ALTER TABLE motivational_analytics ADD COLUMN topic TEXT`); } catch(e) { }
+
+    // Migration for analytics UNIQUE constraint to include source
+    try {
+        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_unique_new ON analytics(link_id, ip_address, keychain_id, source)`);
+        db.exec(`DROP INDEX IF EXISTS idx_analytics_unique`);
+    } catch(e) { console.log('Migration analytics UNIQUE skipped:', e.message); }
 
     try {
         db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains(keychain_number) WHERE keychain_number IS NOT NULL`);
