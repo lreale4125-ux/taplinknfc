@@ -26,6 +26,7 @@
         }
         .qr-badge { background-color: #10b981; color: white; }
         .nfc-badge { background-color: #3b82f6; color: white; }
+        .search-highlight { background-color: #fef3c7; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800">
@@ -62,15 +63,25 @@
                     
                     <div class="lg:col-span-1 space-y-8">
                         <div class="card">
-                            <h2 class="text-lg font-semibold mb-4">I Tuoi Link</h2>
-                            <div id="keychainList" class="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-lg font-semibold">I Tuoi Link</h2>
+                                <div class="relative">
+                                    <input type="text" id="searchLinks" placeholder="Cerca A1, A2..." class="pl-8 pr-4 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
+                                    <svg class="w-4 h-4 absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                    </svg>
                                 </div>
+                            </div>
+                            <div id="keychainList" class="space-y-3 max-h-[calc(100vh-250px)] overflow-y-auto">
+                                <!-- I link verranno inseriti qui -->
+                            </div>
                         </div>
             
                         <div class="card">
                             <h2 class="text-lg font-semibold mb-4">Ultime Attività</h2>
                             <div id="recentActivityList" class="space-y-4 max-h-72 overflow-y-auto">
-                                </div>
+                                <!-- Le attività verranno inserite qui -->
+                            </div>
                         </div>
                     </div>
                     
@@ -107,7 +118,8 @@
                                 <div class="md:col-span-2 overflow-y-auto">
                                     <h3 class="text-sm font-semibold text-gray-600 mb-2">Top Città</h3>
                                     <div id="topCitiesList" class="space-y-2">
-                                        </div>
+                                        <!-- Le città verranno inserite qui -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -127,6 +139,7 @@
         const qrClicksCountEl = document.getElementById('qrClicksCount');
         const nfcClicksCountEl = document.getElementById('nfcClicksCount');
         const keychainListEl = document.getElementById('keychainList');
+        const searchLinksInput = document.getElementById('searchLinks');
         
         // Selettori per filtri e titoli dei grafici
         const dateFilters = document.getElementById('dateFilters');
@@ -141,7 +154,8 @@
         let currentLinkId = null;
         let currentGroupBy = 'day';
         let currentRange = 7;
-    
+        let allLinks = []; // Memorizza tutti i link per la ricerca
+
         // --- FUNZIONE DI FETCH UNIFICATA ---
         async function apiFetch(endpoint, options = {}) {
             const token = localStorage.getItem('authToken');
@@ -166,26 +180,23 @@
             const token = localStorage.getItem('authToken');
             const user = JSON.parse(localStorage.getItem('userData'));
 
-            // ... (la tua logica di controllo del token e del ruolo rimane qui) ...
             if (!token || !user || user.role === 'admin') {
                 localStorage.clear();
                 window.location.href = './index.html';
                 return;
             }
             
-            // ++ AGGIUNGI QUESTO BLOCCO DI CODICE ++
             // Controlla se l'utente può accedere al wallet e nasconde il pulsante se non può
             const walletButton = document.getElementById('walletButton');
             if (!user.can_access_wallet || user.can_access_wallet == 0) {
                 walletButton.style.display = 'none';
             }
-            // ++ FINE DEL BLOCCO DA AGGIUNGERE ++
 
             document.body.classList.add('auth-checked');
             userGreeting.textContent = `Ciao, ${user.username}!`;
 
-            // Il resto della funzione (initializeFilters, loadUserDashboard, etc.) rimane invariato
             initializeFilters();
+            initializeSearch();
             loadUserDashboard();
         });
 
@@ -193,11 +204,50 @@
             localStorage.clear();
             window.location.href = './index.html';
         });
+
+        // --- FUNZIONE DI RICERCA ---
+        function initializeSearch() {
+            searchLinksInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                filterLinks(searchTerm);
+            });
+        }
+
+        function filterLinks(searchTerm) {
+            const allLinkItems = document.querySelectorAll('.keychain-item');
+            
+            if (!searchTerm) {
+                // Se non c'è ricerca, mostra tutti i link
+                allLinkItems.forEach(item => {
+                    item.style.display = 'block';
+                    // Rimuovi evidenziazione
+                    const nameElement = item.querySelector('p.font-semibold');
+                    nameElement.innerHTML = nameElement.textContent;
+                });
+                return;
+            }
+
+            allLinkItems.forEach(item => {
+                const nameElement = item.querySelector('p.font-semibold');
+                const linkName = nameElement.textContent.toLowerCase();
+                
+                if (linkName.includes(searchTerm)) {
+                    item.style.display = 'block';
+                    // Evidenzia il testo corrispondente
+                    const originalName = nameElement.textContent;
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    nameElement.innerHTML = originalName.replace(regex, '<span class="search-highlight">$1</span>');
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        }
         
         // --- FUNZIONI CORE DELLA DASHBOARD ---
         async function loadUserDashboard() {
             try {
                 const { links } = await apiFetch('/api/user/links');
+                allLinks = links; // Memorizza tutti i link per la ricerca
 
                 const totalClicks = links.reduce((sum, link) => sum + link.total_clicks, 0);
                 const uniqueVisitors = links.reduce((sum, link) => sum + link.unique_visitors, 0);
@@ -259,17 +309,34 @@
                             <p class="text-xs text-gray-500">NFC</p>
                         </div>
                     </div>`;
-                item.addEventListener('click', () => refreshAllAnalytics(link.id));
+                item.addEventListener('click', () => {
+                    updateCountersForSelectedLink(link);
+                    refreshAllAnalytics(link.id);
+                });
                 keychainListEl.appendChild(item);
             });
+        }
+
+        function updateCountersForSelectedLink(link) {
+            qrClicksCountEl.textContent = (link.qr_clicks || 0).toLocaleString('it-IT');
+            nfcClicksCountEl.textContent = (link.nfc_clicks || 0).toLocaleString('it-IT');
+            totalClicksCountEl.textContent = link.total_clicks.toLocaleString('it-IT');
+            uniqueVisitorsCountEl.textContent = link.unique_visitors.toLocaleString('it-IT');
         }
     
         async function loadLinkAnalytics(linkId, startDate, endDate, groupBy) {
             document.querySelectorAll('.keychain-item').forEach(el => { 
                 el.classList.toggle('active', el.dataset.linkId == linkId);
             });
-    
+
             try {
+                const { links } = await apiFetch('/api/user/links');
+                const selectedLink = links.find(link => link.id == linkId);
+                
+                if (selectedLink) {
+                    updateCountersForSelectedLink(selectedLink);
+                }
+
                 const query = `?startDate=${startDate}&endDate=${endDate}&groupBy=${groupBy}`;
                 const analyticsData = await apiFetch(`/api/user/analytics/${linkId}${query}`);
                 const heatmapData = await apiFetch(`/api/user/heatmap/${linkId}?startDate=${startDate}&endDate=${endDate}`);
@@ -283,7 +350,7 @@
                 renderHeatmapChart(heatmapData);
                 renderInteractiveMap(analyticsData.recent_activity); 
                 renderRecentActivity(analyticsData.recent_activity);
-    
+
             } catch(e) { 
                 console.error(e);
                 alert(`Impossibile caricare gli analytics per il link ${linkId}.`);
@@ -297,12 +364,12 @@
             
             const labels = [];
             const clicksData = [];
-            if (!data) return; // Guardia per evitare errori se i dati non arrivano
+            if (!data) return;
             const dataMap = new Map(data.map(item => [item.time_group, item.clicks]));
-    
+
             const startDate = new Date(startDateStr + 'T00:00:00Z');
             const endDate = new Date(endDateStr + 'T00:00:00Z');
-    
+
             if (groupBy === 'month') {
                 let currentMonth = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), 1));
                 while (currentMonth <= endDate) {
@@ -317,7 +384,7 @@
                     labels.push(`Set. ${parseInt(weekNum, 10)}, ${year}`);
                     clicksData.push(item.clicks);
                 });
-            } else { // 'day'
+            } else {
                 let currentDate = new Date(startDate);
                 while (currentDate <= endDate) {
                     labels.push(currentDate.toLocaleDateString('it-IT', { day: 'numeric', month: 'short', timeZone: 'UTC' }));
@@ -340,8 +407,8 @@
         function renderHeatmapChart(data) {
             const ctx = document.getElementById('hourlyHeatmapChart').getContext('2d');
             if (heatmapChart) heatmapChart.destroy();
-            if (!data) return; // Guardia per evitare errori se i dati non arrivano
-    
+            if (!data) return;
+
             const chartData = data.map(item => ({
                 x: parseInt(item.hour_of_day),
                 y: (parseInt(item.day_of_week) + 6) % 7,
@@ -350,7 +417,7 @@
             
             const daysOfWeek = ['Lunedì', 'Martedì', 'Mercoledì', 'Giovedì', 'Venerdì', 'Sabato', 'Domenica'];
             const hoursOfDay = Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0'));
-    
+
             heatmapChart = new Chart(ctx, {
                 type: 'matrix',
                 data: { datasets: [{
@@ -375,7 +442,7 @@
                 }
             });
         }
-    
+
         function renderInteractiveMap(analyticsData) {
             const mapContainer = document.getElementById('interactiveMap');
             const listContainer = document.getElementById('topCitiesList');
@@ -392,7 +459,6 @@
         
             const cityClicks = analyticsData.reduce((acc, item) => {
                 const city = item.city;
-                // Ignora le città non identificate per non sprecare chiamate API
                 if (!city || city === 'Sconosciuta') return acc;
                 const country = item.country || 'N/A';
                 const key = `${city}, ${country}`;
@@ -413,7 +479,6 @@
             mapInstance = L.map('interactiveMap').setView([45.0, 9.5], 4);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap' }).addTo(mapInstance);
         
-            // MODIFICA: Aggiungi un piccolo delay tra le chiamate per evitare rate limiting
             let delay = 0;
             sortedCities.slice(0, 10).forEach(city => {
                 setTimeout(() => {
@@ -436,13 +501,12 @@
                         })
                         .catch(err => {
                             console.warn(`Geocoding fallito per ${city.location}:`, err);
-                            // Non bloccare l'esecuzione per errori di geocoding
                         });
                 }, delay);
-                delay += 500; // 500ms di delay tra una chiamata e l'altra
+                delay += 500;
             });
         }
-    
+
         function renderRecentActivity(data) {
             const listEl = document.getElementById('recentActivityList');
             listEl.innerHTML = '';
@@ -499,7 +563,7 @@
                 refreshAllAnalytics();
             });
         }
-    
+
         function updateFilterStyles() {
             document.querySelectorAll('#dateFilters button').forEach(btn => {
                 btn.classList.toggle('active', parseInt(btn.dataset.range, 10) === currentRange);
