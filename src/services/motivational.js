@@ -354,14 +354,14 @@ async function handleMotivationalRequest(req, res) {
         .header {
             background: #fcb69f;
             border-radius: 20px;
-            margin: 20px;
-            margin-bottom: 0px;
-            padding: 30px 20px;
+            margin: 10px auto 5px auto;   /* 🔥 ridotto */
+            padding: 20px 15px;           /* 🔥 ridotto */
             max-width: 500px;
-            align-self: center;
             text-align: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
+
+
         .header h1 {
             font-weight: 700;
             font-size: 1.8rem;
@@ -376,17 +376,17 @@ async function handleMotivationalRequest(req, res) {
             color: #fff;
         }
 
-        main {
+                main {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
+            padding: 5px 10px;     /* 🔥 molto più compatto */
+            margin-top: 0px;       /* 🔥 elimina lo spazio sotto l’header */
             max-width: 400px;
-            margin: 0 auto;
             text-align: center;
         }
+
         main h2 {
             font-weight: 600;
             font-size: 1.4rem;
