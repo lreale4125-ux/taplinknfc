@@ -89,18 +89,49 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
         let source = 'nfc';
         let lookupValue = keychainIdentifier;
 
-        // Determina la sorgente in base al prefisso QA
-        if (keychainIdentifier.toUpperCase().startsWith('QA')) {
+        // CORREZIONE: Determina la sorgente SOLO in base al parametro source o alla presenza di QA
+        if (req.query.source === 'qr') {
             source = 'qr';
+            // Se arriva come numero ma con source=qr, converti in QA
+            if (!keychainIdentifier.toUpperCase().startsWith('QA')) {
+                lookupValue = 'QA' + keychainIdentifier;
+            } else {
+                lookupValue = keychainIdentifier;
+            }
+        } else if (keychainIdentifier.toUpperCase().startsWith('QA')) {
+            source = 'qr';
+            lookupValue = keychainIdentifier;
         } else {
-            // Se è un numero puro (1, 2, 3), convertilo in QA1, QA2, QA3
+            // NFC: mantieni il numero puro e cerca sia come numero che come QA
             source = 'nfc';
-            lookupValue = 'QA' + keychainIdentifier;
+            
+            // PRIMA cerca come numero puro (per NFC)
+            let keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(keychainIdentifier);
+            
+            // Se non trovato come numero, prova come QA (backward compatibility)
+            if (!keychain) {
+                lookupValue = 'QA' + keychainIdentifier;
+                keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
+            } else {
+                lookupValue = keychainIdentifier;
+            }
+            
+            if (!keychain) {
+                console.log(`❌ Keychain non trovato: ${keychainIdentifier} o ${lookupValue}`);
+                return res.status(404).send(`Keychain non trovato.`);
+            }
+            
+            const finalUrl = await getFinalUrl(keychain.link_id);
+            if (!finalUrl) return res.status(404).send('Link associato non trovato.');
+            
+            console.log(`✅ Keychain NFC trovato: ${keychain.id}, source: ${source}`);
+            await safeRecordClick(keychain.link_id, keychain.id, req, source);
+            return res.redirect(finalUrl);
         }
 
         console.log(`🔍 Ricerca keychain: ${lookupValue}, source: ${source}`);
 
-        // Cerca il keychain per keychain_number
+        // Per QR code, cerca normalmente
         const keychain = db.prepare(`SELECT id, link_id FROM keychains WHERE keychain_number = ?`).get(lookupValue);
         
         if (!keychain) {
@@ -115,11 +146,8 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
             return res.status(404).send('Link associato non trovato.');
         }
         
-        console.log(`✅ Keychain trovato: ${keychain.id}, link: ${keychain.link_id}, redirect: ${finalUrl}`);
-        
-        // Usa la nuova funzione safe
+        console.log(`✅ Keychain QR trovato: ${keychain.id}, source: ${source}`);
         await safeRecordClick(keychain.link_id, keychain.id, req, source);
-        
         res.redirect(finalUrl);
         
     } catch (error) {
@@ -127,6 +155,7 @@ router.get('/k/:keychainIdentifier', async (req, res) => {
         res.status(500).send('Errore del server.');
     }
 });
+
 
 // Geocoding proxy route
 router.get('/geocode', async (req, res) => {
