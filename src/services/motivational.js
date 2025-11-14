@@ -255,7 +255,7 @@ async function handleMotivationalRequest(req, res) {
         .header { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; margin: 20px; padding: 30px 20px; max-width: 500px; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
         .header h1 { font-weight: 700; font-size: 1.8rem; margin: 0 0 15px 0; line-height: 1.3; color: #fff; }
         .header p { font-weight: 400; font-size: 1rem; margin: 0; opacity: 0.9; color: #fff; }
-        main { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; max-width: 400px; margin: 0 auto; text-align: center; }
+        main { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; max-width: 500px; margin: 0 auto; text-align: center; }
         main h2 { font-weight: 600; font-size: 1.4rem; margin: 20px 0 15px 0; color: #2c3e50; }
         main span { font-weight: 700; color: #3498db; }
         #quote-text { margin-top: 20px; font-size: 1.2rem; font-weight: 400; min-height: 80px; color: #34495e; line-height: 1.5; font-style: italic; background: rgba(255,255,255,0.8); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -263,6 +263,78 @@ async function handleMotivationalRequest(req, res) {
         button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
         button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        /* --- VERSIONE COMPATTA MOBILE --- */
+@media (max-width: 768px) {
+
+    /* Riduce padding globale */
+    body {
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Header morbido ma compatto */
+    .header {
+        margin: 10px;
+        padding: 20px 15px;
+    }
+
+    .header h1 {
+        font-size: 1.4rem;
+    }
+
+    .header p {
+        font-size: 0.9rem;
+    }
+
+    /* Riduce la zona del main */
+    main {
+        padding: 10px;
+        max-width: 100%;
+        margin: 0;
+        gap: 10px;
+    }
+
+    main h2 {
+        font-size: 1.2rem;
+        margin: 10px 0 0 0;
+    }
+
+    #quote-text {
+        font-size: 1rem;
+        padding: 15px;
+        min-height: auto;
+        margin-top: 10px;
+    }
+
+    /* Barra dei bottoni subito visibile */
+    .bottom-bar {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        padding: 0 10px;
+    }
+
+    .bottom-bar button {
+        width: 100%;
+        padding: 12px;
+        font-size: 1.05rem;
+        border-radius: 20px;
+    }
+
+    /* Popup adattato al mobile */
+    .topic-popup-content {
+        padding: 20px;
+        max-width: 85%;
+    }
+
+    .topic-option {
+        padding: 12px;
+        font-size: 0.95rem;
+    }
+}
+
     </style>
 </head>
 <body>
