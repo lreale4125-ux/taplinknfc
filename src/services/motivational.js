@@ -355,10 +355,12 @@ async function handleMotivationalRequest(req, res) {
             background: #fcb69f;
             border-radius: 20px;
             margin: 20px;
+            margin-bottom: 10px;
             padding: 30px 20px;
             max-width: 500px;
             align-self: center;
             text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .header h1 {
             font-weight: 700;
@@ -388,7 +390,7 @@ async function handleMotivationalRequest(req, res) {
         main h2 {
             font-weight: 600;
             font-size: 1.4rem;
-            margin: 20px 0 15px 0;
+            margin: 10px 0 15px 0;
             color: #fff;
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
@@ -459,6 +461,7 @@ async function handleMotivationalRequest(req, res) {
             .header {
                 max-width: 600px;
                 padding: 40px 25px;
+                margin-bottom: 10px;
             }
             .header h1 {
                 font-size: 2rem;
@@ -472,6 +475,7 @@ async function handleMotivationalRequest(req, res) {
             }
             main h2 {
                 font-size: 1.5rem;
+                margin: 10px 0 15px 0;
             }
             #quote-text {
                 font-size: 1.8rem;
@@ -495,6 +499,7 @@ async function handleMotivationalRequest(req, res) {
             .header {
                 max-width: 700px;
                 padding: 50px 30px;
+                margin-bottom: 10px;
             }
             .header h1 {
                 font-size: 2.2rem;
@@ -508,6 +513,7 @@ async function handleMotivationalRequest(req, res) {
             }
             main h2 {
                 font-size: 1.6rem;
+                margin: 10px 0 15px 0;
             }
             #quote-text {
                 font-size: 2rem;
@@ -540,6 +546,7 @@ async function handleMotivationalRequest(req, res) {
 
             .header {
                 margin: 5px;
+                margin-bottom: 2px;
                 padding: 15px 10px;
             }
 
@@ -560,7 +567,7 @@ async function handleMotivationalRequest(req, res) {
 
             main h2 {
                 font-size: 1.1rem;
-                margin: 5px 0 0 0;
+                margin: 2px 0 0 0;
             }
 
             #quote-text {
