@@ -354,18 +354,17 @@ async function handleMotivationalRequest(req, res) {
         .header {
             background: #fcb69f;
             border-radius: 20px;
-            margin: 10px auto 5px auto;   /* 🔥 ridotto */
-            padding: 20px 15px;           /* 🔥 ridotto */
+            margin: 10px auto 15px auto;   /* 🔥 AUMENTATA la distanza inferiore */
+            padding: 25px 15px;            /* 🔥 AUMENTATO il padding per più spazio interno */
             max-width: 500px;
             text-align: center;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
-
         .header h1 {
             font-weight: 700;
             font-size: 1.8rem;
-            margin: 0 0 15px 0;
+            margin: 0 0 25px 0;           /* 🔥 AUMENTATA la distanza sotto il titolo */
             line-height: 1.3;
             color: #fff;
         }
@@ -374,15 +373,16 @@ async function handleMotivationalRequest(req, res) {
             font-size: 1rem;
             margin: 0;
             color: #fff;
+            line-height: 1.5;
         }
 
-                main {
+        main {
             flex-grow: 1;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 5px 10px;     /* 🔥 molto più compatto */
-            margin-top: 0px;       /* 🔥 elimina lo spazio sotto l’header */
+            padding: 15px 10px;           /* 🔥 AUMENTATO il padding per più spazio */
+            margin-top: 0px;
             max-width: 400px;
             text-align: center;
         }
@@ -390,7 +390,7 @@ async function handleMotivationalRequest(req, res) {
         main h2 {
             font-weight: 600;
             font-size: 1.4rem;
-            margin: 0px 0 15px 0;
+            margin: 0px 0 25px 0;         /* 🔥 AUMENTATA la distanza sotto il sottotitolo */
             color: #fff;
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
@@ -400,7 +400,7 @@ async function handleMotivationalRequest(req, res) {
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
         #quote-text {
-            margin-top: 20px;
+            margin-top: 30px;             /* 🔥 AUMENTATA la distanza sopra la frase */
             font-size: 2.2rem;
             font-weight: 400;
             min-height: 100px;
@@ -461,10 +461,11 @@ async function handleMotivationalRequest(req, res) {
             .header {
                 max-width: 600px;
                 padding: 40px 25px;
-                margin-bottom: 0px;
+                margin-bottom: 20px;      /* 🔥 AUMENTATA la distanza per tablet */
             }
             .header h1 {
                 font-size: 2rem;
+                margin-bottom: 30px;      /* 🔥 AUMENTATA la distanza per tablet */
             }
             .header p {
                 font-size: 1.1rem;
@@ -475,11 +476,12 @@ async function handleMotivationalRequest(req, res) {
             }
             main h2 {
                 font-size: 1.5rem;
-                margin: 0px 0 15px 0;
+                margin: 0px 0 25px 0;     /* 🔥 AUMENTATA la distanza per tablet */
             }
             #quote-text {
                 font-size: 1.8rem;
                 padding: 35px 25px;
+                margin-top: 25px;         /* 🔥 AUMENTATA la distanza per tablet */
             }
             .bottom-bar button {
                 font-size: 1.1rem;
@@ -499,10 +501,11 @@ async function handleMotivationalRequest(req, res) {
             .header {
                 max-width: 700px;
                 padding: 50px 30px;
-                margin-bottom: 0px;
+                margin-bottom: 25px;      /* 🔥 AUMENTATA la distanza per desktop */
             }
             .header h1 {
                 font-size: 2.2rem;
+                margin-bottom: 35px;      /* 🔥 AUMENTATA la distanza per desktop */
             }
             .header p {
                 font-size: 1.2rem;
@@ -513,11 +516,12 @@ async function handleMotivationalRequest(req, res) {
             }
             main h2 {
                 font-size: 1.6rem;
-                margin: 0px 0 15px 0;
+                margin: 0px 0 30px 0;     /* 🔥 AUMENTATA la distanza per desktop */
             }
             #quote-text {
                 font-size: 2rem;
                 padding: 40px 30px;
+                margin-top: 35px;         /* 🔥 AUMENTATA la distanza per desktop */
             }
             .bottom-bar button {
                 font-size: 1.2rem;
@@ -546,12 +550,13 @@ async function handleMotivationalRequest(req, res) {
 
             .header {
                 margin: 3px;
-                margin-bottom: 0px;
-                padding: 12px 10px;
+                margin-bottom: 10px;      /* 🔥 AUMENTATA la distanza per mobile */
+                padding: 15px 10px;       /* 🔥 AUMENTATO il padding per mobile */
             }
 
             .header h1 {
                 font-size: 1.3rem;
+                margin-bottom: 15px;      /* 🔥 AUMENTATA la distanza per mobile */
             }
 
             .header p {
@@ -559,22 +564,22 @@ async function handleMotivationalRequest(req, res) {
             }
 
             main {
-                padding: 2px;
+                padding: 5px;             /* 🔥 AUMENTATO il padding per mobile */
                 max-width: 100%;
                 margin: 0;
-                gap: 2px;
+                gap: 5px;
             }
 
             main h2 {
                 font-size: 1rem;
-                margin: 0px 0 0 0;
+                margin: 0px 0 15px 0;     /* 🔥 AUMENTATA la distanza per mobile */
             }
 
             #quote-text {
                 font-size: 1.2rem;
-                padding: 15px 10px;
+                padding: 20px 15px;       /* 🔥 AUMENTATO il padding per mobile */
                 min-height: auto;
-                margin-top: 2px;
+                margin-top: 10px;         /* 🔥 AUMENTATA la distanza per mobile */
             }
 
             .bottom-bar {
