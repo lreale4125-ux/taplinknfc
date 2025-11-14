@@ -1,23 +1,14 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+    <!-- ✅ IUBENDA UNIFIED EMBEDDING CODE (nuovo, ufficiale) -->
+    <script type="text/javascript" src="https://embeds.iubenda.com/widgets/e22f41ce-f5e6-4af0-9676-5807f91c2b42.js"></script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NFC Analytics - Accesso</title>
     <link rel="icon" type="image/png" href="/images/logoAltoTab.png" />
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- ✅ COOKIE BANNER IUBENDA -->
-    <script type="text/javascript">
-        var _iub = _iub || [];
-        _iub.csConfiguration = {
-            "siteId": 58079624,
-            "cookiePolicyId": 58079624,
-            "lang": "it"
-        };
-    </script>
-    <script type="text/javascript" src="https://cdn.iubenda.com/cookie_solution/safemode/iubenda_cs.js"></script>
-    <!-- ❗ Cookie banner deve stare SEMPRE nel <head> -->
 
     <style>
         body {
@@ -55,7 +46,7 @@
 </head>
 <body>
 
-<!-- Google tag (gtag.js) -->
+<!-- Google tag (gtag.js) → verrà bloccato automaticamente da Iubenda finché l’utente non accetta -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CXSDL1JJ7"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -128,39 +119,12 @@
     </div>
 </div>
 
-<!-- ✅ FOOTER IUBENDA -->
+<!-- Footer con link Privacy & Cookie Policy -->
 <footer class="mt-6 mb-4 text-center text-sm text-gray-600">
-
-    <a href="https://www.iubenda.com/privacy-policy/58079624"
-       class="iubenda-white iubenda-noiframe iubenda-embed iubenda-noiframe"
-       title="Privacy Policy">Privacy Policy</a>
-
+    <a href="https://www.iubenda.com/privacy-policy/58079624" class="iubenda-white" title="Privacy Policy">Privacy Policy</a>
     &nbsp;•&nbsp;
-
-    <a href="https://www.iubenda.com/privacy-policy/58079624/cookie-policy"
-       class="iubenda-white iubenda-noiframe iubenda-embed iubenda-noiframe"
-       title="Cookie Policy">Cookie Policy</a>
-
+    <a href="https://www.iubenda.com/privacy-policy/58079624/cookie-policy" class="iubenda-white" title="Cookie Policy">Cookie Policy</a>
 </footer>
-
-<!-- Loader Iubenda comune -->
-<script type="text/javascript">
-(function (w,d) {
-    var loader = function () {
-        var s = d.createElement("script"),
-            tag = d.getElementsByTagName("script")[0];
-        s.src="https://cdn.iubenda.com/iubenda.js";
-        tag.parentNode.insertBefore(s,tag);
-    };
-    if(w.addEventListener){
-        w.addEventListener("load", loader, false);
-    } else if(w.attachEvent){
-        w.attachEvent("onload", loader);
-    } else {
-        w.onload = loader;
-    }
-})(window, document);
-</script>
 
 <script>
     /* Tuo JS invariato */
