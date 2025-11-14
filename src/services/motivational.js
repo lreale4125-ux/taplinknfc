@@ -530,44 +530,44 @@ async function handleMotivationalRequest(req, res) {
         @media (max-width: 768px) {
             body {
                 padding: 0;
-                padding-bottom: 80px;
+                padding-bottom: 40px;
                 margin: 0;
                 background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
             }
 
-            .auth-header { padding: 10px 15px; }
-            .auth-header .auth-btn { font-size: 0.8rem; padding: 6px 12px; }
+            .auth-header { padding: 5px 10px; }
+            .auth-header .auth-btn { font-size: 0.8rem; padding: 4px 8px; }
 
             .header {
-                margin: 10px;
-                padding: 20px 15px;
+                margin: 5px;
+                padding: 15px 10px;
             }
 
             .header h1 {
-                font-size: 1.4rem;
+                font-size: 1.3rem;
             }
 
             .header p {
-                font-size: 0.9rem;
+                font-size: 0.8rem;
             }
 
             main {
-                padding: 10px;
+                padding: 5px;
                 max-width: 100%;
                 margin: 0;
-                gap: 10px;
+                gap: 5px;
             }
 
             main h2 {
-                font-size: 1.2rem;
-                margin: 10px 0 0 0;
+                font-size: 1.1rem;
+                margin: 5px 0 0 0;
             }
 
             #quote-text {
-                font-size: 1.5rem;
-                padding: 25px 15px;
+                font-size: 1.4rem;
+                padding: 20px 15px;
                 min-height: auto;
-                margin-top: 10px;
+                margin-top: 5px;
             }
 
             .bottom-bar {
@@ -595,10 +595,10 @@ async function handleMotivationalRequest(req, res) {
             }
 
             #change-topic-btn {
-                bottom: 15px;
+                bottom: 10px;
                 left: 50%;
                 transform: translateX(-50%);
-                padding: 10px 15px;
+                padding: 8px 12px;
                 font-size: 0.8rem;
             }
         }
@@ -622,7 +622,7 @@ async function handleMotivationalRequest(req, res) {
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
-        <div id="author-game" style="display: none; margin-top: 15px; text-align: center;">
+        <div id="author-game" style="display: none; margin-top: 10px; text-align: center;">
             <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 20px; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">🎯 Indovina l'autore della frase!</h3>
             <input type="text" id="author-guess" placeholder="Chi ha detto questa frase?" style="width: 80%; max-width: 300px; padding: 12px; border: 2px solid #fcb69f; border-radius: 10px; font-size: 16px; margin-bottom: 15px; transition: border-color 0.3s ease;" maxlength="50">
             <br>
