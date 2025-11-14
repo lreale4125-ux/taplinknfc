@@ -541,40 +541,40 @@ async function handleMotivationalRequest(req, res) {
                 background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
             }
 
-            .auth-header { padding: 5px 10px; }
-            .auth-header .auth-btn { font-size: 0.8rem; padding: 4px 8px; }
+            .auth-header { padding: 3px 8px; }
+            .auth-header .auth-btn { font-size: 0.7rem; padding: 3px 6px; }
 
             .header {
-                margin: 5px;
+                margin: 3px;
                 margin-bottom: 0px;
-                padding: 15px 10px;
+                padding: 10px 8px;
             }
 
             .header h1 {
-                font-size: 1.3rem;
+                font-size: 1.2rem;
             }
 
             .header p {
-                font-size: 0.8rem;
+                font-size: 0.7rem;
             }
 
             main {
-                padding: 5px;
+                padding: 2px;
                 max-width: 100%;
                 margin: 0;
-                gap: 5px;
+                gap: 2px;
             }
 
             main h2 {
-                font-size: 1.1rem;
+                font-size: 1rem;
                 margin: 0px 0 0 0;
             }
 
             #quote-text {
-                font-size: 1.4rem;
-                padding: 20px 15px;
+                font-size: 1.2rem;
+                padding: 15px 10px;
                 min-height: auto;
-                margin-top: 5px;
+                margin-top: 2px;
             }
 
             .bottom-bar {
