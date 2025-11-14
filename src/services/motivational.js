@@ -263,6 +263,78 @@ async function handleMotivationalRequest(req, res) {
         button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
         button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
         button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        /* --- VERSIONE COMPATTA MOBILE --- */
+@media (max-width: 768px) {
+
+    /* Riduce padding globale */
+    body {
+        padding: 0;
+        margin: 0;
+    }
+
+    /* Header morbido ma compatto */
+    .header {
+        margin: 10px;
+        padding: 20px 15px;
+    }
+
+    .header h1 {
+        font-size: 1.4rem;
+    }
+
+    .header p {
+        font-size: 0.9rem;
+    }
+
+    /* Riduce la zona del main */
+    main {
+        padding: 10px;
+        max-width: 100%;
+        margin: 0;
+        gap: 10px;
+    }
+
+    main h2 {
+        font-size: 1.2rem;
+        margin: 10px 0 0 0;
+    }
+
+    #quote-text {
+        font-size: 1rem;
+        padding: 15px;
+        min-height: auto;
+        margin-top: 10px;
+    }
+
+    /* Barra dei bottoni subito visibile */
+    .bottom-bar {
+        margin-top: 12px;
+        display: flex;
+        justify-content: center;
+        width: 100%;
+        padding: 0 10px;
+    }
+
+    .bottom-bar button {
+        width: 100%;
+        padding: 12px;
+        font-size: 1.05rem;
+        border-radius: 20px;
+    }
+
+    /* Popup adattato al mobile */
+    .topic-popup-content {
+        padding: 20px;
+        max-width: 85%;
+    }
+
+    .topic-option {
+        padding: 12px;
+        font-size: 0.95rem;
+    }
+}
+
     </style>
 </head>
 <body>
