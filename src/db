@@ -91,6 +91,7 @@ function createTables() {
         );
     `);
 
+    // UNICA DEFINIZIONE DELLA TABELLA ANALYTICS - CORRETTA
     db.exec(`
         CREATE TABLE IF NOT EXISTS analytics (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -109,6 +110,7 @@ function createTables() {
             click_count INTEGER DEFAULT 1 NOT NULL,
             first_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
             last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
+            source TEXT DEFAULT 'nfc',
             FOREIGN KEY (keychain_id) REFERENCES keychains(id) ON DELETE SET NULL,
             FOREIGN KEY (link_id) REFERENCES links(id) ON DELETE CASCADE,
             UNIQUE(link_id, ip_address, keychain_id, source)
@@ -161,11 +163,20 @@ function handleMigrations() {
     try { db.exec(`ALTER TABLE links ADD COLUMN selector_id INTEGER`); } catch(e) { }
     try { db.exec(`ALTER TABLE motivational_analytics ADD COLUMN topic TEXT`); } catch(e) { }
 
-    // Migration for analytics UNIQUE constraint to include source
+    // Migration per analytics - CORRETTA
     try {
-        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_unique_new ON analytics(link_id, ip_address, keychain_id, source)`);
-        db.exec(`DROP INDEX IF EXISTS idx_analytics_unique`);
-    } catch(e) { console.log('Migration analytics UNIQUE skipped:', e.message); }
+        // Assicurati che la colonna source esista
+        db.exec(`ALTER TABLE analytics ADD COLUMN source TEXT DEFAULT 'nfc'`);
+    } catch(e) { /* ignora se esiste */ }
+    
+    try {
+        // Crea l'indice UNIQUE corretto
+        db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_unique ON analytics(link_id, ip_address, keychain_id, source)`);
+        // Rimuovi vecchi indici problematici
+        db.exec(`DROP INDEX IF EXISTS idx_analytics_unique_new`);
+    } catch(e) { 
+        console.log('Migration analytics UNIQUE:', e.message);
+    }
 
     try {
         db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_keychain_number ON keychains(keychain_number) WHERE keychain_number IS NOT NULL`);
