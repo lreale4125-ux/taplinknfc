@@ -33,26 +33,31 @@ async function getMotivationalQuoteFromDB(topic = 'motivazione_personale', userN
 
         if (phrases.length > 0) {
             let phrase = phrases[0].phrase_text;
-            
+            let author = phrases[0].author || 'Anonimo';
+
             // Personalizza la frase con il nome utente
             if (userName && userName !== 'Ospite' && userName !== 'Utente') {
                 phrase = phrase.replace(/\[nome\]/gi, userName);
                 phrase = phrase.replace(/l'utente/gi, userName);
             }
-            
-            return phrase;
+
+            return { quote: phrase, author: author };
         } else {
             // Fallback
             const fallbackPhrases = db.prepare(`
-                SELECT phrase_text 
-                FROM motivational_phrases 
-                ORDER BY RANDOM() 
+                SELECT phrase_text, author
+                FROM motivational_phrases
+                ORDER BY RANDOM()
                 LIMIT 1
             `).all();
 
-            return fallbackPhrases.length > 0 
-                ? fallbackPhrases[0].phrase_text 
-                : "La motivazione è dentro di te, non smettere di cercarla.";
+            if (fallbackPhrases.length > 0) {
+                let phrase = fallbackPhrases[0].phrase_text;
+                let author = fallbackPhrases[0].author || 'Anonimo';
+                return { quote: phrase, author: author };
+            } else {
+                return { quote: "La motivazione è dentro di te, non smettere di cercarla.", author: "Anonimo" };
+            }
         }
     } catch (error) {
         console.error("Errore nel recupero frase da database:", error);
@@ -66,17 +71,17 @@ async function getMotivationalQuoteFromDB(topic = 'motivazione_personale', userN
 async function getMotivationalQuoteFromN8N(topic = 'motivazione', userName = '') {
     try {
         console.log(`📝 Richiesta frase da N8N - Topic: ${topic}, User: ${userName}`);
-        
+
         // Usa la stessa logica del database per ora
         // In futuro puoi integrare con chiamate dirette a N8N
-        const quote = await getMotivationalQuoteFromDB(topic, userName);
-        
-        console.log(`✅ Frase da N8N ottenuta: ${quote.substring(0, 50)}...`);
-        return quote;
-        
+        const result = await getMotivationalQuoteFromDB(topic, userName);
+
+        console.log(`✅ Frase da N8N ottenuta: ${result.quote.substring(0, 50)}...`);
+        return result;
+
     } catch (error) {
         console.error("❌ Errore in getMotivationalQuoteFromN8N:", error);
-        return "La motivazione viene da dentro di te. Continua a crederci!";
+        return { quote: "La motivazione viene da dentro di te. Continua a crederci!", author: "Anonimo" };
     }
 }
 
@@ -114,8 +119,8 @@ async function getQuoteOnly(req, res) {
             console.error("Errore DB analytics:", dbError.message);
         }
 
-        const quote = await getMotivationalQuoteFromN8N(topic, username); 
-        res.json({ quote });
+        const result = await getMotivationalQuoteFromN8N(topic, username);
+        res.json(result);
         
     } catch (error) {
         console.error("Errore in getQuoteOnly:", error);
@@ -294,17 +299,46 @@ async function handleMotivationalRequest(req, res) {
         }
 
         .auth-header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
+            backdrop-filter: blur(15px);
             padding: 15px 20px;
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 30px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.2);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.2);
+            border-bottom: 2px solid rgba(252,182,159,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+        .auth-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(252,182,159,0.1), transparent);
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        .auth-header .logo {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #2c3e50;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            position: relative;
+            z-index: 1;
         }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
-        .auth-header .username { font-weight: 600; color: #2c3e50; }
+        .auth-header .username {
+            font-weight: 600;
+            color: #2c3e50;
+            position: relative;
+            z-index: 1;
+        }
         .auth-header .auth-btn {
             background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%);
             color: white;
@@ -318,6 +352,8 @@ async function handleMotivationalRequest(req, res) {
             font-size: 0.9rem;
             touch-action: manipulation;
             box-shadow: 0 4px 15px rgba(252,182,159,0.3);
+            position: relative;
+            z-index: 1;
         }
         .auth-header .auth-btn:hover {
             transform: translateY(-2px);
@@ -477,22 +513,6 @@ async function handleMotivationalRequest(req, res) {
             opacity: 0.5;
         }
 
-        .bottom-bar {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 10px;
-            box-shadow: 0 -4px 20px rgba(0,0,0,0.1);
-            z-index: 999;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            border-top: 1px solid rgba(255,255,255,0.2);
-        }
         button, .icon-button {
             cursor: pointer;
             border: none;
@@ -669,6 +689,13 @@ async function handleMotivationalRequest(req, res) {
                 padding: 12px;
                 font-size: 0.95rem;
             }
+
+            #change-topic-btn {
+                bottom: 15px;
+                right: 15px;
+                padding: 10px 15px;
+                font-size: 0.8rem;
+            }
         }
     </style>
 </head>
@@ -688,6 +715,15 @@ async function handleMotivationalRequest(req, res) {
     <main>
         <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
+
+        <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
+        <div id="author-game" style="display: none; margin-top: 30px; text-align: center;">
+            <h3 style="color: #fff; font-size: 1.2rem; margin-bottom: 20px; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">🎯 Indovina l'autore della frase!</h3>
+            <input type="text" id="author-guess" placeholder="Chi ha detto questa frase?" style="width: 80%; max-width: 300px; padding: 12px; border: 2px solid #fcb69f; border-radius: 10px; font-size: 16px; margin-bottom: 15px; transition: border-color 0.3s ease;" maxlength="50">
+            <br>
+            <button id="check-guess" style="background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(252,182,159,0.3);">Verifica Risposta</button>
+            <div id="game-feedback" style="margin-top: 20px; font-size: 1.1rem; font-weight: 600; min-height: 30px;"></div>
+        </div>
     </main>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
@@ -702,9 +738,8 @@ async function handleMotivationalRequest(req, res) {
         </div>
     </div>
 
-    <div class="bottom-bar">
-        <button id="change-topic-btn">CAMBIA ARGOMENTO</button>
-    </div>
+    <!-- Pulsante fluttuante per cambiare argomento -->
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 6px 20px rgba(252,182,159,0.4); transition: all 0.3s ease; animation: pulse 2s infinite;">🔄 CAMBIA ARGOMENTO</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
@@ -838,6 +873,8 @@ async function handleMotivationalRequest(req, res) {
             }
         }
 
+        let correctAuthor = 'Anonimo'; // Variabile globale per l'autore corretto
+
         const loadQuote = async () => {
             const token = localStorage.getItem('authToken');
             const userData = JSON.parse(localStorage.getItem('userData'));
@@ -845,28 +882,39 @@ async function handleMotivationalRequest(req, res) {
 
             let username = 'Ospite';
             let keychainId = 'Ospite';
-            
+
             if (token && userData) {
                 keychainId = userData.id || 'Ospite';
                 username = userData.username || userData.name || userData.email || userData.id || 'Utente';
             }
-            
+
             const topic = savedTopic || '${initialTopic}';
             document.getElementById('topic-text').innerText = topic;
 
             try {
                 const headers = {};
                 if (token) headers['Authorization'] = 'Bearer ' + token;
-                
+
                 const url = '/api/quote?id=' + encodeURIComponent(keychainId) + '&username=' + encodeURIComponent(username) + '&topic=' + encodeURIComponent(topic);
                 const response = await fetch(url, { headers });
                 if (!response.ok) throw new Error('Server non OK: ' + response.status);
-                
+
                 const data = await response.json();
                 document.getElementById('quote-text').innerText = '"' + data.quote + '"';
+                correctAuthor = data.author || 'Anonimo';
+
+                // Mostra il gioco dopo aver caricato la frase
+                document.getElementById('author-game').style.display = 'block';
+                document.getElementById('author-guess').value = '';
+                document.getElementById('game-feedback').innerHTML = '';
+                document.getElementById('author-guess').focus();
             } catch (e) {
                 console.error("Errore caricamento frase:", e);
                 document.getElementById('quote-text').innerText = ':( La motivazione è dentro di te, non smettere di cercarla.';
+                correctAuthor = 'Anonimo';
+                document.getElementById('author-game').style.display = 'block';
+                document.getElementById('author-guess').value = '';
+                document.getElementById('game-feedback').innerHTML = '';
             }
         };
 
@@ -887,19 +935,44 @@ async function handleMotivationalRequest(req, res) {
                 document.querySelectorAll('.topic-option').forEach(button => {
                     button.addEventListener('click', function() {
                         const selectedTopic = this.getAttribute('data-topic');
-                        
+
                         // Aggiorna il testo nella pagina
                         document.getElementById('topic-text').innerText = this.innerText.split(' ')[0]; // Prende solo la prima parola
-                        
+
                         // Salva nel localStorage
                         localStorage.setItem('lastTopic', selectedTopic);
-                        
+
                         // Chiudi il popup
                         document.getElementById('topic-popup').style.display = 'none';
-                        
+
                         // Carica una nuova frase per l'argomento selezionato
                         loadQuote();
                     });
+                });
+
+                // 🎮 LOGICA GIOCO INDOVINA AUTORE
+                document.getElementById('check-guess').addEventListener('click', function() {
+                    const guess = document.getElementById('author-guess').value.trim().toLowerCase();
+                    const correct = correctAuthor.toLowerCase();
+                    const feedback = document.getElementById('game-feedback');
+
+                    if (guess === '') {
+                        feedback.innerHTML = '<span style="color: #ff9a9e;">Inserisci un nome per indovinare!</span>';
+                        return;
+                    }
+
+                    if (guess === correct) {
+                        feedback.innerHTML = '<span style="color: #4CAF50; animation: pulse 0.5s;">🎉 Corretto! L\'autore è ' + correctAuthor + '.</span>';
+                    } else {
+                        feedback.innerHTML = '<span style="color: #ff9a9e;">❌ Sbagliato! L\'autore è ' + correctAuthor + '.</span>';
+                    }
+                });
+
+                // Permetti invio con Enter
+                document.getElementById('author-guess').addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        document.getElementById('check-guess').click();
+                    }
                 });
             });
     </script>
