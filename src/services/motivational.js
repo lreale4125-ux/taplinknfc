@@ -541,21 +541,21 @@ async function handleMotivationalRequest(req, res) {
                 background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
             }
 
-            .auth-header { padding: 3px 8px; }
-            .auth-header .auth-btn { font-size: 0.7rem; padding: 3px 6px; }
+            .auth-header { padding: 6px 12px; }
+            .auth-header .auth-btn { font-size: 0.8rem; padding: 4px 8px; }
 
             .header {
                 margin: 3px;
                 margin-bottom: 0px;
-                padding: 10px 8px;
+                padding: 12px 10px;
             }
 
             .header h1 {
-                font-size: 1.2rem;
+                font-size: 1.3rem;
             }
 
             .header p {
-                font-size: 0.7rem;
+                font-size: 0.8rem;
             }
 
             main {
