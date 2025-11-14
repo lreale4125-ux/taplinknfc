@@ -30,14 +30,13 @@ function recordClick(linkId, keychainId, req, source = 'nfc') {
             link_id, keychain_id, ip_address, user_agent, referrer, country, city, lat, lon,
             os_name, browser_name, device_type, source
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(link_id, ip_address, keychain_id) DO UPDATE SET
+        ON CONFLICT(link_id, ip_address, keychain_id, source) DO UPDATE SET
             click_count = click_count + 1,
             last_seen = CURRENT_TIMESTAMP,
             user_agent = excluded.user_agent,
             os_name = excluded.os_name,
             browser_name = excluded.browser_name,
-            device_type = excluded.device_type,
-            source = excluded.source
+            device_type = excluded.device_type
     `);
 
     stmt.run(
