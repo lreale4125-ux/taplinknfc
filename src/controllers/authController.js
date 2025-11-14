@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
+const fetch = require('node-fetch');
 
 // --- GOOGLE OAUTH - AVVIO FLUSSO ---
 async function googleAuth(req, res) {
@@ -32,28 +33,103 @@ async function googleAuth(req, res) {
 async function googleAuthCallback(req, res) {
     try {
         const { code } = req.query;
-        
+
         if (!code) {
             console.error('Codice di autorizzazione mancante');
-            return res.redirect('https://taplinknfc.it/login?error=google_auth_failed');
+            return res.redirect('https://taplinknfc.it/?error=google_auth_failed');
         }
 
         console.log('Google Auth Code ricevuto:', code);
-        
-        // 🎯 PER ORA - REINDIRIZZA ALLA PAGINA MOTIVAZIONALE
-        // In futuro qui scambierai il code con un access token
-        const tempToken = jwt.sign(
-            { id: 'temp_google_user', username: 'Google User', role: 'motivazional' },
-            process.env.JWT_SECRET,
-            { expiresIn: '1h' }
-        );
-        
-        const redirectUrl = `https://motivazional.taplinknfc.it?token=${tempToken}&id=google_temp&topic=motivazione&message=Google+login+in+sviluppo`;
-        res.redirect(redirectUrl);
-        
+
+        // 🎯 SCAMBIA IL CODE CON ACCESS TOKEN
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                code: code,
+                client_id: process.env.GOOGLE_CLIENT_ID,
+                client_secret: process.env.GOOGLE_CLIENT_SECRET,
+                redirect_uri: 'https://taplinknfc.it/api/auth/google/callback',
+                grant_type: 'authorization_code',
+            }),
+        });
+
+        const tokenData = await tokenResponse.json();
+
+        if (!tokenResponse.ok || !tokenData.access_token) {
+            console.error('Errore scambio token:', tokenData);
+            return res.redirect('https://taplinknfc.it/?error=google_token_exchange_failed');
+        }
+
+        // 🎯 OTTIENI INFO UTENTE DA GOOGLE
+        const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+            headers: {
+                'Authorization': `Bearer ${tokenData.access_token}`,
+            },
+        });
+
+        const googleUser = await userResponse.json();
+
+        if (!userResponse.ok || !googleUser.email) {
+            console.error('Errore recupero info utente:', googleUser);
+            return res.redirect('https://taplinknfc.it/?error=google_user_info_failed');
+        }
+
+        console.log('Utente Google:', googleUser);
+
+        // 🎯 CERCA UTENTE NEL DB O CREA NUOVO
+        let user = db.prepare("SELECT * FROM users WHERE email = ?").get(googleUser.email);
+
+        if (!user) {
+            // Crea nuovo utente Google
+            const stmt = db.prepare(`
+                INSERT INTO users (email, username, password, role, can_access_wallet, can_access_analytics, can_access_pos, created_at)
+                VALUES (?, ?, '', 'motivazional', 0, 0, 0, datetime('now'))
+            `);
+
+            const info = stmt.run(googleUser.email, googleUser.name || googleUser.email);
+            user = {
+                id: info.lastInsertRowid,
+                email: googleUser.email,
+                username: googleUser.name || googleUser.email,
+                role: 'motivazional',
+                company_id: null,
+                can_access_wallet: 0,
+                can_access_analytics: 0,
+                can_access_pos: 0
+            };
+            console.log('Nuovo utente Google creato:', user.id);
+        } else {
+            console.log('Utente Google esistente trovato:', user.id);
+        }
+
+        // 🎯 CREA JWT TOKEN
+        const payload = {
+            id: user.id,
+            username: user.username,
+            role: user.role,
+            company_id: user.company_id,
+            can_access_wallet: user.can_access_wallet || 0,
+            can_access_analytics: user.can_access_analytics || 0,
+            can_access_pos: user.can_access_pos || 0
+        };
+
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '24h' });
+
+        // 🎯 REDIRECT BASATO SU RUOLO
+        if (user.role === 'motivazional') {
+            const redirectUrl = `https://motivazional.taplinknfc.it?token=${token}&id=${user.id}&topic=motivazione`;
+            res.redirect(redirectUrl);
+        } else {
+            // Per altri ruoli, reindirizza alla dashboard appropriata
+            res.redirect(`https://taplinknfc.it/dashboard?token=${token}`);
+        }
+
     } catch (error) {
         console.error('Errore durante callback Google:', error);
-        res.redirect('https://taplinknfc.it/login?error=google_callback_error');
+        res.redirect('https://taplinknfc.it/?error=google_callback_error');
     }
 }
 
