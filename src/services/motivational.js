@@ -957,14 +957,14 @@ async function handleMotivationalRequest(req, res) {
                     const feedback = document.getElementById('game-feedback');
 
                     if (guess === '') {
-                        feedback.innerHTML = '<span style="color: #ff9a9e;">Inserisci un nome per indovinare!</span>';
+                        feedback.innerHTML = "<span style='color: #ff9a9e;'>Inserisci un nome per indovinare!</span>";
                         return;
                     }
 
                     if (guess === correct) {
-                        feedback.innerHTML = '<span style="color: #4CAF50; animation: pulse 0.5s;">🎉 Corretto! L\'autore è ' + correctAuthor + '.</span>';
+                        feedback.innerHTML = "<span style='color: #4CAF50; animation: pulse 0.5s;'>🎉 Corretto! L'autore è " + correctAuthor + ".</span>";
                     } else {
-                        feedback.innerHTML = '<span style="color: #ff9a9e;">❌ Sbagliato! L\'autore è ' + correctAuthor + '.</span>';
+                        feedback.innerHTML = "<span style='color: #ff9a9e;'>❌ Sbagliato! L'autore è " + correctAuthor + ".</span>";
                     }
                 });
 
