@@ -307,22 +307,6 @@ async function handleMotivationalRequest(req, res) {
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid rgba(252,182,159,0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        .auth-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(252,182,159,0.1), transparent);
-            animation: shimmer 3s infinite;
-        }
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
         }
         .auth-header .logo {
             font-weight: 700;
@@ -478,17 +462,17 @@ async function handleMotivationalRequest(req, res) {
             text-shadow: 0 1px 3px rgba(0,0,0,0.5);
         }
         #quote-text {
-            margin-top: 20px;
-            font-size: 1.2rem;
+            margin-top: 40px;
+            font-size: 1.5rem;
             font-weight: 400;
-            min-height: 80px;
+            min-height: 100px;
             color: #34495e;
-            line-height: 1.5;
+            line-height: 1.6;
             font-style: italic;
             background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
-            padding: 25px 20px;
-            border-radius: 20px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            padding: 35px 25px;
+            border-radius: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
             position: relative;
             animation: fadeIn 0.8s ease-out 0.3s both;
         }
@@ -570,8 +554,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.5rem;
             }
             #quote-text {
-                font-size: 1.3rem;
-                padding: 30px 25px;
+                font-size: 1.7rem;
+                padding: 40px 30px;
             }
             .bottom-bar button {
                 font-size: 1.1rem;
@@ -606,8 +590,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.6rem;
             }
             #quote-text {
-                font-size: 1.4rem;
-                padding: 35px 30px;
+                font-size: 2rem;
+                padding: 50px 40px;
             }
             .bottom-bar button {
                 font-size: 1.2rem;
@@ -692,7 +676,9 @@ async function handleMotivationalRequest(req, res) {
 
             #change-topic-btn {
                 bottom: 15px;
-                right: 15px;
+                left: 50%;
+                transform: translateX(-50%);
+                right: auto;
                 padding: 10px 15px;
                 font-size: 0.8rem;
             }
@@ -708,12 +694,7 @@ async function handleMotivationalRequest(req, res) {
         </div>
     </header>
 
-    <header class="header">
-        <h1>365 giorni per una versione più felice di te</h1>
-        <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
-    </header>
     <main>
-        <h2>Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 GIOCO INDOVINA L'AUTORE -->
@@ -724,7 +705,14 @@ async function handleMotivationalRequest(req, res) {
             <button id="check-guess" style="background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 30px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(252,182,159,0.3);">Verifica Risposta</button>
             <div id="game-feedback" style="margin-top: 20px; font-size: 1.1rem; font-weight: 600; min-height: 30px;"></div>
         </div>
+
+        <h2 style="margin-top: 40px; text-align: center;">Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
     </main>
+
+    <header class="header">
+        <h1>365 giorni per una versione più felice di te</h1>
+        <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
+    </header>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
         <div class="topic-popup-content">
@@ -739,7 +727,7 @@ async function handleMotivationalRequest(req, res) {
     </div>
 
     <!-- Pulsante fluttuante per cambiare argomento -->
-    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 6px 20px rgba(252,182,159,0.4); transition: all 0.3s ease; animation: pulse 2s infinite;">🔄 CAMBIA ARGOMENTO</button>
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; color: black; border: 2px solid #fcb69f; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.1); transition: all 0.3s ease;">🔄 CAMBIA ARGOMENTO</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
