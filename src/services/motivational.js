@@ -398,12 +398,12 @@ async function handleMotivationalRequest(req, res) {
 
         .header {
             background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 50%, #ffecd2 100%);
-            border-radius: 30px;
-            margin: 20px;
-            padding: 30px 20px;
-            max-width: 500px;
+            border-radius: 20px;
+            margin: 10px 20px;
+            padding: 20px 15px;
+            max-width: 400px;
             align-self: center;
-            box-shadow: 0 8px 30px rgba(252,182,159,0.3);
+            box-shadow: 0 6px 20px rgba(252,182,159,0.3);
             text-align: center;
             position: relative;
             overflow: hidden;
@@ -420,8 +420,8 @@ async function handleMotivationalRequest(req, res) {
         }
         .header h1 {
             font-weight: 700;
-            font-size: 1.8rem;
-            margin: 0 0 15px 0;
+            font-size: 1.4rem;
+            margin: 0 0 10px 0;
             line-height: 1.3;
             color: #fff;
             position: relative;
@@ -537,14 +537,15 @@ async function handleMotivationalRequest(req, res) {
         /* --- TABLET --- */
         @media (min-width: 769px) and (max-width: 1024px) {
             .header {
-                max-width: 600px;
-                padding: 40px 25px;
+                max-width: 500px;
+                padding: 25px 20px;
+                margin: 15px 20px;
             }
             .header h1 {
-                font-size: 2rem;
+                font-size: 1.6rem;
             }
             .header p {
-                font-size: 1.1rem;
+                font-size: 1rem;
             }
             main {
                 max-width: 600px;
@@ -573,14 +574,15 @@ async function handleMotivationalRequest(req, res) {
         /* --- DESKTOP --- */
         @media (min-width: 1025px) {
             .header {
-                max-width: 700px;
-                padding: 50px 30px;
+                max-width: 600px;
+                padding: 30px 25px;
+                margin: 20px auto;
             }
             .header h1 {
-                font-size: 2.2rem;
+                font-size: 1.8rem;
             }
             .header p {
-                font-size: 1.2rem;
+                font-size: 1.1rem;
             }
             main {
                 max-width: 700px;
@@ -694,6 +696,11 @@ async function handleMotivationalRequest(req, res) {
         </div>
     </header>
 
+    <header class="header">
+        <h1>365 giorni per una versione più felice di te</h1>
+        <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
+    </header>
+
     <main>
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
@@ -708,11 +715,6 @@ async function handleMotivationalRequest(req, res) {
 
         <h2 style="margin-top: 40px; text-align: center;">Scopri una frase su <span id="topic-text">${initialTopic}</span></h2>
     </main>
-
-    <header class="header">
-        <h1>365 giorni per una versione più felice di te</h1>
-        <p>Consigli e ispirazioni per vivere al meglio la tua vita</p>
-    </header>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
         <div class="topic-popup-content">
@@ -727,7 +729,7 @@ async function handleMotivationalRequest(req, res) {
     </div>
 
     <!-- Pulsante fluttuante per cambiare argomento -->
-    <button id="change-topic-btn" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: white; color: black; border: 2px solid #fcb69f; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.1); transition: all 0.3s ease;">🔄 CAMBIA ARGOMENTO</button>
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 1000; background: #f5f5f5; color: black; border: 2px solid #fcb69f; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: bold; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.1); transition: all 0.3s ease;">🔄 CAMBIA ARGOMENTO</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
