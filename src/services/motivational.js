@@ -178,16 +178,7 @@ async function handleMotivationalRequest(req, res) {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Frase Motivazionale</title>
     <style>
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
-        }
+        /* Removed animations for clean, modern look */
 
         * { box-sizing: border-box; }
         body {
@@ -202,7 +193,6 @@ async function handleMotivationalRequest(req, res) {
             min-height: 100vh;
             justify-content: space-between;
             line-height: 1.6;
-            animation: fadeIn 1s ease-out;
         }
 
         /* 🔥 POPUP ARGOMENTI */
@@ -218,18 +208,16 @@ async function handleMotivationalRequest(req, res) {
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            animation: fadeIn 0.3s ease-out;
         }
 
         .topic-popup-content {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: #ffffff;
             padding: 30px;
             border-radius: 25px;
             text-align: center;
             max-width: 400px;
             width: 90%;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.2);
         }
 
         .topic-popup h3 {
@@ -247,117 +235,70 @@ async function handleMotivationalRequest(req, res) {
         }
 
         .topic-option {
-            background: linear-gradient(135deg, #fcb69f 0%, #ffecd2 50%, #ffecd2 100%);
-            color: #8b4513;
+            background: #f8f9fa;
+            color: #333;
             border: none;
             padding: 15px;
             border-radius: 15px;
             font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
+            transition: background-color 0.3s ease;
             touch-action: manipulation;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .topic-option::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-
-        .topic-option:hover::before {
-            left: 100%;
         }
 
         .topic-option:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 25px rgba(252,182,159,0.4);
+            background: #e9ecef;
         }
 
         .close-popup {
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
-            color: #8b4513;
+            background: #6c757d;
+            color: white;
             border: none;
             padding: 10px 20px;
             border-radius: 20px;
             cursor: pointer;
             font-weight: 600;
             touch-action: manipulation;
-            transition: all 0.3s ease;
+            transition: background-color 0.3s ease;
         }
 
         .close-popup:hover {
-            transform: scale(1.05);
-            box-shadow: 0 5px 15px rgba(252,182,159,0.4);
+            background: #5a6268;
         }
 
         .auth-header {
-            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
-            backdrop-filter: blur(15px);
+            background: rgba(255,255,255,0.95);
             padding: 15px 20px;
-            box-shadow: 0 4px 30px rgba(0,0,0,0.15), 0 0 0 1px rgba(255,255,255,0.2);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid rgba(252,182,159,0.3);
-            position: relative;
-            overflow: hidden;
-        }
-        .auth-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(252,182,159,0.1), transparent);
-            animation: shimmer 3s infinite;
-        }
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
         }
         .auth-header .logo {
             font-weight: 700;
             font-size: 1.2rem;
-            color: #2c3e50;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-            position: relative;
-            z-index: 1;
+            color: #333;
         }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
         .auth-header .username {
             font-weight: 600;
-            color: #2c3e50;
-            position: relative;
-            z-index: 1;
+            color: #333;
         }
         .auth-header .auth-btn {
-            background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%);
+            background: #007bff;
             color: white;
             border: none;
             padding: 8px 16px;
             border-radius: 20px;
             cursor: pointer;
             font-weight: 600;
-            transition: all 0.3s ease;
             text-decoration: none;
             font-size: 0.9rem;
             touch-action: manipulation;
-            box-shadow: 0 4px 15px rgba(252,182,159,0.3);
-            position: relative;
-            z-index: 1;
         }
         .auth-header .auth-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(252,182,159,0.4);
+            background: #0056b3;
         }
 
         .nickname-popup {
@@ -372,10 +313,9 @@ async function handleMotivationalRequest(req, res) {
             justify-content: center;
             align-items: center;
             z-index: 1000;
-            animation: fadeIn 0.3s ease-out;
         }
         .nickname-popup-content {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: #ffffff;
             padding: 30px;
             border-radius: 20px;
             text-align: center;
@@ -396,7 +336,7 @@ async function handleMotivationalRequest(req, res) {
         }
         .nickname-input:focus { border-color: #ff9a9e; outline: none; }
         .nickname-btn {
-            background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%);
+            background: #007bff;
             color: white;
             border: none;
             padding: 12px 30px;
@@ -404,35 +344,21 @@ async function handleMotivationalRequest(req, res) {
             font-size: 16px;
             cursor: pointer;
             touch-action: manipulation;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(252,182,159,0.3);
+            transition: background-color 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
         .nickname-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(252,182,159,0.4);
+            background: #0056b3;
         }
 
         .header {
-            background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 50%, #ffecd2 100%);
-            border-radius: 30px;
+            background: #fcb69f;
+            border-radius: 20px;
             margin: 20px;
             padding: 30px 20px;
             max-width: 500px;
             align-self: center;
-            box-shadow: 0 8px 30px rgba(252,182,159,0.3);
             text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 4s infinite;
         }
         .header h1 {
             font-weight: 700;
@@ -440,19 +366,12 @@ async function handleMotivationalRequest(req, res) {
             margin: 0 0 15px 0;
             line-height: 1.3;
             color: #fff;
-            position: relative;
-            z-index: 1;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         .header p {
             font-weight: 400;
             font-size: 1rem;
             margin: 0;
-            opacity: 0.9;
             color: #fff;
-            position: relative;
-            z-index: 1;
-            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
         }
 
         main {
@@ -460,8 +379,9 @@ async function handleMotivationalRequest(req, res) {
             display: flex;
             flex-direction: column;
             align-items: center;
+            justify-content: center;
             padding: 20px;
-            max-width: 500px;
+            max-width: 600px;
             margin: 0 auto;
             text-align: center;
         }
@@ -479,18 +399,19 @@ async function handleMotivationalRequest(req, res) {
         }
         #quote-text {
             margin-top: 20px;
-            font-size: 1.2rem;
+            font-size: 2.2rem;
             font-weight: 400;
-            min-height: 80px;
+            min-height: 100px;
             color: #34495e;
             line-height: 1.5;
             font-style: italic;
-            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
-            padding: 25px 20px;
+            background: rgba(255,255,255,0.95);
+            padding: 40px 30px;
             border-radius: 20px;
-            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             position: relative;
-            animation: fadeIn 0.8s ease-out 0.3s both;
+            max-width: 600px;
+            text-align: center;
         }
         #quote-text::before {
             content: '"';
@@ -521,33 +442,16 @@ async function handleMotivationalRequest(req, res) {
             font-weight: 600;
             font-size: 1rem;
             user-select: none;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(252,182,159,0.3);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
             min-height: 44px;
             touch-action: manipulation;
-            position: relative;
-            overflow: hidden;
-        }
-        button::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
-        }
-        button:hover::before {
-            left: 100%;
         }
         button {
-            background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%);
+            background: #007bff;
             color: #fff;
         }
         button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(252,182,159,0.4);
+            background: #0056b3;
         }
 
         /* --- TABLET --- */
@@ -570,8 +474,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.5rem;
             }
             #quote-text {
-                font-size: 1.3rem;
-                padding: 30px 25px;
+                font-size: 1.8rem;
+                padding: 35px 25px;
             }
             .bottom-bar button {
                 font-size: 1.1rem;
@@ -606,8 +510,8 @@ async function handleMotivationalRequest(req, res) {
                 font-size: 1.6rem;
             }
             #quote-text {
-                font-size: 1.4rem;
-                padding: 35px 30px;
+                font-size: 2rem;
+                padding: 40px 30px;
             }
             .bottom-bar button {
                 font-size: 1.2rem;
@@ -660,8 +564,8 @@ async function handleMotivationalRequest(req, res) {
             }
 
             #quote-text {
-                font-size: 1rem;
-                padding: 20px 15px;
+                font-size: 1.5rem;
+                padding: 25px 15px;
                 min-height: auto;
                 margin-top: 10px;
             }
@@ -739,7 +643,7 @@ async function handleMotivationalRequest(req, res) {
     </div>
 
     <!-- Pulsante fluttuante per cambiare argomento -->
-    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: linear-gradient(135deg, #fcb69f 0%, #ff9a9e 100%); color: #fff; border: none; padding: 12px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: 600; cursor: pointer; box-shadow: 0 6px 20px rgba(252,182,159,0.4); transition: all 0.3s ease; animation: pulse 2s infinite;">🔄 CAMBIA ARGOMENTO</button>
+    <button id="change-topic-btn" style="position: fixed; bottom: 20px; right: 20px; z-index: 1000; background: white; color: black; font-weight: bold; border: none; padding: 12px 20px; border-radius: 10px; font-size: 0.9rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">Cambia argomento</button>
     <script>
         function updateAuthUI() {
             const token = localStorage.getItem('authToken');
@@ -962,7 +866,7 @@ async function handleMotivationalRequest(req, res) {
                     }
 
                     if (guess === correct) {
-                        feedback.innerHTML = "<span style='color: #4CAF50; animation: pulse 0.5s;'>🎉 Corretto! L'autore è " + correctAuthor + ".</span>";
+                        feedback.innerHTML = "<span style='color: #4CAF50;'>🎉 Corretto! L'autore è " + correctAuthor + ".</span>";
                     } else {
                         feedback.innerHTML = "<span style='color: #ff9a9e;'>❌ Sbagliato! L'autore è " + correctAuthor + ".</span>";
                     }
