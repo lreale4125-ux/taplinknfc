@@ -186,7 +186,7 @@ async function handleMotivationalRequest(req, res) {
             align-items: center;
             z-index: 1000;
         }
-        
+
         .topic-popup-content {
             background: white;
             padding: 30px;
@@ -196,20 +196,20 @@ async function handleMotivationalRequest(req, res) {
             width: 90%;
             box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        
+
         .topic-popup h3 {
             color: #2c3e50;
             margin-bottom: 25px;
             font-size: 1.4rem;
         }
-        
+
         .topic-options {
             display: flex;
             flex-direction: column;
             gap: 15px;
             margin-bottom: 20px;
         }
-        
+
         .topic-option {
             background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%);
             color: white;
@@ -220,13 +220,14 @@ async function handleMotivationalRequest(req, res) {
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            touch-action: manipulation;
         }
-        
+
         .topic-option:hover {
             transform: translateY(-3px);
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
-        
+
         .close-popup {
             background: #95a5a6;
             color: white;
@@ -235,23 +236,24 @@ async function handleMotivationalRequest(req, res) {
             border-radius: 20px;
             cursor: pointer;
             font-weight: 600;
+            touch-action: manipulation;
         }
         * { box-sizing: border-box; }
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
-        
+        body { margin: 0; padding-bottom: 80px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #f3e8e8 0%, #e8f3f3 100%); color: #333; display: flex; flex-direction: column; min-height: 100vh; justify-content: space-between; line-height: 1.6; }
+
         .auth-header { background: rgba(255, 255, 255, 0.95); padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
         .auth-header .user-info { display: flex; align-items: center; gap: 15px; }
         .auth-header .username { font-weight: 600; color: #2c3e50; }
-        .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; }
+        .auth-header .auth-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; text-decoration: none; font-size: 0.9rem; touch-action: manipulation; }
         .auth-header .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        
+
         .nickname-popup { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: flex; justify-content: center; align-items: center; z-index: 1000; }
         .nickname-popup-content { background: white; padding: 30px; border-radius: 15px; text-align: center; max-width: 400px; width: 90%; }
         .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; }
         .nickname-popup p { margin-bottom: 20px; color: #555; }
         .nickname-input { width: 100%; padding: 12px; border: 2px solid #caaeb3; border-radius: 8px; font-size: 16px; margin-bottom: 20px; }
-        .nickname-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; }
-        
+        .nickname-btn { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: white; border: none; padding: 12px 30px; border-radius: 25px; font-size: 16px; cursor: pointer; touch-action: manipulation; }
+
         .header { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); border-radius: 25px; margin: 20px; padding: 30px 20px; max-width: 500px; align-self: center; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
         .header h1 { font-weight: 700; font-size: 1.8rem; margin: 0 0 15px 0; line-height: 1.3; color: #fff; }
         .header p { font-weight: 400; font-size: 1rem; margin: 0; opacity: 0.9; color: #fff; }
@@ -259,82 +261,155 @@ async function handleMotivationalRequest(req, res) {
         main h2 { font-weight: 600; font-size: 1.4rem; margin: 20px 0 15px 0; color: #2c3e50; }
         main span { font-weight: 700; color: #3498db; }
         #quote-text { margin-top: 20px; font-size: 1.2rem; font-weight: 400; min-height: 80px; color: #34495e; line-height: 1.5; font-style: italic; background: rgba(255,255,255,0.8); padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        .bottom-bar { display: flex; justify-content: center; align-items: center; gap: 20px; margin: 20px auto 10px auto; max-width: 500px; }
-        button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        .bottom-bar { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(255, 255, 255, 0.95); padding: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 999; display: flex; justify-content: center; align-items: center; gap: 20px; }
+        button, .icon-button { cursor: pointer; border: none; border-radius: 25px; padding: 12px 25px; font-weight: 600; font-size: 1rem; user-select: none; transition: all 0.3s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2); min-height: 44px; touch-action: manipulation; }
         button { background: linear-gradient(135deg, #caaeb3 0%, #b49499 100%); color: #fff; }
         button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
 
+        /* --- TABLET --- */
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .header {
+                max-width: 600px;
+                padding: 40px 25px;
+            }
+            .header h1 {
+                font-size: 2rem;
+            }
+            .header p {
+                font-size: 1.1rem;
+            }
+            main {
+                max-width: 600px;
+                padding: 25px;
+            }
+            main h2 {
+                font-size: 1.5rem;
+            }
+            #quote-text {
+                font-size: 1.3rem;
+                padding: 25px;
+            }
+            .bottom-bar button {
+                font-size: 1.1rem;
+                padding: 14px 30px;
+            }
+            .topic-popup-content {
+                max-width: 450px;
+            }
+            .topic-option {
+                padding: 16px;
+                font-size: 1.05rem;
+            }
+        }
+
+        /* --- DESKTOP --- */
+        @media (min-width: 1025px) {
+            .header {
+                max-width: 700px;
+                padding: 50px 30px;
+            }
+            .header h1 {
+                font-size: 2.2rem;
+            }
+            .header p {
+                font-size: 1.2rem;
+            }
+            main {
+                max-width: 700px;
+                padding: 30px;
+            }
+            main h2 {
+                font-size: 1.6rem;
+            }
+            #quote-text {
+                font-size: 1.4rem;
+                padding: 30px;
+            }
+            .bottom-bar button {
+                font-size: 1.2rem;
+                padding: 16px 35px;
+            }
+            .topic-popup-content {
+                max-width: 500px;
+            }
+            .topic-option {
+                padding: 18px;
+                font-size: 1.1rem;
+            }
+        }
+
         /* --- VERSIONE COMPATTA MOBILE --- */
-@media (max-width: 768px) {
+        @media (max-width: 768px) {
+            /* Riduce padding globale */
+            body {
+                padding: 0;
+                padding-bottom: 80px;
+                margin: 0;
+            }
 
-    /* Riduce padding globale */
-    body {
-        padding: 0;
-        margin: 0;
-    }
+            .auth-header { padding: 10px 15px; }
+            .auth-header .auth-btn { font-size: 0.8rem; padding: 6px 12px; }
 
-    /* Header morbido ma compatto */
-    .header {
-        margin: 10px;
-        padding: 20px 15px;
-    }
+            /* Header morbido ma compatto */
+            .header {
+                margin: 10px;
+                padding: 20px 15px;
+            }
 
-    .header h1 {
-        font-size: 1.4rem;
-    }
+            .header h1 {
+                font-size: 1.4rem;
+            }
 
-    .header p {
-        font-size: 0.9rem;
-    }
+            .header p {
+                font-size: 0.9rem;
+            }
 
-    /* Riduce la zona del main */
-    main {
-        padding: 10px;
-        max-width: 100%;
-        margin: 0;
-        gap: 10px;
-    }
+            /* Riduce la zona del main */
+            main {
+                padding: 10px;
+                max-width: 100%;
+                margin: 0;
+                gap: 10px;
+            }
 
-    main h2 {
-        font-size: 1.2rem;
-        margin: 10px 0 0 0;
-    }
+            main h2 {
+                font-size: 1.2rem;
+                margin: 10px 0 0 0;
+            }
 
-    #quote-text {
-        font-size: 1rem;
-        padding: 15px;
-        min-height: auto;
-        margin-top: 10px;
-    }
+            #quote-text {
+                font-size: 1rem;
+                padding: 15px;
+                min-height: auto;
+                margin-top: 10px;
+            }
 
-    /* Barra dei bottoni subito visibile */
-    .bottom-bar {
-        margin-top: 12px;
-        display: flex;
-        justify-content: center;
-        width: 100%;
-        padding: 0 10px;
-    }
+            /* Barra dei bottoni subito visibile */
+            .bottom-bar {
+                display: flex;
+                justify-content: center;
+                width: 100%;
+                padding: 10px;
+            }
 
-    .bottom-bar button {
-        width: 100%;
-        padding: 12px;
-        font-size: 1.05rem;
-        border-radius: 20px;
-    }
+            .bottom-bar button {
+                width: 100%;
+                padding: 12px;
+                font-size: 1.05rem;
+                border-radius: 20px;
+            }
 
-    /* Popup adattato al mobile */
-    .topic-popup-content {
-        padding: 20px;
-        max-width: 85%;
-    }
+            /* Popup adattato al mobile */
+            .topic-popup-content {
+                padding: 20px;
+                max-width: 85%;
+            }
 
-    .topic-option {
-        padding: 12px;
-        font-size: 0.95rem;
-    }
-}
-
+            .topic-option {
+                padding: 12px;
+                font-size: 0.95rem;
+            }
+        }
     </style>
 </head>
 <body>
