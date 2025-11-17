@@ -177,15 +177,19 @@ async function handleMotivationalRequest(req, res) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Frase Motivazionale</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Removed animations for clean, modern look */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
         * { box-sizing: border-box; }
         body {
             margin: 0;
             padding-bottom: 80px;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 50%, #ff9a9e 100%);
+            font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
             background-attachment: fixed;
             color: #333;
             display: flex;
@@ -217,7 +221,7 @@ async function handleMotivationalRequest(req, res) {
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.4);
         }
 
         .topic-popup h3 {
@@ -286,7 +290,7 @@ async function handleMotivationalRequest(req, res) {
             color: #333;
         }
         .auth-header .auth-btn {
-            background: #007bff;
+            background: #4caf50;
             color: white;
             border: none;
             padding: 8px 16px;
@@ -298,7 +302,7 @@ async function handleMotivationalRequest(req, res) {
             touch-action: manipulation;
         }
         .auth-header .auth-btn:hover {
-            background: #0056b3;
+            background: #388e3c;
         }
 
         .nickname-popup {
@@ -321,20 +325,20 @@ async function handleMotivationalRequest(req, res) {
             text-align: center;
             max-width: 400px;
             width: 90%;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.4);
         }
         .nickname-popup h2 { color: #2c3e50; margin-bottom: 15px; font-weight: 700; }
         .nickname-popup p { margin-bottom: 20px; color: #555; }
         .nickname-input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #fcb69f;
+            border: 2px solid #90caf9;
             border-radius: 10px;
             font-size: 16px;
             margin-bottom: 20px;
             transition: border-color 0.3s ease;
         }
-        .nickname-input:focus { border-color: #ff9a9e; outline: none; }
+        .nickname-input:focus { border-color: #2196f3; outline: none; }
         .nickname-btn {
             background: #007bff;
             color: white;
@@ -352,7 +356,7 @@ async function handleMotivationalRequest(req, res) {
         }
 
         .header {
-            background: #fcb69f;
+            background: #2196f3;
             border-radius: 20px;
             margin: 10px auto 15px auto;   /* 🔥 AUMENTATA la distanza inferiore */
             padding: 25px 15px;            /* 🔥 AUMENTATO il padding per più spazio interno */
@@ -362,7 +366,7 @@ async function handleMotivationalRequest(req, res) {
         }
 
         .header h1 {
-            font-weight: 700;
+            font-weight: 600;
             font-size: 1.8rem;
             margin: 0 0 25px 0;           /* 🔥 AUMENTATA la distanza sotto il titolo */
             line-height: 1.3;
@@ -382,13 +386,13 @@ async function handleMotivationalRequest(req, res) {
             flex-direction: column;
             align-items: center;
             padding: 15px 10px;           /* 🔥 AUMENTATO il padding per più spazio */
-            margin-top: 0px;
+            margin-top: 20px;
             max-width: 400px;
             text-align: center;
         }
 
         main h2 {
-            font-weight: 600;
+            font-weight: 500;
             font-size: 1.4rem;
             margin: 0px 0 25px 0;         /* 🔥 AUMENTATA la distanza sotto il sottotitolo */
             color: #fff;
@@ -402,9 +406,9 @@ async function handleMotivationalRequest(req, res) {
         #quote-text {
             margin-top: 30px;             /* 🔥 AUMENTATA la distanza sopra la frase */
             font-size: 2.2rem;
-            font-weight: 400;
+            font-weight: 300;
             min-height: 100px;
-            color: #34495e;
+            color: #1565c0;
             line-height: 1.5;
             font-style: italic;
             background: rgba(255,255,255,0.95);
@@ -414,6 +418,7 @@ async function handleMotivationalRequest(req, res) {
             position: relative;
             max-width: 600px;
             text-align: center;
+            animation: fadeIn 0.8s ease-out;
         }
         #quote-text::before {
             content: '"';
@@ -421,7 +426,7 @@ async function handleMotivationalRequest(req, res) {
             top: -10px;
             left: 15px;
             font-size: 3rem;
-            color: #fcb69f;
+            color: #2196f3;
             font-family: serif;
             opacity: 0.5;
         }
@@ -431,7 +436,7 @@ async function handleMotivationalRequest(req, res) {
             bottom: -30px;
             right: 15px;
             font-size: 3rem;
-            color: #fcb69f;
+            color: #2196f3;
             font-family: serif;
             opacity: 0.5;
         }
@@ -449,11 +454,13 @@ async function handleMotivationalRequest(req, res) {
             touch-action: manipulation;
         }
         button {
-            background: #007bff;
+            background: #4caf50;
             color: #fff;
+            transition: all 0.3s ease;
         }
         button:hover {
-            background: #0056b3;
+            background: #388e3c;
+            transform: scale(1.05);
         }
 
         /* --- TABLET --- */
@@ -542,7 +549,7 @@ async function handleMotivationalRequest(req, res) {
                 padding: 0;
                 padding-bottom: 40px;
                 margin: 0;
-                background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
             }
 
             .auth-header { padding: 6px 12px; }
@@ -634,7 +641,7 @@ async function handleMotivationalRequest(req, res) {
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 PULSANTE PER INDOVINARE L'AUTORE -->
-        <button id="guess-author-btn" style="background: #007bff; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">🎯 Indovina l'autore!</button>
+        <button id="guess-author-btn" style="background: #4caf50; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">🎯 Indovina l'autore!</button>
     </main>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
