@@ -189,9 +189,9 @@ async function handleMotivationalRequest(req, res) {
             margin: 0;
             padding-bottom: 80px;
             font-family: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 50%, #90caf9 100%);
+            background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
             background-attachment: fixed;
-            color: #333;
+            color: #424242;
             display: flex;
             flex-direction: column;
             min-height: 100vh;
@@ -290,19 +290,20 @@ async function handleMotivationalRequest(req, res) {
             color: #333;
         }
         .auth-header .auth-btn {
-            background: #4caf50;
+            background: #757575;
             color: white;
             border: none;
             padding: 8px 16px;
-            border-radius: 20px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: 600;
+            font-weight: 500;
             text-decoration: none;
             font-size: 0.9rem;
             touch-action: manipulation;
+            transition: background-color 0.3s ease;
         }
         .auth-header .auth-btn:hover {
-            background: #388e3c;
+            background: #616161;
         }
 
         .nickname-popup {
@@ -332,37 +333,37 @@ async function handleMotivationalRequest(req, res) {
         .nickname-input {
             width: 100%;
             padding: 12px;
-            border: 2px solid #90caf9;
-            border-radius: 10px;
+            border: 1px solid #bdbdbd;
+            border-radius: 8px;
             font-size: 16px;
             margin-bottom: 20px;
             transition: border-color 0.3s ease;
         }
-        .nickname-input:focus { border-color: #2196f3; outline: none; }
+        .nickname-input:focus { border-color: #757575; outline: none; }
         .nickname-btn {
-            background: #007bff;
+            background: #757575;
             color: white;
             border: none;
             padding: 12px 30px;
-            border-radius: 25px;
+            border-radius: 8px;
             font-size: 16px;
             cursor: pointer;
             touch-action: manipulation;
             transition: background-color 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
         .nickname-btn:hover {
-            background: #0056b3;
+            background: #616161;
         }
 
         .header {
-            background: #2196f3;
-            border-radius: 20px;
+            background: #e8f5e9;
+            border-radius: 8px;
             margin: 10px auto 15px auto;   /* 🔥 AUMENTATA la distanza inferiore */
             padding: 25px 15px;            /* 🔥 AUMENTATO il padding per più spazio interno */
             max-width: 500px;
             text-align: center;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
 
         .header h1 {
@@ -370,13 +371,13 @@ async function handleMotivationalRequest(req, res) {
             font-size: 1.8rem;
             margin: 0 0 25px 0;           /* 🔥 AUMENTATA la distanza sotto il titolo */
             line-height: 1.3;
-            color: #fff;
+            color: #2e7d32;
         }
         .header p {
             font-weight: 400;
             font-size: 1rem;
             margin: 0;
-            color: #fff;
+            color: #424242;
             line-height: 1.5;
         }
 
@@ -385,7 +386,7 @@ async function handleMotivationalRequest(req, res) {
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 15px 10px;           /* 🔥 AUMENTATO il padding per più spazio */
+            padding: 30px 20px;           /* 🔥 AUMENTATO il padding per più spazio */
             margin-top: 20px;
             max-width: 400px;
             text-align: center;
@@ -395,72 +396,49 @@ async function handleMotivationalRequest(req, res) {
             font-weight: 500;
             font-size: 1.4rem;
             margin: 0px 0 25px 0;         /* 🔥 AUMENTATA la distanza sotto il sottotitolo */
-            color: #fff;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            color: #424242;
         }
         main span {
             font-weight: 700;
-            color: #ffd700;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+            color: #2e7d32;
         }
         #quote-text {
             margin-top: 30px;             /* 🔥 AUMENTATA la distanza sopra la frase */
             font-size: 2.2rem;
             font-weight: 300;
             min-height: 100px;
-            color: #1565c0;
+            color: #424242;
             line-height: 1.5;
-            font-style: italic;
-            background: rgba(255,255,255,0.95);
+            font-style: normal;
+            background: #ffffff;
             padding: 40px 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-radius: 4px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
             position: relative;
             max-width: 600px;
             text-align: center;
             animation: fadeIn 0.8s ease-out;
         }
-        #quote-text::before {
-            content: '"';
-            position: absolute;
-            top: -10px;
-            left: 15px;
-            font-size: 3rem;
-            color: #2196f3;
-            font-family: serif;
-            opacity: 0.5;
-        }
-        #quote-text::after {
-            content: '"';
-            position: absolute;
-            bottom: -30px;
-            right: 15px;
-            font-size: 3rem;
-            color: #2196f3;
-            font-family: serif;
-            opacity: 0.5;
-        }
 
         button, .icon-button {
             cursor: pointer;
             border: none;
-            border-radius: 25px;
+            border-radius: 8px;
             padding: 12px 25px;
-            font-weight: 600;
+            font-weight: 500;
             font-size: 1rem;
             user-select: none;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             min-height: 44px;
             touch-action: manipulation;
+            transition: background-color 0.3s ease;
         }
         button {
-            background: #4caf50;
+            background: #757575;
             color: #fff;
-            transition: all 0.3s ease;
         }
         button:hover {
-            background: #388e3c;
-            transform: scale(1.05);
+            background: #616161;
         }
 
         /* --- TABLET --- */
@@ -549,7 +527,7 @@ async function handleMotivationalRequest(req, res) {
                 padding: 0;
                 padding-bottom: 40px;
                 margin: 0;
-                background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+                background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%);
             }
 
             .auth-header { padding: 6px 12px; }
@@ -641,7 +619,7 @@ async function handleMotivationalRequest(req, res) {
         <div id="quote-text">Caricamento della tua motivazione...</div>
 
         <!-- 🎮 PULSANTE PER INDOVINARE L'AUTORE -->
-        <button id="guess-author-btn" style="background: #4caf50; color: #fff; border: none; padding: 12px 25px; border-radius: 25px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">🎯 Indovina l'autore!</button>
+        <button id="guess-author-btn" style="background: #757575; color: #fff; border: none; padding: 12px 25px; border-radius: 8px; font-size: 1rem; font-weight: 500; cursor: pointer; margin-top: 20px; transition: background-color 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">🎯 Indovina l'autore!</button>
     </main>
     <!-- 🔥 POPUP PER CAMBIARE ARGOMENTO -->
     <div class="topic-popup" id="topic-popup" style="display: none;">
