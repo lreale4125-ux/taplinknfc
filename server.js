@@ -74,24 +74,34 @@ app.post('/api/sync-phrases', async (req, res) => {
     }
 });
 
-// --- MIDDLEWARE PER DOMINIO MOTIVAZIONALE ---
-// Server Express (mantieni solo le API)
+// In src/index.js o server.js - MODIFICA SOLO il middleware motivazionale
+
 app.use(async (req, res, next) => {
-    if (req.hostname === 'motivazional.taplinknfc.it') {
-        // 🎯 API - mantieni come sono
-        if (req.path === '/api/quote') {
-            return getQuoteOnly(req, res);
-        }
-        if (req.path === '/api/update-nickname') {
-            return updateUserNickname(req, res);
-        }
-        
-        // 🎯 Per tutte le altre route → serve React
-        express.static(path.join(__dirname, '..', 'react-build'))(req, res, next);
-    } else {
-        next();
+    const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
+
+    if (!motiDomains.includes(req.hostname)) {
+        return next();
     }
+
+    // 🎯 MANTIENI le API ESISTENTI - non cambiano!
+    if (req.path === '/api/quote') {
+        return await getQuoteOnly(req, res);
+    }
+
+    if (req.path === '/api/update-nickname' && req.method === 'POST') {
+        return await updateUserNickname(req, res);
+    }
+
+    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE REACT SPA
+    // Invece di handleMotivationalRequest, servi i file React
+    if (req.path === '/' || req.path.startsWith('/static/') || req.path === '/motivazionale') {
+        return express.static(path.join(__dirname, '..', 'react-motivational-build'))(req, res, next);
+    }
+
+    // Fallback: per qualsiasi altra route, servi index.html di React
+    res.sendFile(path.join(__dirname, '..', 'react-motivational-build', 'index.html'));
 });
+
 // Serve static files
 app.use(express.static('.'));
 
@@ -106,4 +116,5 @@ app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
 });
+
 
