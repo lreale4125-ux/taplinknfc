@@ -1,4 +1,4 @@
-// --- SERVER.JS CORRETTO E COMPLETO --- //
+// --- SERVER.JS CORRETTO PER STRUTTURA ATTUALE --- //
 
 require('dotenv').config();
 const express = require('express');
@@ -75,7 +75,7 @@ app.post('/api/sync-phrases', async (req, res) => {
     }
 });
 
-// 🎯 MIDDLEWARE PER DOMINIO MOTIVAZIONALE CON REACT
+// 🎯 MIDDLEWARE PER DOMINIO MOTIVAZIONALE CON REACT (DIST)
 app.use(async (req, res, next) => {
     const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
 
@@ -92,14 +92,13 @@ app.use(async (req, res, next) => {
         return await updateUserNickname(req, res);
     }
 
-    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE LA TUA BUILD REACT
-    // Serve i file statici dalla cartella 'build'
+    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE LA TUA BUILD REACT DA DIST/
     if (req.path === '/' || req.path.startsWith('/assets/') || req.path.startsWith('/static/')) {
-        return express.static(path.join(__dirname, '..', 'build'))(req, res, next);
+        return express.static(path.join(__dirname, 'dist'))(req, res, next); // 👈 CAMBIATO QUI
     }
 
-    // Fallback: per qualsiasi altra route (SPA routing), servi index.html di React
-    res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
+    // Fallback: per SPA routing
+    res.sendFile(path.join(__dirname, 'dist', 'index.html')); // 👈 E QUI
 });
 
 // Serve static files per il dominio principale
@@ -115,5 +114,5 @@ app.use('/', redirectRoutes);
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
-    console.log('✅ React Motivational App SERVITA da /build');
+    console.log('✅ React Motivational App SERVITA da /dist');
 });
