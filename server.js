@@ -3,9 +3,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const db = require('./src/db');
 const jwt = require('jsonwebtoken');
-const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
+const { getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
 
 // Route modules
 const authRoutes = require('./src/routes/auth');
@@ -26,7 +27,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N (DEVE STARE PRIMA del middleware motivazionale)
+// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N
 app.post('/api/sync-phrases', async (req, res) => {
     try {
         const phrases = req.body;
@@ -74,8 +75,7 @@ app.post('/api/sync-phrases', async (req, res) => {
     }
 });
 
-// In src/index.js o server.js - MODIFICA SOLO il middleware motivazionale
-
+// 🎯 MIDDLEWARE PER DOMINIO MOTIVAZIONALE CON REACT
 app.use(async (req, res, next) => {
     const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
 
@@ -83,7 +83,7 @@ app.use(async (req, res, next) => {
         return next();
     }
 
-    // 🎯 MANTIENI le API ESISTENTI - non cambiano!
+    // 🎯 MANTIENI le API ESISTENTI
     if (req.path === '/api/quote') {
         return await getQuoteOnly(req, res);
     }
@@ -92,17 +92,17 @@ app.use(async (req, res, next) => {
         return await updateUserNickname(req, res);
     }
 
-    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE REACT SPA
-    // Invece di handleMotivationalRequest, servi i file React
-    if (req.path === '/' || req.path.startsWith('/static/') || req.path === '/motivazionale') {
-        return express.static(path.join(__dirname, '..', 'react-motivational-build'))(req, res, next);
+    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE LA TUA BUILD REACT
+    // Serve i file statici dalla cartella 'build'
+    if (req.path === '/' || req.path.startsWith('/assets/') || req.path.startsWith('/static/')) {
+        return express.static(path.join(__dirname, '..', 'build'))(req, res, next);
     }
 
-    // Fallback: per qualsiasi altra route, servi index.html di React
-    res.sendFile(path.join(__dirname, '..', 'react-motivational-build', 'index.html'));
+    // Fallback: per qualsiasi altra route (SPA routing), servi index.html di React
+    res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
 });
 
-// Serve static files
+// Serve static files per il dominio principale
 app.use(express.static('.'));
 
 // --- ROUTE API STANDARD ---
@@ -115,6 +115,5 @@ app.use('/', redirectRoutes);
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
+    console.log('✅ React Motivational App SERVITA da /build');
 });
-
-
