@@ -3,9 +3,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const db = require('./src/db');
 const jwt = require('jsonwebtoken');
-const { handleMotivationalRequest, getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
+const { getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
 
 // Route modules
 const authRoutes = require('./src/routes/auth');
@@ -26,7 +27,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N (DEVE STARE PRIMA del middleware motivazionale)
+// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N
 app.post('/api/sync-phrases', async (req, res) => {
     try {
         const phrases = req.body;
@@ -74,49 +75,34 @@ app.post('/api/sync-phrases', async (req, res) => {
     }
 });
 
-// --- MIDDLEWARE PER DOMINIO MOTIVAZIONALE ---
+// 🎯 MIDDLEWARE PER DOMINIO MOTIVAZIONALE CON REACT
 app.use(async (req, res, next) => {
     const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
 
     if (!motiDomains.includes(req.hostname)) {
-        return next(); // Non è dominio motivazionale
+        return next();
     }
 
-    // 1. API Motivazionale - Frase casuale
+    // 🎯 MANTIENI le API ESISTENTI
     if (req.path === '/api/quote') {
-        try {
-            return await getQuoteOnly(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore API quote:', err);
-            return res.status(500).json({ error: 'Errore interno API motivazionale' });
-        }
+        return await getQuoteOnly(req, res);
     }
 
-    // 2. API Aggiornamento Nickname
     if (req.path === '/api/update-nickname' && req.method === 'POST') {
-        try {
-            return await updateUserNickname(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore update nickname:', err);
-            return res.status(500).json({ error: 'Errore interno aggiornamento nickname' });
-        }
+        return await updateUserNickname(req, res);
     }
 
-    // 3. Root HTML Motivazionale
-    if (req.path === '/') {
-        try {
-            return await handleMotivationalRequest(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore generazione pagina:', err);
-            return res.status(500).send('Errore interno nel sito motivazionale');
-        }
+    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE LA TUA BUILD REACT
+    // Serve i file statici dalla cartella 'build'
+    if (req.path === '/' || req.path.startsWith('/assets/') || req.path.startsWith('/static/')) {
+        return express.static(path.join(__dirname, '..', 'build'))(req, res, next);
     }
 
-    // 4. Altri percorsi: 404
-    return res.status(404).send('Pagina non trovata sul sito motivazionale');
+    // Fallback: per qualsiasi altra route (SPA routing), servi index.html di React
+    res.sendFile(path.join(__dirname, '..', 'build', 'index.html'));
 });
 
-// Serve static files
+// Serve static files per il dominio principale
 app.use(express.static('.'));
 
 // --- ROUTE API STANDARD ---
@@ -129,4 +115,5 @@ app.use('/', redirectRoutes);
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
+    console.log('✅ React Motivational App SERVITA da /build');
 });
