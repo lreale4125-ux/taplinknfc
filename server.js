@@ -75,47 +75,23 @@ app.post('/api/sync-phrases', async (req, res) => {
 });
 
 // --- MIDDLEWARE PER DOMINIO MOTIVAZIONALE ---
+// Server Express (mantieni solo le API)
 app.use(async (req, res, next) => {
-    const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
-
-    if (!motiDomains.includes(req.hostname)) {
-        return next(); // Non è dominio motivazionale
-    }
-
-    // 1. API Motivazionale - Frase casuale
-    if (req.path === '/api/quote') {
-        try {
-            return await getQuoteOnly(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore API quote:', err);
-            return res.status(500).json({ error: 'Errore interno API motivazionale' });
+    if (req.hostname === 'motivazional.taplinknfc.it') {
+        // 🎯 API - mantieni come sono
+        if (req.path === '/api/quote') {
+            return getQuoteOnly(req, res);
         }
-    }
-
-    // 2. API Aggiornamento Nickname
-    if (req.path === '/api/update-nickname' && req.method === 'POST') {
-        try {
-            return await updateUserNickname(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore update nickname:', err);
-            return res.status(500).json({ error: 'Errore interno aggiornamento nickname' });
+        if (req.path === '/api/update-nickname') {
+            return updateUserNickname(req, res);
         }
+        
+        // 🎯 Per tutte le altre route → serve React
+        express.static(path.join(__dirname, '..', 'react-build'))(req, res, next);
+    } else {
+        next();
     }
-
-    // 3. Root HTML Motivazionale
-    if (req.path === '/') {
-        try {
-            return await handleMotivationalRequest(req, res);
-        } catch (err) {
-            console.error('[MOTIVAZIONAL] Errore generazione pagina:', err);
-            return res.status(500).send('Errore interno nel sito motivazionale');
-        }
-    }
-
-    // 4. Altri percorsi: 404
-    return res.status(404).send('Pagina non trovata sul sito motivazionale');
 });
-
 // Serve static files
 app.use(express.static('.'));
 
@@ -130,3 +106,4 @@ app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
 });
+
