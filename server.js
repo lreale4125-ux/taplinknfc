@@ -1,14 +1,16 @@
-// --- SERVER.JS CORRETTO PER STRUTTURA ATTUALE --- //
-
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const db = require('./src/db');
-const jwt = require('jsonwebtoken');
-const { getQuoteOnly, updateUserNickname } = require('./src/services/motivational');
 
-// Route modules
+// Import DB (percorso confermato dagli screen precedenti)
+const db = require('./src/utils/db');
+
+// --- Moduli Riorganizzati (che hai già creato) ---
+const phrasesRoutes = require('./src/routes/phrases'); 
+const motivationalAppHandler = require('./src/middleware/motivationalAppHandler'); 
+
+// --- Route Modules Esistenti ---
 const authRoutes = require('./src/routes/auth');
 const userRoutes = require('./src/routes/user');
 const adminRoutes = require('./src/routes/admin');
@@ -27,92 +29,30 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🎯 ROUTE PER SINCRONIZZAZIONE FRASI DA N8N
-app.post('/api/sync-phrases', async (req, res) => {
-    try {
-        const phrases = req.body;
-        
-        if (!Array.isArray(phrases)) {
-            return res.status(400).json({ error: 'Dati non validi' });
-        }
-        
-        // Mappa categorie N8N → SQLite
-        function mapCategory(n8nCategory) {
-            const categoryMap = {
-                'motivazione_personale': 'motivazione',
-                'studio_apprendimento': 'studio', 
-                'successo_resilienza': 'successo'
-            };
-            return categoryMap[n8nCategory] || 'motivazione';
-        }
-        
-        // Pulisci tabella esistente
-        db.prepare('DELETE FROM motivational_phrases').run();
-        
-        // Inserisci nuove frasi
-        const insertStmt = db.prepare(`
-            INSERT INTO motivational_phrases (phrase_text, category, author) 
-            VALUES (?, ?, ?)
-        `);
-        
-        let insertedCount = 0;
-        for (const phrase of phrases) {
-            try {
-                const mappedCategory = mapCategory(phrase.Categoria);
-                insertStmt.run(phrase.Frase, mappedCategory, phrase.Autori);
-                insertedCount++;
-            } catch (error) {
-                console.warn(`Errore inserimento frase: ${phrase.Frase?.substring(0, 50)}`);
-            }
-        }
-        
-        console.log(`✅ Sincronizzate ${insertedCount} frasi nel database`);
-        res.json({ success: true, count: insertedCount });
-        
-    } catch (error) {
-        console.error("❌ Errore sincronizzazione frasi:", error);
-        res.status(500).json({ error: 'Errore interno del server' });
-    }
-});
+// 1. Middleware App Motivazionale (Priorità Alta)
+// Intercetta il dominio motivazionale PRIMA di tutto il resto
+// Serve i file da 'public/motivazional' o gestisce le API specifiche
+app.use(motivationalAppHandler);
 
-// 🎯 MIDDLEWARE PER DOMINIO MOTIVAZIONALE CON REACT (DIST)
-app.use(async (req, res, next) => {
-    const motiDomains = ['motivazional.taplinknfc.it', 'www.motivazional.taplinknfc.it'];
-
-    if (!motiDomains.includes(req.hostname)) {
-        return next();
-    }
-
-    // 🎯 MANTIENI le API ESISTENTI
-    if (req.path === '/api/quote') {
-        return await getQuoteOnly(req, res);
-    }
-
-    if (req.path === '/api/update-nickname' && req.method === 'POST') {
-        return await updateUserNickname(req, res);
-    }
-
-    // 🎯 PER TUTTE LE ALTRE ROUTE → SERVE LA TUA BUILD REACT DA DIST/
-    if (req.path === '/' || req.path.startsWith('/assets/') || req.path.startsWith('/static/')) {
-        return express.static(path.join(__dirname, 'dist'))(req, res, next); // 👈 CAMBIATO QUI
-    }
-
-    // Fallback: per SPA routing
-    res.sendFile(path.join(__dirname, 'dist', 'index.html')); // 👈 E QUI
-});
-
-// Serve static files per il dominio principale
-app.use(express.static('.'));
-
-// --- ROUTE API STANDARD ---
+// 2. API Routes
+// La route /api/sync-phrases è ora gestita dentro phrasesRoutes
+app.use('/api', phrasesRoutes); 
 app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/admin', adminRoutes);
+
+// 3. Static Files Generali (Dominio Principale)
+// Serve tutto il contenuto di 'public' per il sito principale
+// (Nota: 'motivazional' è ignorata qui perché gestita sopra)
+app.use(express.static('public'));
+
+// 4. Redirects & Fallback
 app.use('/', redirectRoutes);
+// Fallback per file nella root (se ne hai ancora bisogno per legacy)
+app.use(express.static('.')); 
 
 // --- AVVIO SERVER ---
 app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
-    console.log('✅ Route /api/sync-phrases ATTIVA per N8N');
-    console.log('✅ React Motivational App SERVITA da /dist');
+    console.log('✅ Configurazione modulare attiva.');
 });
