@@ -1,4 +1,5 @@
-const db = require('../db'); // Assicurati che src/db.js esista
+// Importa il database (percorso confermato src/db)
+const db = require('../db');
 
 exports.syncPhrases = async (req, res) => {
     try {
@@ -8,7 +9,6 @@ exports.syncPhrases = async (req, res) => {
             return res.status(400).json({ error: 'Dati non validi: atteso un array' });
         }
         
-        // Helper per mappare le categorie
         function mapCategory(n8nCategory) {
             const categoryMap = {
                 'motivazione_personale': 'motivazione',
@@ -18,12 +18,11 @@ exports.syncPhrases = async (req, res) => {
             return categoryMap[n8nCategory] || 'motivazione';
         }
         
-        // Transazione per sicurezza (opzionale ma consigliata con SQLite per molti insert)
+        // Transazione per inserimento massivo
         const syncTransaction = db.transaction((phrases) => {
-            // 1. Pulisci tabella
+            // Pulisci la tabella
             db.prepare('DELETE FROM motivational_phrases').run();
             
-            // 2. Prepara statement
             const insertStmt = db.prepare(`
                 INSERT INTO motivational_phrases (phrase_text, category, author) 
                 VALUES (?, ?, ?)
@@ -36,19 +35,18 @@ exports.syncPhrases = async (req, res) => {
                     insertStmt.run(phrase.Frase, mappedCategory, phrase.Autori);
                     count++;
                 } catch (e) {
-                    console.warn(`Skip frase non valida: ${phrase.Frase?.substring(0, 20)}...`);
+                    console.warn(`Skip: ${phrase.Frase?.substring(0, 10)}...`);
                 }
             }
             return count;
         });
 
         const insertedCount = syncTransaction(phrases);
-        
-        console.log(`✅ Sincronizzate ${insertedCount} frasi nel database`);
+        console.log(`✅ Sincronizzate ${insertedCount} frasi.`);
         res.json({ success: true, count: insertedCount });
         
     } catch (error) {
-        console.error("❌ Errore sincronizzazione frasi:", error);
-        res.status(500).json({ error: 'Errore interno del server durante la sincronizzazione' });
+        console.error("❌ Errore sync:", error);
+        res.status(500).json({ error: 'Errore server sync' });
     }
 };
