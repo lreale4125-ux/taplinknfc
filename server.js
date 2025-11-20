@@ -4,7 +4,7 @@ const cors = require('cors');
 const path = require('path');
 
 // Import DB (percorso confermato dagli screen precedenti)
-const db = require('./src/utils/db');
+const db = require('./src/db');
 
 // --- Moduli Riorganizzati (che hai già creato) ---
 const phrasesRoutes = require('./src/routes/phrases'); 
@@ -56,3 +56,4 @@ app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Configurazione modulare attiva.');
 });
+
