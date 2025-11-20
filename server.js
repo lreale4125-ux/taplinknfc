@@ -7,8 +7,8 @@ const path = require('path');
 const db = require('./src/db');
 
 // --- Moduli Riorganizzati (che hai già creato) ---
-const phrasesRoutes = require('./src/routes/phrases'); 
-const motivationalAppHandler = require('./src/middleware/motivationalAppHandler'); 
+const phrasesRoutes = require('./src/routes/motivazionalRoute'); 
+const motivationalAppHandler = require('./src/middleware/motivationalMiddleware'); 
 
 // --- Route Modules Esistenti ---
 const authRoutes = require('./src/routes/auth');
@@ -56,4 +56,5 @@ app.listen(PORT, () => {
     console.log(`Server is stable and running on port ${PORT}`);
     console.log('✅ Configurazione modulare attiva.');
 });
+
 
